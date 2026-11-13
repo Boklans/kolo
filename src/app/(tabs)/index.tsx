@@ -10,23 +10,35 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import {
-  Clock,
-  ChevronRight,
-  Play,
-  RotateCcw,
-  Sparkles,
-} from 'lucide-react-native';
+import { ArrowUpRight, Play, X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { PARTY_PRESETS } from '@/data/presets';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { GameType, PartyPreset } from '@/types';
 
-const GAME_LABELS: Record<GameType, { label: string; color: string }> = {
-  alias: { label: 'Еліас', color: COLORS.alias },
-  crocodile: { label: 'Крокодил', color: COLORS.crocodile },
-  spy: { label: 'Шпигун', color: COLORS.spy },
+const GAME_NAMES: Record<GameType, string> = {
+  alias: 'Еліас',
+  crocodile: 'Крокодил',
+  spy: 'Шпигун',
 };
+
+function formatPresetFlow(preset: PartyPreset): string {
+  return preset.steps
+    .map((step) => {
+      if (step.gameType === 'alias' && step.roundTimeSec === 30) {
+        return 'Бліц';
+      }
+      return GAME_NAMES[step.gameType];
+    })
+    .join('  →  ');
+}
+
+function formatScoringMeta(preset: PartyPreset): string {
+  const hasTeam = preset.steps.some((s) => s.scoring.type === 'team');
+  const count = preset.steps.length;
+  const gamesWord = count === 1 ? 'гра' : count < 5 ? 'гри' : 'ігор';
+  return `${count} ${gamesWord}  ·  ${hasTeam ? 'Командний залік' : 'Вільний режим'}`;
+}
 
 export default function VibesScreen() {
   const router = useRouter();
@@ -53,8 +65,8 @@ export default function VibesScreen() {
   const handleResetParty = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
-      'Скинути активну вечірку?',
-      'Поточний прогрес та бали команд буде видалено.',
+      'Скинути поточну гру?',
+      'Прогрес та бали поточної вечірки буде очищено.',
       [
         { text: 'Скасувати', style: 'cancel' },
         {
@@ -70,6 +82,9 @@ export default function VibesScreen() {
   };
 
   const activeTeamName = teams[currentTeamIndex]?.name;
+  const heroPreset = PARTY_PRESETS[0];
+  const pairPresets = PARTY_PRESETS.slice(1, 3);
+  const finalePreset = PARTY_PRESETS[3];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -78,148 +93,195 @@ export default function VibesScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Compact Editorial Header */}
         <View style={styles.header}>
-          <View style={styles.brandBadge}>
-            <Sparkles size={14} color={COLORS.primary} />
-            <Text style={styles.brandBadgeText}>KOLO • PARTY HUB</Text>
-          </View>
-          <Text style={styles.title}>Який сьогодні вайб?</Text>
-          <Text style={styles.subtitle}>
-            Обери готовий сценарій вечірки — ми самі перемикатимемо раунди та рахуватимемо бали.
-          </Text>
+          <Text style={styles.overline}>KOLO</Text>
+          <Text style={styles.headline}>Що граємо сьогодні?</Text>
         </View>
 
-        {/* Resume Active Party Banner */}
+        {/* Unfinished Session Bar */}
         {isActive && steps.length > 0 ? (
-          <View style={styles.resumeBanner}>
-            <View style={styles.resumeTopRow}>
-              <View style={styles.resumeBadge}>
-                <View style={styles.resumeDot} />
-                <Text style={styles.resumeBadgeText}>НЕЗАВЕРШЕНА ВЕЧІРКА</Text>
-              </View>
-              <Text style={styles.resumeProgressText}>
-                {isCompleted
-                  ? 'Фінал'
-                  : `Крок ${Math.min(currentStepIndex + 1, steps.length)}/${steps.length}`}
-              </Text>
-            </View>
-
-            <Text style={styles.resumeTitle} numberOfLines={1}>
-              {presetTitle || 'Активна сесія'}
-            </Text>
-            <Text style={styles.resumeSubtitle} numberOfLines={1}>
-              {isCompleted
-                ? 'Усі раунди зіграно — перегляньте постер переможців!'
-                : activeTeamName
-                  ? `Наступний хід: ${activeTeamName}`
-                  : 'Сесію збережено в пам’яті'}
-            </Text>
-
-            <View style={styles.resumeActionsRow}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.resumePrimaryBtn}
-                onPress={handleResumeParty}
-              >
+          <View style={styles.resumeBar}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.resumeMainTouch}
+              onPress={handleResumeParty}
+            >
+              <View style={styles.resumePlayCircle}>
                 <Play
-                  size={16}
-                  color={COLORS.textPrimary}
-                  fill={COLORS.textPrimary}
+                  size={14}
+                  color={COLORS.background}
+                  fill={COLORS.background}
                 />
-                <Text style={styles.resumePrimaryBtnText}>Продовжити гру</Text>
-              </TouchableOpacity>
+              </View>
+              <View style={styles.resumeTextCol}>
+                <Text style={styles.resumeLabel}>
+                  ПРОДОВЖИТИ  ·  {isCompleted ? 'ФІНАЛ' : `КРОК ${Math.min(currentStepIndex + 1, steps.length)}/${steps.length}`}
+                </Text>
+                <Text style={styles.resumeTitle} numberOfLines={1}>
+                  {presetTitle || 'Вечірка'}
+                  {!isCompleted && activeTeamName ? ` — ${activeTeamName}` : ''}
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.resumeResetBtn}
-                onPress={handleResetParty}
-              >
-                <RotateCcw size={16} color={COLORS.spy} />
-                <Text style={styles.resumeResetBtnText}>Скинути</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.resumeCloseBtn}
+              onPress={handleResetParty}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <X size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
           </View>
         ) : null}
 
-        {/* Presets List */}
-        <View style={styles.cardsList}>
-          {PARTY_PRESETS.map((preset) => (
-            <TouchableOpacity
-              key={preset.id}
-              activeOpacity={0.85}
-              onPress={() => handleSelectPreset(preset)}
+        {/* 01 / Hero Editorial Poster */}
+        {heroPreset ? (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={styles.heroPoster}
+            onPress={() => handleSelectPreset(heroPreset)}
+          >
+            <View
               style={[
-                styles.card,
-                { borderColor: `${preset.accentColor}44` },
+                styles.heroAccentStrip,
+                { backgroundColor: heroPreset.accentColor },
               ]}
-            >
+            />
+
+            <View style={styles.heroBody}>
+              <View style={styles.posterTopRow}>
+                <Text style={styles.posterIndex}>01 / PARTY MODE</Text>
+                <Text
+                  style={[
+                    styles.posterDuration,
+                    { color: heroPreset.accentColor },
+                  ]}
+                >
+                  {heroPreset.durationLabel.toUpperCase()}
+                </Text>
+              </View>
+
+              <View style={styles.heroTitleRow}>
+                <Text style={styles.heroTitle}>
+                  {heroPreset.title.toUpperCase()}
+                </Text>
+                <Text style={styles.heroEmoji}>{heroPreset.emoji}</Text>
+              </View>
+
+              <Text style={styles.heroFlow}>{formatPresetFlow(heroPreset)}</Text>
+
+              <View style={styles.posterBottomRow}>
+                <Text style={styles.posterMeta}>
+                  {formatScoringMeta(heroPreset)}
+                </Text>
+                <View
+                  style={[
+                    styles.heroActionCircle,
+                    { backgroundColor: heroPreset.accentColor },
+                  ]}
+                >
+                  <ArrowUpRight size={18} color={COLORS.background} />
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+
+        {/* 02 & 03 / Asymmetric Split Poster Grid */}
+        <View style={styles.splitRow}>
+          {pairPresets.map((preset, idx) => {
+            const numberStr = `0${idx + 2}`;
+            return (
+              <TouchableOpacity
+                key={preset.id}
+                activeOpacity={0.88}
+                style={styles.splitPoster}
+                onPress={() => handleSelectPreset(preset)}
+              >
+                <View style={styles.splitTopRow}>
+                  <Text
+                    style={[
+                      styles.splitIndex,
+                      { color: preset.accentColor },
+                    ]}
+                  >
+                    {numberStr}
+                  </Text>
+                  <Text style={styles.splitDuration}>
+                    {preset.durationLabel.toUpperCase()}
+                  </Text>
+                </View>
+
+                <View style={styles.splitMiddle}>
+                  <Text style={styles.splitEmoji}>{preset.emoji}</Text>
+                  <Text style={styles.splitTitle}>
+                    {preset.title}
+                  </Text>
+                </View>
+
+                <View style={styles.splitFooter}>
+                  <Text style={styles.splitFlow} numberOfLines={1}>
+                    {formatPresetFlow(preset)}
+                  </Text>
+                  <Text style={styles.splitSubMeta}>
+                    {preset.steps.some((s) => s.scoring.type === 'team')
+                      ? 'Командний'
+                      : 'Айсбрейкер'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* 04 / Tournament Finale Poster */}
+        {finalePreset ? (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={styles.finalePoster}
+            onPress={() => handleSelectPreset(finalePreset)}
+          >
+            <View style={styles.posterTopRow}>
+              <Text style={styles.posterIndex}>04 / TOURNAMENT</Text>
+              <Text
+                style={[
+                  styles.posterDuration,
+                  { color: finalePreset.accentColor },
+                ]}
+              >
+                {finalePreset.durationLabel.toUpperCase()}
+              </Text>
+            </View>
+
+            <View style={styles.finaleMainRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.finaleTitle}>
+                  {finalePreset.title.toUpperCase()}
+                </Text>
+                <Text style={styles.heroFlow}>
+                  {formatPresetFlow(finalePreset)}
+                </Text>
+              </View>
+
               <View
                 style={[
-                  styles.accentGlow,
-                  { backgroundColor: `${preset.accentColor}18` },
+                  styles.finaleActionBox,
+                  { backgroundColor: finalePreset.accentColor },
                 ]}
-              />
-
-              <View style={styles.cardTopRow}>
-                <View
-                  style={[
-                    styles.emojiContainer,
-                    {
-                      backgroundColor: `${preset.accentColor}22`,
-                      borderColor: `${preset.accentColor}55`,
-                    },
-                  ]}
-                >
-                  <Text style={styles.emoji}>{preset.emoji}</Text>
-                </View>
-
-                <View style={styles.durationBadge}>
-                  <Clock size={13} color={COLORS.textSecondary} />
-                  <Text style={styles.durationText}>{preset.durationLabel}</Text>
-                </View>
+              >
+                <ArrowUpRight size={20} color={COLORS.textPrimary} />
               </View>
+            </View>
 
-              <Text style={styles.cardTitle}>{preset.title}</Text>
-              <Text style={styles.cardSubtitle}>{preset.subtitle}</Text>
-
-              <View style={styles.cardFooter}>
-                <View style={styles.stepsPills}>
-                  {preset.steps.map((step, index) => {
-                    const meta = GAME_LABELS[step.gameType];
-                    const isBlitz =
-                      step.gameType === 'alias' && step.roundTimeSec === 30;
-                    return (
-                      <View
-                        key={step.id}
-                        style={[
-                          styles.stepPill,
-                          {
-                            backgroundColor: `${meta.color}1F`,
-                            borderColor: `${meta.color}55`,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.stepPillText, { color: meta.color }]}>
-                          {index + 1}. {isBlitz ? 'Бліц-Еліас' : meta.label}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                <View
-                  style={[
-                    styles.arrowButton,
-                    { backgroundColor: preset.accentColor },
-                  ]}
-                >
-                  <ChevronRight size={18} color={COLORS.textPrimary} />
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+            <View style={styles.finaleStagesRow}>
+              <Text style={styles.posterMeta}>
+                {formatScoringMeta(finalePreset)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -235,223 +297,228 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.lg,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
+    gap: SPACING.md,
   },
   header: {
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.sm,
+    gap: 2,
   },
-  brandBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.md,
-  },
-  brandBadgeText: {
-    color: COLORS.primary,
+  overline: {
+    color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  title: {
-    color: COLORS.textPrimary,
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  cardsList: {
-    gap: SPACING.lg,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
-    padding: SPACING.xl,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  accentGlow: {
-    position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  emojiContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emoji: {
-    fontSize: 24,
-  },
-  durationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: RADIUS.full,
-  },
-  durationText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 1.8,
   },
-  cardTitle: {
+  headline: {
     color: COLORS.textPrimary,
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 6,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.7,
   },
-  cardSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: SPACING.lg,
-  },
-  cardFooter: {
+
+  // Unfinished Session Bar
+  resumeBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: RADIUS.lg,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.xs,
     gap: SPACING.sm,
   },
-  stepsPills: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+  resumeMainTouch: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
   },
-  stepPill: {
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  resumePlayCircle: {
+    width: 34,
+    height: 34,
     borderRadius: RADIUS.full,
-  },
-  stepPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  arrowButton: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resumeBanner: {
-    backgroundColor: `${COLORS.primary}18`,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginBottom: SPACING.xxl,
-    gap: SPACING.xs,
+  resumeTextCol: {
+    flex: 1,
+    gap: 1,
   },
-  resumeTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  resumeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: `${COLORS.crocodile}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.crocodile}66`,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-  },
-  resumeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: COLORS.crocodile,
-  },
-  resumeBadgeText: {
-    color: COLORS.crocodile,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  resumeProgressText: {
+  resumeLabel: {
     color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   resumeTitle: {
     color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  resumeSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    marginBottom: SPACING.sm,
+  resumeCloseBtn: {
+    padding: 6,
   },
-  resumeActionsRow: {
+
+  // 01 / Hero Poster
+  heroPoster: {
     flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    overflow: 'hidden',
+  },
+  heroAccentStrip: {
+    width: 5,
+  },
+  heroBody: {
+    flex: 1,
+    padding: SPACING.xl,
     gap: SPACING.sm,
   },
-  resumePrimaryBtn: {
-    flex: 1,
+  posterTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 13,
-    borderRadius: RADIUS.lg,
+    justifyContent: 'space-between',
   },
-  resumePrimaryBtnText: {
+  posterIndex: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+  },
+  posterDuration: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  heroTitle: {
     color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.8,
   },
-  resumeResetBtn: {
+  heroEmoji: {
+    fontSize: 24,
+  },
+  heroFlow: {
+    color: COLORS.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  posterBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: `${COLORS.spy}1A`,
-    borderWidth: 1,
-    borderColor: `${COLORS.spy}55`,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 13,
-    borderRadius: RADIUS.lg,
+    justifyContent: 'space-between',
+    marginTop: SPACING.sm,
   },
-  resumeResetBtnText: {
-    color: COLORS.spy,
+  posterMeta: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  heroActionCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // 02 & 03 / Split Grid
+  splitRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  splitPoster: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    justifyContent: 'space-between',
+    minHeight: 196,
+  },
+  splitTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  splitIndex: {
     fontSize: 13,
     fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  splitDuration: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+  },
+  splitMiddle: {
+    marginVertical: SPACING.md,
+    gap: 6,
+  },
+  splitEmoji: {
+    fontSize: 22,
+  },
+  splitTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 21,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    lineHeight: 25,
+  },
+  splitFooter: {
+    gap: 3,
+  },
+  splitFlow: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  splitSubMeta: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '400',
+  },
+
+  // 04 / Finale Poster
+  finalePoster: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    gap: SPACING.sm,
+  },
+  finaleMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    marginTop: 2,
+  },
+  finaleTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.7,
+    marginBottom: 4,
+  },
+  finaleActionBox: {
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  finaleStagesRow: {
+    marginTop: 4,
   },
 });

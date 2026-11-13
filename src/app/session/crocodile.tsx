@@ -9,17 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import {
-  AlertCircle,
-  Drama,
-  Eye,
-  EyeOff,
-  Flag,
-  PartyPopper,
-  Play,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -135,201 +124,141 @@ export default function CrocodileGameScreen() {
     router.replace('/session/scoreboard');
   };
 
+  const stepNumStr = String(currentStepIndex + 1).padStart(2, '0');
+  const totalStepsStr = String(Math.max(1, steps.length)).padStart(2, '0');
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <SessionTopBar
-        stepBadgeText={`КРОКОДИЛ • КРОК ${currentStepIndex + 1}/${Math.max(1, steps.length)}`}
+        stepBadgeText={`КРОКОДИЛ · ${stepNumStr} / ${totalStepsStr}`}
+        rightMetaText={`${currentStep.roundTimeSec} СЕК`}
         accentColor={COLORS.crocodile}
         onPauseChange={setIsPaused}
       />
 
-      {/* PHASE 1: READY */}
+      {/* PHASE 1: READY (Leader Handoff) */}
       {phase === 'READY' ? (
-        <View style={styles.centerContainer}>
-          <View style={styles.modeBadge}>
-            <Drama size={20} color={COLORS.crocodile} />
-            <Text style={styles.modeBadgeText}>ПАНТОМІМА ТА ЖЕСТИ</Text>
+        <View style={styles.screenBody}>
+          <View style={styles.handoffHeader}>
+            <Text style={styles.teamOverline}>{currentTeam.name}</Text>
+            <Text style={styles.handoffHeadline}>Обери ведучого</Text>
           </View>
 
-          <Text style={styles.teamNameHero}>{currentTeam.name}</Text>
-          <Text style={styles.subtitleText}>
-            Раунд {currentRoundInStep} з {currentStep.roundsPerTeam} • Оберіть одного ведучого, який буде показувати!
-          </Text>
-
-          <View style={styles.rulesCard}>
-            <View style={styles.ruleItem}>
-              <Sparkles size={18} color={COLORS.crocodile} />
-              <Text style={styles.ruleText}>
-                Жодних слів, звуків чи артикуляції губами — тільки міміка, жести та рухи тілом.
-              </Text>
-            </View>
-            <View style={styles.ruleItem}>
-              <RefreshCw size={18} color={COLORS.hot} />
-              <Text style={styles.ruleText}>
-                Ведучий матиме{' '}
-                <Text style={{ color: COLORS.hot, fontWeight: '800' }}>
-                  1 безкоштовну спробу
-                </Text>{' '}
-                замінити фразу перед стартом таймера.
-              </Text>
-            </View>
+          <View style={styles.handoffCenterBlock}>
+            <Text style={styles.handoffNumber}>01</Text>
+            <Text style={styles.handoffTitle}>Ведучий бере телефон</Text>
+            <Text style={styles.handoffDescription}>
+              Побачить фразу, яку потрібно показати команді тільки жестами та мімікою
+            </Text>
           </View>
 
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.primaryBtn}
+            style={styles.dominantBtn}
             onPress={handleShowPhraseToActor}
           >
-            <Eye size={20} color={COLORS.textPrimary} />
-            <Text style={styles.primaryBtnText}>Показати фразу ведучому</Text>
+            <Text style={styles.dominantBtnText}>Показати завдання</Text>
           </TouchableOpacity>
         </View>
       ) : null}
 
-      {/* PHASE 2: PREPARATION */}
+      {/* PHASE 2: PREPARATION (Editorial Task View) */}
       {phase === 'PREPARATION' ? (
-        <View style={styles.centerContainer}>
-          <View style={styles.prepWarningPill}>
-            <EyeOff size={15} color={COLORS.hot} />
-            <Text style={styles.prepWarningText}>
-              ТІЛЬКИ ДЛЯ ОЧЕЙ ВЕДУЧОГО • ТАЙМЕР ЩЕ НЕ ЙДЕ
-            </Text>
+        <View style={styles.screenBody}>
+          <View style={styles.prepMetaRow}>
+            <Text style={styles.prepTeamLabel}>{currentTeam.name}</Text>
+            <Text style={styles.prepDeckLabel}>{deck.title}</Text>
           </View>
 
-          <View style={styles.phraseCard}>
-            <Text style={styles.phraseLabel}>ТВОЄ ЗАВДАННЯ ДЛЯ ПОКАЗУ:</Text>
-            <Text style={styles.phraseText}>
+          <View style={styles.prepFocalArea}>
+            <Text style={styles.prepHint}>Покажи без слів і звуків</Text>
+            <Text style={styles.prepPhraseHero}>
               {currentPhrase?.phrase ?? 'Завантаження...'}
             </Text>
-            <Text style={styles.deckTag}>
-              {deck.emoji} {deck.title}
-            </Text>
-          </View>
 
-          <View style={styles.prepActionsStack}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={swapsRemaining <= 0}
-              style={[
-                styles.swapPhraseBtn,
-                swapsRemaining <= 0 && styles.swapPhraseBtnDisabled,
-              ]}
-              onPress={handleSwapPhrase}
-            >
-              <RefreshCw
-                size={18}
-                color={swapsRemaining > 0 ? COLORS.hot : COLORS.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.swapPhraseBtnText,
-                  swapsRemaining <= 0 && { color: COLORS.textSecondary },
-                ]}
+            {swapsRemaining > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.subtleSwapAction}
+                onPress={handleSwapPhrase}
+                hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
               >
-                {swapsRemaining > 0
-                  ? '🔄 Замінити складну фразу (залишилась 1 спроба)'
-                  : 'Спробу заміни вже використано'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.primaryBtn}
-              onPress={handleStartActingTimer}
-            >
-              <Play
-                size={20}
-                color={COLORS.textPrimary}
-                fill={COLORS.textPrimary}
-              />
-              <Text style={styles.primaryBtnText}>
-                Я готовий — запустити таймер ({currentStep.roundTimeSec} сек)!
-              </Text>
-            </TouchableOpacity>
+                <Text style={styles.subtleSwapText}>Інша фраза ↻</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.swapUsedLabel}>Фразу замінено</Text>
+            )}
           </View>
+
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.dominantBtn}
+            onPress={handleStartActingTimer}
+          >
+            <Text style={styles.dominantBtnText}>Почати раунд</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
       {/* PHASE 3: ACTING */}
       {phase === 'ACTING' ? (
-        <View style={styles.actingContainer}>
-          <View style={styles.actingTopSection}>
-            <Text style={styles.actingTeamTitle}>
-              Показує: {currentTeam.name}
-            </Text>
+        <View style={styles.screenBody}>
+          <View style={styles.actingHeader}>
+            <Text style={styles.prepTeamLabel}>{currentTeam.name}</Text>
+            {isTimeExpired ? (
+              <Text style={styles.expiredStatus}>Час вийшов</Text>
+            ) : (
+              <Text style={styles.prepDeckLabel}>Триває показ</Text>
+            )}
+          </View>
 
+          <View style={styles.actingCenter}>
             <AbsoluteTimer
               durationSec={currentStep.roundTimeSec}
               isRunning={!isPaused && !isTimeExpired}
               onExpire={() => setIsTimeExpired(true)}
               accentColor={COLORS.crocodile}
+              size="large"
             />
 
-            {isTimeExpired ? (
-              <View style={styles.expiredBanner}>
-                <AlertCircle size={18} color={COLORS.spy} />
-                <Text style={styles.expiredBannerText}>
-                  Час вийшов! Зафіксуйте результат раунду:
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Spoiler Box */}
-          <Pressable
-            onPressIn={() => {
-              Haptics.selectionAsync();
-              setIsPeekingSpoiler(true);
-            }}
-            onPressOut={() => setIsPeekingSpoiler(false)}
-            style={[
-              styles.spoilerCard,
-              isPeekingSpoiler && {
-                borderColor: COLORS.crocodile,
-                backgroundColor: `${COLORS.crocodile}15`,
-              },
-            ]}
-          >
-            {isPeekingSpoiler ? (
-              <>
-                <Text style={styles.spoilerPeekLabel}>СЕКРЕТНА ФРАЗА:</Text>
-                <Text style={styles.spoilerPhraseText}>
+            <Pressable
+              onPressIn={() => {
+                Haptics.selectionAsync();
+                setIsPeekingSpoiler(true);
+              }}
+              onPressOut={() => setIsPeekingSpoiler(false)}
+              style={[
+                styles.peekSurface,
+                isPeekingSpoiler && styles.peekSurfaceActive,
+              ]}
+            >
+              {isPeekingSpoiler ? (
+                <Text style={styles.peekRevealedText}>
                   {currentPhrase?.phrase}
                 </Text>
-              </>
-            ) : (
-              <>
-                <EyeOff size={28} color={COLORS.textSecondary} />
-                <Text style={styles.spoilerCoverTitle}>
-                  Фразу приховано під спойлером
+              ) : (
+                <Text style={styles.peekPromptText}>
+                  Утримуй, щоб підглянути фразу
                 </Text>
-                <Text style={styles.spoilerCoverSub}>
-                  Затисни палець тут, якщо ведучий забув фразу (телефон можна класти на стіл)
-                </Text>
-              </>
-            )}
-          </Pressable>
+              )}
+            </Pressable>
+          </View>
 
-          {/* Outcome Buttons */}
-          <View style={styles.actingFooter}>
+          <View style={styles.actingActions}>
             <TouchableOpacity
               activeOpacity={0.85}
-              style={styles.guessedBtn}
+              style={styles.dominantBtn}
               onPress={() => handleFinishTurn(true)}
             >
-              <PartyPopper size={22} color={COLORS.textPrimary} />
-              <Text style={styles.guessedBtnText}>🎉 Вгадали! (+2 бали)</Text>
+              <Text style={styles.dominantBtnText}>Вгадали  +2</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.giveUpBtn}
+              activeOpacity={0.8}
+              style={styles.secondaryBtn}
               onPress={() => handleFinishTurn(false)}
             >
-              <Flag size={18} color={COLORS.spy} />
-              <Text style={styles.giveUpBtnText}>
-                🏳️ Здаємося / Час вийшов (0 балів)
-              </Text>
+              <Text style={styles.secondaryBtnText}>Пропустити</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -343,264 +272,179 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  centerContainer: {
+  screenBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.crocodile}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.crocodile}66`,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.md,
-  },
-  modeBadgeText: {
-    color: COLORS.crocodile,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  teamNameHero: {
-    color: COLORS.textPrimary,
-    fontSize: 34,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
-  },
-  subtitleText: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: SPACING.xxl,
-  },
-  rulesCard: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.xl,
-    gap: SPACING.md,
-    marginBottom: SPACING.xxxl,
-  },
-  ruleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  ruleText: {
-    flex: 1,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  primaryBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.crocodile,
-    paddingVertical: 18,
-    borderRadius: RADIUS.lg,
-  },
-  primaryBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-
-  // Preparation
-  prepWarningPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: `${COLORS.hot}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.hot}66`,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.xl,
-  },
-  prepWarningText: {
-    color: COLORS.hot,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  phraseCard: {
-    width: '100%',
-    minHeight: 230,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 2,
-    borderColor: `${COLORS.crocodile}88`,
-    padding: SPACING.xxl,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xxl,
-  },
-  phraseLabel: {
-    color: COLORS.crocodile,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  phraseText: {
-    color: COLORS.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 34,
-  },
-  deckTag: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  prepActionsStack: {
-    width: '100%',
-    gap: SPACING.md,
-  },
-  swapPhraseBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.hot}1A`,
-    borderWidth: 1.5,
-    borderColor: `${COLORS.hot}66`,
-    paddingVertical: 15,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
-  swapPhraseBtnDisabled: {
-    backgroundColor: COLORS.surfaceElevated,
-    borderColor: COLORS.border,
-    opacity: 0.6,
-  },
-  swapPhraseBtnText: {
-    color: COLORS.hot,
-    fontSize: 14,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-
-  // Acting
-  actingContainer: {
-    flex: 1,
-    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.sm,
     paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
   },
-  actingTopSection: {
-    alignItems: 'center',
-    gap: SPACING.md,
+
+  // READY (Leader Handoff)
+  handoffHeader: {
+    gap: 4,
   },
-  actingTeamTitle: {
+  teamOverline: {
+    color: COLORS.crocodile,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  handoffHeadline: {
     color: COLORS.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.8,
   },
-  expiredBanner: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.spy}25`,
-    borderWidth: 1,
-    borderColor: COLORS.spy,
-    paddingVertical: 10,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
-  expiredBannerText: {
-    color: COLORS.spy,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  spoilerCard: {
-    width: '100%',
-    minHeight: 190,
+  handoffCenterBlock: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderStyle: 'dashed',
+    padding: SPACING.xxl,
+    gap: SPACING.sm,
+  },
+  handoffNumber: {
+    color: COLORS.crocodile,
+    fontSize: 40,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
+    marginBottom: 4,
+  },
+  handoffTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  handoffDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+
+  // PREPARATION
+  prepMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  prepTeamLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  prepDeckLabel: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  prepFocalArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    gap: SPACING.xl,
+  },
+  prepHint: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.4,
+  },
+  prepPhraseHero: {
+    color: COLORS.textPrimary,
+    fontSize: 32,
+    fontWeight: '700',
+    lineHeight: 40,
+    letterSpacing: -0.8,
+    textAlign: 'center',
+  },
+  subtleSwapAction: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+  },
+  subtleSwapText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  swapUsedLabel: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '400',
+  },
+
+  // ACTING
+  actingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expiredStatus: {
+    color: COLORS.spy,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  actingCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: SPACING.xxl,
+  },
+  peekSurface: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    minHeight: 136,
     padding: SPACING.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: SPACING.sm,
   },
-  spoilerPeekLabel: {
-    color: COLORS.crocodile,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
+  peekSurfaceActive: {
+    backgroundColor: COLORS.surfaceElevated,
   },
-  spoilerPhraseText: {
+  peekPromptText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  peekRevealedText: {
     color: COLORS.textPrimary,
     fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 30,
-  },
-  spoilerCoverTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
+    lineHeight: 29,
     textAlign: 'center',
   },
-  spoilerCoverSub: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
+  actingActions: {
+    gap: SPACING.sm,
   },
-  actingFooter: {
-    gap: SPACING.md,
-  },
-  guessedBtn: {
+
+  // Shared Buttons
+  dominantBtn: {
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
     backgroundColor: COLORS.crocodile,
-    paddingVertical: 18,
+    paddingVertical: 17,
     borderRadius: RADIUS.lg,
-  },
-  guessedBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  giveUpBtn: {
-    width: '100%',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: `${COLORS.spy}66`,
-    paddingVertical: 16,
-    borderRadius: RADIUS.lg,
   },
-  giveUpBtnText: {
-    color: COLORS.spy,
+  dominantBtnText: {
+    color: COLORS.background,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  secondaryBtn: {
+    width: '100%',
+    backgroundColor: COLORS.surface,
+    paddingVertical: 15,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtnText: {
+    color: COLORS.textSecondary,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
   },
 });

@@ -6,7 +6,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { CheckCircle2, Eye, EyeOff, Fingerprint, MapPin } from 'lucide-react-native';
+import { Fingerprint } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 
 interface HoldToRevealCardProps {
@@ -43,7 +43,7 @@ export function HoldToRevealCard({
   const handlePressIn = () => {
     setIsHolding(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    revealAnim.value = withTiming(1, { duration: 150 });
+    revealAnim.value = withTiming(1, { duration: 140 });
 
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
@@ -57,7 +57,7 @@ export function HoldToRevealCard({
 
   const handlePressOut = () => {
     setIsHolding(false);
-    // Миттєве закриття назад під секретну шторку за 100 мс
+    // Миттєве приховування за 100 мс
     revealAnim.value = withTiming(0, { duration: 100 });
 
     if (holdTimerRef.current) {
@@ -68,16 +68,12 @@ export function HoldToRevealCard({
 
   const secretContentStyle = useAnimatedStyle(() => ({
     opacity: revealAnim.value,
-    transform: [{ scale: 0.96 + revealAnim.value * 0.04 }],
+    transform: [{ scale: 0.97 + revealAnim.value * 0.03 }],
   }));
 
   const coverStyle = useAnimatedStyle(() => ({
     opacity: 1 - revealAnim.value,
   }));
-
-  const spyColor = COLORS.spy;
-  const citizenColor = COLORS.crocodile;
-  const activeRoleColor = isSpy ? spyColor : citizenColor;
 
   return (
     <Pressable
@@ -88,107 +84,59 @@ export function HoldToRevealCard({
       <View
         style={[
           styles.cardContainer,
-          isHolding
-            ? {
-                borderColor: activeRoleColor,
-                backgroundColor: `${activeRoleColor}18`,
-              }
-            : hasSeenRole
-              ? { borderColor: `${COLORS.primary}88` }
-              : { borderColor: COLORS.border },
+          isHolding &&
+            (isSpy ? styles.cardContainerSpy : styles.cardContainerCitizen),
         ]}
       >
-        {/* Secret Content Layer (Visible only while holding) */}
+        {/* Secret Role Layer */}
         <Animated.View
           style={[styles.secretLayer, secretContentStyle]}
           pointerEvents="none"
         >
           {isSpy ? (
             <View style={styles.roleInner}>
-              <View
-                style={[
-                  styles.roleIconCircle,
-                  {
-                    backgroundColor: `${COLORS.spy}28`,
-                    borderColor: COLORS.spy,
-                  },
-                ]}
-              >
-                <EyeOff size={40} color={COLORS.spy} />
-              </View>
-              <Text style={[styles.roleBadge, { color: COLORS.spy }]}>
-                СЕКРЕТНИЙ СТАТУС • ГРАВЕЦЬ №{playerNumber}
+              <Text style={[styles.roleOverline, { color: COLORS.spy }]}>
+                СЕКРЕТНИЙ СТАТУС
               </Text>
               <Text style={[styles.roleHeadline, { color: COLORS.spy }]}>
-                🕵️ ТИ ШПИГУН!
+                Ти Шпигун
               </Text>
               <Text style={styles.roleDescription}>
-                Не видай себе і зрозумій за питаннями інших, у якій ви локації!
+                Не видай себе. Слухай запитання інших гравців і спробуй зрозуміти, у якій ви локації.
               </Text>
             </View>
           ) : (
             <View style={styles.roleInner}>
-              <View
-                style={[
-                  styles.roleIconCircle,
-                  {
-                    backgroundColor: `${COLORS.crocodile}25`,
-                    borderColor: COLORS.crocodile,
-                  },
-                ]}
-              >
-                <MapPin size={40} color={COLORS.crocodile} />
-              </View>
-              <Text style={[styles.roleBadge, { color: COLORS.crocodile }]}>
-                МИРНИЙ ЖИТЕЛЬ • ГРАВЕЦЬ №{playerNumber}
-              </Text>
-              <Text style={styles.locationLabel}>📍 Локація:</Text>
+              <Text style={styles.roleOverline}>ЛОКАЦІЯ</Text>
               <Text style={styles.locationTitle}>{locationName}</Text>
               {roleName ? (
-                <View style={styles.roleSuggestionPill}>
-                  <Text style={styles.roleSuggestionText}>
-                    Твій образ: {roleName}
-                  </Text>
-                </View>
+                <Text style={styles.roleTag}>Твоя роль: {roleName}</Text>
               ) : null}
               <Text style={styles.roleDescription}>
-                Вирахуй шпигуна! Став хитрі запитання, щоб не спалити локацію.
+                Став запитання іншим, щоб викрити шпигуна, але не називай локацію прямо.
               </Text>
             </View>
           )}
         </Animated.View>
 
-        {/* Cover Curtain Layer (Visible when NOT holding) */}
+        {/* Concealed Curtain Layer */}
         <Animated.View
           style={[styles.coverLayer, coverStyle]}
           pointerEvents="none"
         >
-          <View style={styles.fingerprintCircle}>
-            <Fingerprint size={44} color={COLORS.primary} />
+          <View style={styles.targetRing}>
+            <Fingerprint
+              size={36}
+              color={hasSeenRole ? COLORS.textSecondary : COLORS.spy}
+            />
           </View>
 
-          <Text style={styles.playerPrompt}>Гравець №{playerNumber}</Text>
-          <Text style={styles.coverInstruction}>
-            Затисни та тримай палець тут, щоб побачити свою роль
+          <Text style={styles.coverTitle}>Утримуй, щоб відкрити роль</Text>
+          <Text style={styles.coverSub}>
+            {hasSeenRole
+              ? 'Роль переглянуто — передай телефон далі'
+              : 'Переконайся, що ніхто не заглядає в екран'}
           </Text>
-
-          <View style={styles.statusPill}>
-            {hasSeenRole ? (
-              <>
-                <CheckCircle2 size={15} color={COLORS.crocodile} />
-                <Text style={[styles.statusPillText, { color: COLORS.crocodile }]}>
-                  Роль переглянуто (можна передавати далі)
-                </Text>
-              </>
-            ) : (
-              <>
-                <Eye size={15} color={COLORS.textSecondary} />
-                <Text style={styles.statusPillText}>
-                  Утримуй мінімум 0.6 сек для захисту від випадкового дотику
-                </Text>
-              </>
-            )}
-          </View>
         </Animated.View>
       </View>
     </Pressable>
@@ -199,17 +147,22 @@ const styles = StyleSheet.create({
   pressableWrap: {
     width: '100%',
     flex: 1,
-    maxHeight: 410,
+    maxHeight: 380,
   },
   cardContainer: {
     flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 2,
     overflow: 'hidden',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardContainerSpy: {
+    backgroundColor: '#241319',
+  },
+  cardContainerCitizen: {
+    backgroundColor: COLORS.surfaceElevated,
   },
   secretLayer: {
     position: 'absolute',
@@ -232,106 +185,68 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: COLORS.surface,
   },
-  fingerprintCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: RADIUS.full,
-    backgroundColor: `${COLORS.primary}1F`,
-    borderWidth: 1.5,
-    borderColor: `${COLORS.primary}66`,
+  targetRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: COLORS.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.lg,
   },
-  playerPrompt: {
+  coverTitle: {
     color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: '900',
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
-  },
-  coverInstruction: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: SPACING.xl,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-  },
-  statusPillText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
+    fontSize: 20,
     fontWeight: '700',
+    letterSpacing: -0.4,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  coverSub: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 20,
     textAlign: 'center',
   },
   roleInner: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    gap: SPACING.sm,
   },
-  roleIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: RADIUS.full,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-  },
-  roleBadge: {
+  roleOverline: {
+    color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: SPACING.sm,
+    fontWeight: '600',
+    letterSpacing: 1.5,
   },
   roleHeadline: {
-    fontSize: 32,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: SPACING.md,
-  },
-  locationLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
+    fontSize: 36,
     fontWeight: '700',
-    marginBottom: 4,
+    letterSpacing: -0.9,
+    textAlign: 'center',
   },
   locationTitle: {
     color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.7,
     textAlign: 'center',
-    marginBottom: SPACING.md,
+    lineHeight: 36,
   },
-  roleSuggestionPill: {
-    backgroundColor: `${COLORS.crocodile}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.crocodile}66`,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.md,
-  },
-  roleSuggestionText: {
+  roleTag: {
     color: COLORS.crocodile,
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
   },
   roleDescription: {
     color: COLORS.textSecondary,
     fontSize: 15,
+    fontWeight: '400',
     lineHeight: 22,
     textAlign: 'center',
+    marginTop: SPACING.xs,
   },
 });

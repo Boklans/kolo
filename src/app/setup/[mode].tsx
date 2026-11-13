@@ -13,18 +13,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
   ArrowLeft,
-  CheckCircle2,
-  Crown,
+  Check,
   Dices,
-  EyeOff,
-  Layers,
   Minus,
-  Play,
   Plus,
-  ShieldAlert,
-  Timer,
   Trash2,
-  Users,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { PARTY_PRESETS } from '@/data/presets';
@@ -56,25 +49,22 @@ const FUNNY_TEAM_NAMES = [
 
 const GAME_META: Record<
   GameType,
-  { title: string; emoji: string; accentColor: string; subtitle: string }
+  { title: string; accentColor: string; subtitle: string }
 > = {
   alias: {
     title: 'Еліас',
-    emoji: '⚡',
     accentColor: COLORS.alias,
-    subtitle: 'Командне пояснення слів на швидкість',
+    subtitle: 'Пояснюй слова іншими словами, поки йде таймер.',
   },
   crocodile: {
     title: 'Крокодил',
-    emoji: '🐊',
     accentColor: COLORS.crocodile,
-    subtitle: 'Покажи фразу жестами та мімікою без слів',
+    subtitle: 'Покажи фразу жестами та мімікою без жодного звуку.',
   },
   spy: {
     title: 'Шпигун',
-    emoji: '🕵️',
     accentColor: COLORS.spy,
-    subtitle: 'Знайдіть шпигуна серед гравців за столом',
+    subtitle: 'Усі знають локацію, крім одного. Знайдіть шпигуна за столом.',
   },
 };
 
@@ -111,12 +101,12 @@ export default function SetupScreen() {
       ? selectedPreset.steps[0]?.deckId ?? 'base_ua'
       : 'base_ua';
 
-  // Налаштування колоди та одиночної гри
   const [selectedDeckId, setSelectedDeckId] = useState<string>(defaultPresetDeckId);
 
   useEffect(() => {
     setSelectedDeckId(defaultPresetDeckId);
   }, [defaultPresetDeckId]);
+
   const [aliasTimeSec, setAliasTimeSec] = useState<30 | 60 | 90>(60);
   const [aliasPenalty, setAliasPenalty] = useState<boolean>(false);
   const [crocodileTimeSec, setCrocodileTimeSec] = useState<60 | 90 | 120>(60);
@@ -124,7 +114,6 @@ export default function SetupScreen() {
   const [spyTimeSec, setSpyTimeSec] = useState<180 | 300 | 420>(300);
   const [spyCount, setSpyCount] = useState<1 | 2>(1);
 
-  // Команди та гравці
   const [teams, setTeams] = useState([
     { id: 'team_1', name: 'Команда 1' },
     { id: 'team_2', name: 'Команда 2' },
@@ -154,11 +143,6 @@ export default function SetupScreen() {
     isPresetMode && selectedPreset
       ? selectedPreset.title
       : GAME_META[selectedGameType].title;
-
-  const headerEmoji =
-    isPresetMode && selectedPreset
-      ? selectedPreset.emoji
-      : GAME_META[selectedGameType].emoji;
 
   const headerSubtitle =
     isPresetMode && selectedPreset
@@ -201,13 +185,13 @@ export default function SetupScreen() {
         parts.push(
           deck.items.spyLocations.length > 0
             ? `${deck.items.spyLocations.length} локацій`
-            : 'Локації Шпигуна з Бази'
+            : 'Локації з Бази'
         );
       }
 
       return {
         isSupported: true,
-        label: parts.join(' • '),
+        label: parts.join(' · '),
       };
     }
 
@@ -215,7 +199,7 @@ export default function SetupScreen() {
     if (count > 0) {
       return {
         isSupported: true,
-        label: `Доступно: ${count} карток для цього режиму`,
+        label: `${count} карток для цього режиму`,
       };
     }
     return {
@@ -308,7 +292,6 @@ export default function SetupScreen() {
         };
       });
     } else {
-      // Перевіряємо обрану колоду
       const availableCards = getDeckCountForGame(chosenDeck, selectedGameType);
 
       if (availableCards === 0) {
@@ -370,13 +353,13 @@ export default function SetupScreen() {
       {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.75}
           style={styles.backButton}
           onPress={() => router.back()}
         >
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Налаштування вечірки</Text>
+        <Text style={styles.topBarOverline}>ПІДГОТОВКА ГРИ</Text>
         <View style={styles.topBarSpacer} />
       </View>
 
@@ -386,299 +369,261 @@ export default function SetupScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Summary Card */}
-        <View style={[styles.summaryCard, { borderColor: `${accentColor}55` }]}>
-          <View style={styles.summaryHeader}>
-            <View
-              style={[
-                styles.emojiBadge,
-                {
-                  backgroundColor: `${accentColor}22`,
-                  borderColor: `${accentColor}55`,
-                },
-              ]}
-            >
-              <Text style={styles.emojiText}>{headerEmoji}</Text>
-            </View>
-            <View style={styles.summaryTitleBlock}>
-              <Text style={[styles.modeTag, { color: accentColor }]}>
-                {isPresetMode ? 'ГОТОВИЙ ВАЙБ-ПРЕСЕТ' : 'ОКРЕМА ГРА'}
-              </Text>
-              <Text style={styles.summaryTitle}>{headerTitle}</Text>
-            </View>
-          </View>
-          <Text style={styles.summarySubtitle}>{headerSubtitle}</Text>
+        {/* Editorial Hero Summary */}
+        <View style={styles.summaryBlock}>
+          <View style={[styles.summaryAccentBar, { backgroundColor: accentColor }]} />
+          <View style={styles.summaryInner}>
+            <Text style={[styles.modeTag, { color: accentColor }]}>
+              {isPresetMode ? 'ВАЙБ-ПРЕСЕТ' : 'ОКРЕМА ГРА'}
+            </Text>
+            <Text style={styles.summaryTitle}>{headerTitle}</Text>
+            <Text style={styles.summarySubtitle}>{headerSubtitle}</Text>
 
-          {isPresetMode && selectedPreset ? (
-            <View style={styles.presetStepsWrap}>
-              {selectedPreset.steps.map((step, idx) => {
-                const chosenDeck =
-                  allDecks.find((d) => d.id === selectedDeckId) ?? OFFICIAL_DECKS[0];
-                const hasOwnCards = getDeckCountForGame(chosenDeck, step.gameType) > 0;
-                const displayDeck = hasOwnCards ? chosenDeck : OFFICIAL_DECKS[0];
-                return (
-                  <View key={step.id} style={styles.presetStepRow}>
-                    <View
-                      style={[
-                        styles.presetStepIndex,
-                        { backgroundColor: `${ GAME_META[step.gameType].accentColor }25` },
-                      ]}
-                    >
+            {isPresetMode && selectedPreset ? (
+              <View style={styles.presetStepsWrap}>
+                {selectedPreset.steps.map((step, idx) => {
+                  const chosenDeck =
+                    allDecks.find((d) => d.id === selectedDeckId) ?? OFFICIAL_DECKS[0];
+                  const hasOwnCards = getDeckCountForGame(chosenDeck, step.gameType) > 0;
+                  const displayDeck = hasOwnCards ? chosenDeck : OFFICIAL_DECKS[0];
+                  return (
+                    <View key={step.id} style={styles.presetStepRow}>
                       <Text
                         style={[
                           styles.presetStepIndexText,
                           { color: GAME_META[step.gameType].accentColor },
                         ]}
                       >
-                        {idx + 1}
+                        0{idx + 1}
                       </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.presetStepTitle}>
-                        {GAME_META[step.gameType].emoji}{' '}
-                        {GAME_META[step.gameType].title}
-                      </Text>
-                      <Text style={styles.presetStepMeta}>
-                        Колода: {displayDeck.title} •{' '}
-                        {step.gameType === 'spy'
-                          ? `${step.discussionTimeSec / 60} хв обговорення`
-                          : `${step.roundTimeSec} сек / хід • ${step.roundsPerTeam} кола`}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : null}
-        </View>
-
-        {/* Single Game Settings: Round Time */}
-        {!isPresetMode ? (
-          <View style={styles.section}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={styles.sectionTitleGroup}>
-                  <Timer size={18} color={accentColor} />
-                  <Text style={styles.sectionTitle}>Параметри раунду</Text>
-                </View>
-              </View>
-
-              {selectedGameType === 'alias' ? (
-                <View style={styles.configCard}>
-                  <Text style={styles.configLabel}>Час одного ходу (сек)</Text>
-                  <View style={styles.chipsRow}>
-                    {([30, 60, 90] as const).map((sec) => {
-                      const active = aliasTimeSec === sec;
-                      return (
-                        <TouchableOpacity
-                          key={sec}
-                          style={[
-                            styles.optionChip,
-                            active && {
-                              borderColor: COLORS.alias,
-                              backgroundColor: `${COLORS.alias}25`,
-                            },
-                          ]}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setAliasTimeSec(sec);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              active && { color: COLORS.textPrimary },
-                            ]}
-                          >
-                            {sec} сек
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  <Text style={[styles.configLabel, { marginTop: SPACING.md }]}>
-                    Кількість раундів на кожну команду
-                  </Text>
-                  <View style={styles.chipsRow}>
-                    {[1, 2, 3, 4].map((r) => {
-                      const active = roundsPerTeam === r;
-                      return (
-                        <TouchableOpacity
-                          key={r}
-                          style={[
-                            styles.optionChip,
-                            active && {
-                              borderColor: COLORS.alias,
-                              backgroundColor: `${COLORS.alias}25`,
-                            },
-                          ]}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setRoundsPerTeam(r);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              active && { color: COLORS.textPrimary },
-                            ]}
-                          >
-                            {r} {r === 1 ? 'раунд' : 'раунди'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    style={styles.penaltyToggleRow}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setAliasPenalty((p) => !p);
-                    }}
-                  >
-                    <View style={styles.penaltyTextWrap}>
-                      <View style={styles.penaltyTitleRow}>
-                        <ShieldAlert size={15} color={COLORS.hot} />
-                        <Text style={styles.penaltyTitle}>
-                          Штраф за пропуск (-1 бал)
+                      <View style={styles.presetStepInfo}>
+                        <Text style={styles.presetStepTitle}>
+                          {GAME_META[step.gameType].title}
+                        </Text>
+                        <Text style={styles.presetStepMeta}>
+                          {displayDeck.title} ·{' '}
+                          {step.gameType === 'spy'
+                            ? `${step.discussionTimeSec / 60} хв обговорення`
+                            : `${step.roundTimeSec} сек · ${step.roundsPerTeam} кола`}
                         </Text>
                       </View>
-                      <Text style={styles.penaltySub}>
-                        Кожне пропущене слово віднімає 1 бал у команди
-                      </Text>
                     </View>
-                    <View
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Single Game Settings: Round Parameters */}
+        {!isPresetMode ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionOverline}>ПАРАМЕТРИ РАУНДУ</Text>
+
+            {selectedGameType === 'alias' ? (
+              <View style={styles.configBlock}>
+                <Text style={styles.configLabel}>Час одного ходу</Text>
+                <View style={styles.chipsRow}>
+                  {([30, 60, 90] as const).map((sec) => {
+                    const active = aliasTimeSec === sec;
+                    return (
+                      <TouchableOpacity
+                        key={sec}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionChip,
+                          active && { backgroundColor: COLORS.alias },
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setAliasTimeSec(sec);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            active && styles.optionChipTextActive,
+                          ]}
+                        >
+                          {sec} сек
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text style={[styles.configLabel, { marginTop: SPACING.lg }]}>
+                  Кількість раундів на команду
+                </Text>
+                <View style={styles.chipsRow}>
+                  {[1, 2, 3, 4].map((r) => {
+                    const active = roundsPerTeam === r;
+                    return (
+                      <TouchableOpacity
+                        key={r}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionChip,
+                          active && { backgroundColor: COLORS.alias },
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setRoundsPerTeam(r);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            active && styles.optionChipTextActive,
+                          ]}
+                        >
+                          {r} {r === 1 ? 'коло' : 'кола'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.penaltyToggleRow}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setAliasPenalty((p) => !p);
+                  }}
+                >
+                  <View style={styles.penaltyTextWrap}>
+                    <Text style={styles.penaltyTitle}>
+                      Штраф за пропуск (−1 бал)
+                    </Text>
+                    <Text style={styles.penaltySub}>
+                      Кожне пропущене слово віднімає 1 бал
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.togglePill,
+                      aliasPenalty && styles.togglePillActive,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.togglePill,
-                        aliasPenalty && styles.togglePillActive,
+                        styles.togglePillText,
+                        aliasPenalty && { color: COLORS.textPrimary },
                       ]}
                     >
-                      <Text style={styles.togglePillText}>
-                        {aliasPenalty ? 'УВІМК' : 'ВИМК'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-
-              {selectedGameType === 'crocodile' ? (
-                <View style={styles.configCard}>
-                  <Text style={styles.configLabel}>Час на показ фрази</Text>
-                  <View style={styles.chipsRow}>
-                    {([60, 90, 120] as const).map((sec) => {
-                      const active = crocodileTimeSec === sec;
-                      return (
-                        <TouchableOpacity
-                          key={sec}
-                          style={[
-                            styles.optionChip,
-                            active && {
-                              borderColor: COLORS.crocodile,
-                              backgroundColor: `${COLORS.crocodile}25`,
-                            },
-                          ]}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setCrocodileTimeSec(sec);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              active && { color: COLORS.textPrimary },
-                            ]}
-                          >
-                            {sec} сек
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                      {aliasPenalty ? 'УВІМК' : 'ВИМК'}
+                    </Text>
                   </View>
+                </TouchableOpacity>
+              </View>
+            ) : null}
 
-                  <Text style={[styles.configLabel, { marginTop: SPACING.md }]}>
-                    Кількість раундів на кожну команду
-                  </Text>
-                  <View style={styles.chipsRow}>
-                    {[1, 2, 3, 4].map((r) => {
-                      const active = roundsPerTeam === r;
-                      return (
-                        <TouchableOpacity
-                          key={r}
+            {selectedGameType === 'crocodile' ? (
+              <View style={styles.configBlock}>
+                <Text style={styles.configLabel}>Час на показ фрази</Text>
+                <View style={styles.chipsRow}>
+                  {([60, 90, 120] as const).map((sec) => {
+                    const active = crocodileTimeSec === sec;
+                    return (
+                      <TouchableOpacity
+                        key={sec}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionChip,
+                          active && { backgroundColor: COLORS.crocodile },
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setCrocodileTimeSec(sec);
+                        }}
+                      >
+                        <Text
                           style={[
-                            styles.optionChip,
-                            active && {
-                              borderColor: COLORS.crocodile,
-                              backgroundColor: `${COLORS.crocodile}25`,
-                            },
+                            styles.optionChipText,
+                            active && styles.optionChipTextActive,
                           ]}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setRoundsPerTeam(r);
-                          }}
                         >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              active && { color: COLORS.textPrimary },
-                            ]}
-                          >
-                            {r} {r === 1 ? 'раунд' : 'раунди'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                          {sec} сек
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              ) : null}
 
-              {selectedGameType === 'spy' ? (
-                <View style={styles.configCard}>
-                  <Text style={styles.configLabel}>Час на обговорення</Text>
-                  <View style={styles.chipsRow}>
-                    {([180, 300, 420] as const).map((sec) => {
-                      const active = spyTimeSec === sec;
-                      return (
-                        <TouchableOpacity
-                          key={sec}
+                <Text style={[styles.configLabel, { marginTop: SPACING.lg }]}>
+                  Кількість раундів на команду
+                </Text>
+                <View style={styles.chipsRow}>
+                  {[1, 2, 3, 4].map((r) => {
+                    const active = roundsPerTeam === r;
+                    return (
+                      <TouchableOpacity
+                        key={r}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionChip,
+                          active && { backgroundColor: COLORS.crocodile },
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setRoundsPerTeam(r);
+                        }}
+                      >
+                        <Text
                           style={[
-                            styles.optionChip,
-                            active && {
-                              borderColor: COLORS.spy,
-                              backgroundColor: `${COLORS.spy}25`,
-                            },
+                            styles.optionChipText,
+                            active && styles.optionChipTextActive,
                           ]}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setSpyTimeSec(sec);
-                          }}
                         >
-                          <Text
-                            style={[
-                              styles.optionChipText,
-                              active && { color: COLORS.textPrimary },
-                            ]}
-                          >
-                            {sec / 60} хв
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                          {r} {r === 1 ? 'коло' : 'кола'}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              ) : null}
-            </View>
+              </View>
+            ) : null}
+
+            {selectedGameType === 'spy' ? (
+              <View style={styles.configBlock}>
+                <Text style={styles.configLabel}>Час на обговорення</Text>
+                <View style={styles.chipsRow}>
+                  {([180, 300, 420] as const).map((sec) => {
+                    const active = spyTimeSec === sec;
+                    return (
+                      <TouchableOpacity
+                        key={sec}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionChip,
+                          active && { backgroundColor: COLORS.spy },
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSpyTimeSec(sec);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            active && styles.optionChipTextActive,
+                          ]}
+                        >
+                          {sec / 60} хв
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+          </View>
         ) : null}
 
-        {/* Deck Selection (for both Presets & Single Games) */}
+        {/* Deck Selection */}
         <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionTitleGroup}>
-              <Layers size={18} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>Оберіть колоду</Text>
-            </View>
-          </View>
+          <Text style={styles.sectionOverline}>ОБЕРІТЬ КОЛОДУ</Text>
 
           <View style={styles.decksSelectList}>
             {allDecks.map((deck) => {
@@ -693,13 +638,18 @@ export default function SetupScreen() {
                   onPress={() => handleSelectDeck(deck)}
                   style={[
                     styles.deckSelectCard,
-                    isSelected && {
-                      borderColor: accentColor,
-                      backgroundColor: `${accentColor}15`,
-                    },
+                    isSelected && styles.deckSelectCardSelected,
                     isDisabled && styles.deckSelectCardDisabled,
                   ]}
                 >
+                  {isSelected ? (
+                    <View
+                      style={[
+                        styles.deckSelectedAccent,
+                        { backgroundColor: accentColor },
+                      ]}
+                    />
+                  ) : null}
                   <Text style={styles.deckSelectEmoji}>{deck.emoji}</Text>
                   <View style={styles.deckSelectInfo}>
                     <View style={styles.deckSelectTitleRow}>
@@ -707,12 +657,7 @@ export default function SetupScreen() {
                         {deck.title}
                       </Text>
                       {deck.isPremium ? (
-                        <View style={styles.miniProBadge}>
-                          <Crown size={10} color={COLORS.hot} />
-                          <Text style={styles.miniProBadgeText}>
-                            PRO (Безкоштовно в бета-версії)
-                          </Text>
-                        </View>
+                        <Text style={styles.miniProLabel}>PRO · БЕТА</Text>
                       ) : null}
                     </View>
                     <Text
@@ -725,7 +670,14 @@ export default function SetupScreen() {
                     </Text>
                   </View>
                   {isSelected ? (
-                    <CheckCircle2 size={20} color={accentColor} />
+                    <View
+                      style={[
+                        styles.deckCheckCircle,
+                        { backgroundColor: accentColor },
+                      ]}
+                    >
+                      <Check size={14} color={COLORS.textPrimary} strokeWidth={3} />
+                    </View>
                   ) : null}
                 </TouchableOpacity>
               );
@@ -733,35 +685,32 @@ export default function SetupScreen() {
           </View>
         </View>
 
-        {/* Team Editor (if Alias or Crocodile with team scoring) */}
+        {/* Team Editor */}
         {hasTeamScoring ? (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <View style={styles.sectionTitleGroup}>
-                <Users size={18} color={COLORS.alias} />
-                <Text style={styles.sectionTitle}>
-                  Команди ({teams.length}/6)
-                </Text>
-              </View>
+              <Text style={styles.sectionOverline}>
+                КОМАНДИ ({teams.length} / 6)
+              </Text>
 
               <View style={styles.teamActionsGroup}>
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  style={styles.randomNamesButton}
+                  style={styles.subtleActionPill}
                   onPress={handleRandomizeTeamNames}
                 >
-                  <Dices size={14} color={COLORS.hot} />
-                  <Text style={styles.randomNamesText}>Кумедні назви</Text>
+                  <Dices size={13} color={COLORS.textPrimary} />
+                  <Text style={styles.subtleActionText}>Випадкові назви</Text>
                 </TouchableOpacity>
 
                 {teams.length < 6 ? (
                   <TouchableOpacity
                     activeOpacity={0.8}
-                    style={styles.addTeamButton}
+                    style={styles.subtleActionPill}
                     onPress={handleAddTeam}
                   >
-                    <Plus size={14} color={COLORS.primary} />
-                    <Text style={styles.addTeamText}>Додати</Text>
+                    <Plus size={13} color={COLORS.textPrimary} />
+                    <Text style={styles.subtleActionText}>Додати</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -770,15 +719,13 @@ export default function SetupScreen() {
             <View style={styles.teamsList}>
               {teams.map((team, idx) => (
                 <View key={team.id} style={styles.teamRow}>
-                  <View style={styles.teamIndexBadge}>
-                    <Text style={styles.teamIndexText}>{idx + 1}</Text>
-                  </View>
+                  <Text style={styles.teamIndexText}>0{idx + 1}</Text>
                   <TextInput
                     style={styles.teamInput}
                     value={team.name}
                     onChangeText={(val) => handleRenameTeam(team.id, val)}
                     placeholder={`Команда ${idx + 1}`}
-                    placeholderTextColor={COLORS.textSecondary}
+                    placeholderTextColor={COLORS.textMuted}
                     maxLength={28}
                   />
                   {teams.length > 2 ? (
@@ -786,7 +733,7 @@ export default function SetupScreen() {
                       style={styles.removeTeamBtn}
                       onPress={() => handleRemoveTeam(team.id)}
                     >
-                      <Trash2 size={16} color={COLORS.spy} />
+                      <Trash2 size={15} color={COLORS.textMuted} />
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -795,22 +742,17 @@ export default function SetupScreen() {
           </View>
         ) : null}
 
-        {/* Spy Settings (if Spy mode is present) */}
+        {/* Spy Settings */}
         {hasSpyMode ? (
           <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={styles.sectionTitleGroup}>
-                <EyeOff size={18} color={COLORS.spy} />
-                <Text style={styles.sectionTitle}>Налаштування Шпигуна</Text>
-              </View>
-            </View>
+            <Text style={styles.sectionOverline}>НАЛАШТУВАННЯ ШПИГУНА</Text>
 
             <View style={styles.spyConfigStack}>
               <View style={styles.stepperCard}>
                 <View style={styles.stepperInfo}>
                   <Text style={styles.stepperTitle}>Гравців за столом</Text>
                   <Text style={styles.stepperSubtitle}>
-                    Передаватимуть телефон по колу (від 3 до 12)
+                    Від 3 до 12 учасників по колу
                   </Text>
                 </View>
 
@@ -837,7 +779,7 @@ export default function SetupScreen() {
                   <Text style={styles.stepperSubtitle}>
                     {playerCount < 5
                       ? '2 шпигуни доступні від 5 гравців'
-                      : 'Скільки самозванців не знатимуть локацію'}
+                      : 'Скільки гравців не знатимуть локацію'}
                   </Text>
                 </View>
 
@@ -856,7 +798,7 @@ export default function SetupScreen() {
                         style={[
                           styles.spyCountPill,
                           active && styles.spyCountPillActive,
-                          disabled && { opacity: 0.35 },
+                          disabled && { opacity: 0.3 },
                         ]}
                       >
                         <Text
@@ -865,7 +807,7 @@ export default function SetupScreen() {
                             active && { color: COLORS.textPrimary },
                           ]}
                         >
-                          {cnt} 🕵️
+                          {cnt}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -884,12 +826,7 @@ export default function SetupScreen() {
           style={[styles.startButton, { backgroundColor: accentColor }]}
           onPress={handleStartParty}
         >
-          <Play
-            size={20}
-            color={COLORS.textPrimary}
-            fill={COLORS.textPrimary}
-          />
-          <Text style={styles.startButtonText}>Почати вечірку</Text>
+          <Text style={styles.startButtonText}>Почати гру</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -906,73 +843,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    paddingVertical: SPACING.sm,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.full,
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topBarTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
+  topBarOverline: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.4,
   },
   topBarSpacer: {
-    width: 40,
+    width: 38,
   },
   container: {
     flex: 1,
   },
   content: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.xl,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
     gap: SPACING.xxl,
   },
-  summaryCard: {
+  summaryBlock: {
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
-    padding: SPACING.xl,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  emojiBadge: {
-    width: 56,
-    height: 56,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
-  emojiText: {
-    fontSize: 28,
+  summaryAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
-  summaryTitleBlock: {
-    flex: 1,
+  summaryInner: {
+    padding: SPACING.xl,
+    paddingLeft: SPACING.xl + 4,
   },
   modeTag: {
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 4,
+    fontWeight: '600',
+    letterSpacing: 1.4,
+    marginBottom: 6,
   },
   summaryTitle: {
     color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.7,
+    marginBottom: 6,
   },
   summarySubtitle: {
     color: COLORS.textSecondary,
@@ -982,33 +909,32 @@ const styles = StyleSheet.create({
   presetStepsWrap: {
     marginTop: SPACING.lg,
     paddingTop: SPACING.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.border,
-    gap: SPACING.sm,
+    gap: 10,
   },
   presetStepRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
     backgroundColor: COLORS.surfaceElevated,
-    padding: SPACING.sm,
-    borderRadius: RADIUS.md,
-  },
-  presetStepIndex: {
-    width: 28,
-    height: 28,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.sm,
   },
   presetStepIndexText: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    fontVariant: ['tabular-nums'],
+  },
+  presetStepInfo: {
+    flex: 1,
   },
   presetStepTitle: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   presetStepMeta: {
     color: COLORS.textSecondary,
@@ -1025,47 +951,42 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.sm,
   },
-  sectionTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  sectionOverline: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.4,
   },
-  sectionTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  configCard: {
+  configBlock: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     padding: SPACING.lg,
   },
   configLabel: {
     color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: SPACING.sm,
   },
   chipsRow: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    gap: 8,
   },
   optionChip: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: RADIUS.md,
+    paddingVertical: 11,
+    borderRadius: RADIUS.sm,
     backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   optionChipText: {
     color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  optionChipTextActive: {
+    color: COLORS.textPrimary,
   },
   penaltyToggleRow: {
     flexDirection: 'row',
@@ -1073,23 +994,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: SPACING.lg,
     paddingTop: SPACING.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.border,
     gap: SPACING.md,
   },
   penaltyTextWrap: {
     flex: 1,
   },
-  penaltyTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
   penaltyTitle: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
+    marginBottom: 2,
   },
   penaltySub: {
     color: COLORS.textSecondary,
@@ -1098,38 +1014,47 @@ const styles = StyleSheet.create({
   togglePill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: RADIUS.full,
+    borderRadius: RADIUS.sm,
     backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   togglePillActive: {
-    backgroundColor: `${COLORS.hot}25`,
-    borderColor: COLORS.hot,
+    backgroundColor: COLORS.hot,
   },
   togglePillText: {
-    color: COLORS.textPrimary,
+    color: COLORS.textSecondary,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: 0.6,
   },
   decksSelectList: {
-    gap: SPACING.sm,
+    gap: 8,
   },
   deckSelectCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
     padding: SPACING.md,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  deckSelectCardSelected: {
+    backgroundColor: COLORS.surfaceElevated,
+  },
+  deckSelectedAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
   deckSelectCardDisabled: {
-    opacity: 0.45,
+    opacity: 0.4,
   },
   deckSelectEmoji: {
-    fontSize: 26,
+    fontSize: 24,
+    marginLeft: 2,
   },
   deckSelectInfo: {
     flex: 1,
@@ -1138,118 +1063,86 @@ const styles = StyleSheet.create({
   deckSelectTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   deckSelectTitle: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  miniProBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: `${COLORS.hot}22`,
-    borderColor: `${COLORS.hot}66`,
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.full,
-  },
-  miniProBadgeText: {
+  miniProLabel: {
     color: COLORS.hot,
-    fontSize: 9,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
   deckSelectMeta: {
     color: COLORS.textSecondary,
     fontSize: 12,
+  },
+  deckCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   teamActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  randomNamesButton: {
+  subtleActionPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: `${COLORS.hot}1A`,
-    borderWidth: 1,
-    borderColor: `${COLORS.hot}55`,
-    paddingHorizontal: 10,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: RADIUS.full,
   },
-  randomNamesText: {
-    color: COLORS.hot,
+  subtleActionText: {
+    color: COLORS.textPrimary,
     fontSize: 12,
-    fontWeight: '700',
-  },
-  addTeamButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-  },
-  addTeamText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   teamsList: {
-    gap: SPACING.sm,
+    gap: 8,
   },
   teamRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
   },
-  teamIndexBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   teamIndexText: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '800',
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   teamInput: {
     flex: 1,
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     paddingVertical: 4,
   },
   removeTeamBtn: {
     padding: 6,
   },
   spyConfigStack: {
-    gap: SPACING.sm,
+    gap: 8,
   },
   stepperCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
     padding: SPACING.lg,
     gap: SPACING.md,
   },
@@ -1259,8 +1152,8 @@ const styles = StyleSheet.create({
   stepperTitle: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   stepperSubtitle: {
     color: COLORS.textSecondary,
@@ -1272,14 +1165,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
     backgroundColor: COLORS.surfaceElevated,
-    borderRadius: RADIUS.md,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+    padding: 4,
   },
   stepperBtn: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: RADIUS.sm,
     backgroundColor: COLORS.surface,
     alignItems: 'center',
@@ -1287,50 +1178,46 @@ const styles = StyleSheet.create({
   },
   stepperValue: {
     color: COLORS.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-    minWidth: 24,
+    fontSize: 16,
+    fontWeight: '700',
+    minWidth: 22,
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   spyCountPills: {
     flexDirection: 'row',
     gap: 8,
   },
   spyCountPill: {
-    paddingHorizontal: 14,
+    minWidth: 44,
     paddingVertical: 10,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.sm,
     backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   spyCountPillActive: {
-    borderColor: COLORS.spy,
-    backgroundColor: `${COLORS.spy}28`,
+    backgroundColor: COLORS.spy,
   },
   spyCountPillText: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
   },
   footer: {
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     backgroundColor: COLORS.background,
   },
   startButton: {
-    flexDirection: 'row',
+    height: 56,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: RADIUS.lg,
   },
   startButtonText: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -8,6 +8,7 @@ interface AbsoluteTimerProps {
   isRunning: boolean;
   onExpire: () => void;
   accentColor?: string;
+  size?: 'compact' | 'large';
 }
 
 export function AbsoluteTimer({
@@ -15,6 +16,7 @@ export function AbsoluteTimer({
   isRunning,
   onExpire,
   accentColor = COLORS.primary,
+  size = 'compact',
 }: AbsoluteTimerProps) {
   const totalMs = durationSec * 1000;
   const endTimestampRef = useRef<number | null>(null);
@@ -30,7 +32,6 @@ export function AbsoluteTimer({
   const [displaySeconds, setDisplaySeconds] = useState<number>(durationSec);
   const [progressFraction, setProgressFraction] = useState<number>(1);
 
-  // Скидання при зміні durationSec
   useEffect(() => {
     remainingMsRef.current = durationSec * 1000;
     endTimestampRef.current = isRunning ? Date.now() + durationSec * 1000 : null;
@@ -69,7 +70,6 @@ export function AbsoluteTimer({
     }
   }, [totalMs]);
 
-  // Реакція на старт / паузу
   useEffect(() => {
     if (hasExpiredRef.current) {
       return;
@@ -92,7 +92,6 @@ export function AbsoluteTimer({
     }
   }, [isRunning, syncRemainingTime]);
 
-  // Синхронізація при виході з фону (AppState)
   useEffect(() => {
     const subscription = AppState.addEventListener(
       'change',
@@ -117,16 +116,14 @@ export function AbsoluteTimer({
 
   return (
     <View style={styles.container}>
-      <View style={styles.timeRow}>
-        <Text
-          style={[
-            styles.timeText,
-            isCritical && { color: COLORS.spy },
-          ]}
-        >
-          {formattedTime}
-        </Text>
-      </View>
+      <Text
+        style={[
+          size === 'large' ? styles.timeTextLarge : styles.timeTextCompact,
+          isCritical && { color: COLORS.spy },
+        ]}
+      >
+        {formattedTime}
+      </Text>
 
       <View style={styles.progressTrack}>
         <View
@@ -146,28 +143,29 @@ export function AbsoluteTimer({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    alignItems: 'center',
     gap: SPACING.sm,
   },
-  timeRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timeText: {
+  timeTextCompact: {
     color: COLORS.textPrimary,
-    fontSize: 40,
-    fontWeight: '900',
+    fontSize: 34,
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    letterSpacing: 1.5,
+    letterSpacing: -0.8,
+  },
+  timeTextLarge: {
+    color: COLORS.textPrimary,
+    fontSize: 56,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1.5,
+    textAlign: 'center',
   },
   progressTrack: {
     width: '100%',
-    height: 8,
+    height: 4,
     backgroundColor: COLORS.surfaceElevated,
     borderRadius: RADIUS.full,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   progressFill: {
     height: '100%',

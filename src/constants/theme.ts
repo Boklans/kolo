@@ -1,17 +1,22 @@
 export const COLORS = {
-  background: '#0B0A10',
-  surface: '#161421',
-  surfaceElevated: '#221F33',
-  border: '#2E2A44',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#9E99B8',
+  // Основні поверхні (теплий глибокий графіт без зайвих контурів)
+  background: '#101014',
+  surface: '#1B1A22',
+  surfaceElevated: '#25242F',
+  surfaceSubtle: '#15141B',
+  border: '#272633',
 
-  // Акценти
-  primary: '#8B5CF6', // Electric Purple
-  alias: '#3B82F6', // Neon Blue
-  crocodile: '#10B981', // Acid Green
-  spy: '#F43F5E', // Crimson Red
-  hot: '#F97316', // Sunset Orange
+  // Типографіка
+  textPrimary: '#F5F5F7',
+  textSecondary: '#8E8C9E',
+  textMuted: '#5E5C6E',
+
+  // Фірмовий акцент та кольори ігор
+  primary: '#8B5CF6', // Brand Purple
+  alias: '#3B82F6', // Speed Blue
+  crocodile: '#10B981', // Expression Green
+  spy: '#F43F5E', // Mystery Red
+  hot: '#F97316', // Warm Accent
 } as const;
 
 export const SPACING = {
@@ -27,8 +32,8 @@ export const SPACING = {
 export const RADIUS = {
   sm: 10,
   md: 14,
-  lg: 18,
-  xl: 24,
+  lg: 16,
+  xl: 20,
   full: 9999,
 } as const;
 

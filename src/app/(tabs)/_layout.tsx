@@ -9,8 +9,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarActiveTintColor: COLORS.textPrimary,
+        tabBarInactiveTintColor: COLORS.textMuted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
         sceneStyle: { backgroundColor: COLORS.background },
@@ -20,21 +20,21 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Вайби',
-          tabBarIcon: ({ color, size }) => <Flame color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Flame color={color} size={20} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
         name="games"
         options={{
           title: 'Ігри',
-          tabBarIcon: ({ color, size }) => <Gamepad2 color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Gamepad2 color={color} size={20} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
         name="decks"
         options={{
           title: 'Колоди',
-          tabBarIcon: ({ color, size }) => <Layers color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Layers color={color} size={20} strokeWidth={2} />,
         }}
       />
     </Tabs>
@@ -43,17 +43,18 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.surface,
-    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.background,
+    borderTopColor: '#1C1B24',
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 88 : 68,
+    height: Platform.OS === 'ios' ? 84 : 64,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+    paddingBottom: Platform.OS === 'ios' ? 26 : 10,
     elevation: 0,
   },
   tabBarLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.2,
     marginTop: 2,
   },
 });

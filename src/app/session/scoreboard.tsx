@@ -16,13 +16,7 @@ import * as Haptics from 'expo-haptics';
 import {
   ArrowRight,
   Copy,
-  Flame,
-  Home,
   Share2,
-  Skull,
-  Sparkles,
-  Trophy,
-  Zap,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -48,7 +42,6 @@ export default function ScoreboardScreen() {
     [steps]
   );
 
-  // Рахуємо сумарний бал кожної команди по всіх групах
   const rankedTeams = useMemo(() => {
     return [...teams]
       .map((team) => {
@@ -83,21 +76,20 @@ export default function ScoreboardScreen() {
 
   const buildPartySummaryText = () => {
     const lines: string[] = [
-      `🎉 KOLO • ПІДСУМКИ ВЕЧІРКИ «${presetTitle || 'Вечірка'}»`,
+      `KOLO · ПІДСУМКИ ВЕЧІРКИ «${presetTitle || 'Вечірка'}»`,
       '',
     ];
 
     if (hasTeamSteps && rankedTeams.length > 0) {
       rankedTeams.forEach((team, idx) => {
-        const prefix = idx === 0 ? '👑' : `${idx + 1}.`;
-        lines.push(`${prefix} ${team.name} — ${team.totalScore} балів`);
+        lines.push(`0${idx + 1}. ${team.name} — ${team.totalScore} балів`);
       });
       lines.push('');
     }
 
-    lines.push(`⚡ Відгадано слів за вечір: ${totalGuessedWords}`);
+    lines.push(`Відгадано за вечір: ${totalGuessedWords}`);
     lines.push(
-      `💀 Слово, яке зламало вечірку: «${hardestUnansweredWord ?? 'Усе розгадали без промахів!'}»`
+      `Слово, яке зламало вечірку: «${hardestUnansweredWord ?? 'Усе розгадали без промахів'}»`
     );
 
     return lines.join('\n');
@@ -127,11 +119,17 @@ export default function ScoreboardScreen() {
     );
   };
 
+  const stepNum = String(Math.min(currentStepIndex + 1, steps.length)).padStart(
+    2,
+    '0'
+  );
+  const totalStepsNum = String(Math.max(1, steps.length)).padStart(2, '0');
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {!isCompleted ? (
         <SessionTopBar
-          stepBadgeText={`РАХУНОК • КРОК ${Math.min(currentStepIndex + 1, steps.length)}/${steps.length}`}
+          stepBadgeText={`РАХУНОК · ${stepNum} / ${totalStepsNum}`}
           accentColor={COLORS.primary}
         />
       ) : null}
@@ -144,33 +142,31 @@ export default function ScoreboardScreen() {
         {/* Banner of Last Turn (if intermediate) */}
         {!isCompleted && lastTurnInfo ? (
           <View style={styles.lastTurnBanner}>
-            <Zap size={18} color={COLORS.crocodile} />
+            <Text style={styles.lastTurnOverline}>ХІД ЗАВЕРШЕНО</Text>
             <Text style={styles.lastTurnText}>
-              Хід завершено:{' '}
-              <Text style={styles.lastTurnHighlight}>{lastTurnInfo.teamName}</Text>{' '}
-              ({lastTurnInfo.pointsDelta >= 0 ? `+${lastTurnInfo.pointsDelta}` : lastTurnInfo.pointsDelta} балів)
+              {lastTurnInfo.teamName}{' '}
+              <Text style={styles.lastTurnHighlight}>
+                {lastTurnInfo.pointsDelta >= 0
+                  ? `+${lastTurnInfo.pointsDelta}`
+                  : lastTurnInfo.pointsDelta}
+              </Text>
             </Text>
           </View>
         ) : null}
 
-        {/* Header */}
+        {/* Editorial Header */}
         <View style={styles.headerBlock}>
-          <View style={styles.trophyBadge}>
-            <Trophy
-              size={28}
-              color={isCompleted ? COLORS.hot : COLORS.primary}
-            />
-          </View>
+          <Text style={styles.overline}>
+            {isCompleted ? 'ПІДСУМКИ ВЕЧІРКИ' : 'ТУРНІРНА ТАБЛИЦЯ'}
+          </Text>
           <Text style={styles.title}>
-            {isCompleted ? 'Фінал вечірки!' : 'Турнірна таблиця'}
+            {isCompleted ? presetTitle || 'Фінал гри' : 'Рахунок команд'}
           </Text>
-          <Text style={styles.subtitle}>
-            {isCompleted
-              ? `Сценарій «${presetTitle || 'Вечірка'}» успішно пройдено!`
-              : nextTeam && currentStep
-                ? `Далі готується: ${nextTeam.name} (Коло ${currentRoundInStep})`
-                : 'Проміжні результати команд'}
-          </Text>
+          {!isCompleted && nextTeam && currentStep ? (
+            <Text style={styles.subtitle}>
+              Далі готується: {nextTeam.name} · Коло {currentRoundInStep}
+            </Text>
+          ) : null}
         </View>
 
         {/* Standings List */}
@@ -186,30 +182,29 @@ export default function ScoreboardScreen() {
                     isLeader && styles.teamCardLeader,
                   ]}
                 >
-                  <View
+                  {isLeader ? (
+                    <View
+                      style={[
+                        styles.leaderAccentStrip,
+                        { backgroundColor: COLORS.hot },
+                      ]}
+                    />
+                  ) : null}
+
+                  <Text
                     style={[
-                      styles.rankCircle,
-                      isLeader && {
-                        backgroundColor: `${COLORS.hot}28`,
-                        borderColor: COLORS.hot,
-                      },
+                      styles.rankText,
+                      isLeader && { color: COLORS.hot },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.rankText,
-                        isLeader && { color: COLORS.hot },
-                      ]}
-                    >
-                      {idx === 0 ? '👑' : `#${idx + 1}`}
-                    </Text>
-                  </View>
+                    0{idx + 1}
+                  </Text>
 
                   <View style={styles.teamInfo}>
                     <Text style={styles.teamName}>{team.name}</Text>
-                    <Text style={styles.teamSubScore}>
-                      Загальний залік вечірки
-                    </Text>
+                    {isLeader ? (
+                      <Text style={styles.leaderSubLabel}>Лідер вечора</Text>
+                    ) : null}
                   </View>
 
                   <View style={styles.scoreBox}>
@@ -221,7 +216,6 @@ export default function ScoreboardScreen() {
                     >
                       {team.totalScore}
                     </Text>
-                    <Text style={styles.scoreLabel}>балів</Text>
                   </View>
                 </View>
               );
@@ -229,28 +223,22 @@ export default function ScoreboardScreen() {
           </View>
         ) : null}
 
-        {/* Final Party Poster for Stories (Iteration 4) */}
+        {/* Final Party Poster for Stories */}
         {isCompleted ? (
           <View style={styles.posterSection}>
-            <View style={styles.posterHeaderRow}>
-              <Sparkles size={16} color={COLORS.primary} />
-              <Text style={styles.posterSectionTitle}>
-                ПОСТЕР ВЕЧІРКИ ДЛЯ STORIES
-              </Text>
-            </View>
+            <Text style={styles.posterSectionOverline}>
+              АФІША ВЕЧОРА ДЛЯ STORIES
+            </Text>
 
             <LinearGradient
-              colors={['#1E1538', '#0F0D19', '#190E26']}
+              colors={['#1E1C2A', '#14131D']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.posterCard}
             >
               {/* Top Brand Row */}
               <View style={styles.posterBrandRow}>
-                <View style={styles.posterLogoPill}>
-                  <Sparkles size={13} color={COLORS.primary} />
-                  <Text style={styles.posterLogoText}>KOLO • PARTY HUB</Text>
-                </View>
+                <Text style={styles.posterBrandName}>KOLO</Text>
                 <Text style={styles.posterPresetTag}>
                   {presetTitle || 'Вечірка'}
                 </Text>
@@ -261,9 +249,9 @@ export default function ScoreboardScreen() {
                 <Text style={styles.posterWinnerLabel}>
                   {hasTeamSteps
                     ? isTie
-                      ? '🔥 БОЙОВА НІЧИЯ ВЕЧОРА'
-                      : '🏆 ЧЕМПІОНИ ВЕЧІРКИ'
-                    : '🕵️ МІСІЮ ЗАВЕРШЕНО'}
+                      ? 'БОЙОВА НІЧИЯ ВЕЧОРА'
+                      : 'ЧЕМПІОНИ ВЕЧІРКИ'
+                    : 'МІСІЮ ЗАВЕРШЕНО'}
                 </Text>
                 <Text style={styles.posterWinnerName}>
                   {hasTeamSteps && winnerTeam
@@ -273,47 +261,35 @@ export default function ScoreboardScreen() {
                     : presetTitle || 'KOLO Party'}
                 </Text>
                 {hasTeamSteps && winnerTeam ? (
-                  <View style={styles.posterScorePill}>
-                    <Flame size={15} color={COLORS.hot} />
-                    <Text style={styles.posterScorePillText}>
-                      Рекордний рахунок: {winnerTeam.totalScore} балів
-                    </Text>
-                  </View>
+                  <Text style={styles.posterScoreSub}>
+                    Підсумковий рахунок: {winnerTeam.totalScore} балів
+                  </Text>
                 ) : null}
               </View>
 
               {/* Stats Grid */}
               <View style={styles.posterStatsRow}>
                 <View style={styles.posterStatBox}>
-                  <Text style={styles.posterStatNumber}>{totalGuessedWords}</Text>
-                  <Text style={styles.posterStatCaption}>
-                    Відгадано за вечір
+                  <Text style={styles.posterStatNumber}>
+                    {totalGuessedWords}
                   </Text>
+                  <Text style={styles.posterStatCaption}>Відгадано слів</Text>
                 </View>
                 <View style={styles.posterStatBox}>
                   <Text style={styles.posterStatNumber}>{steps.length}</Text>
-                  <Text style={styles.posterStatCaption}>
-                    Зіграно раундів-ігор
-                  </Text>
+                  <Text style={styles.posterStatCaption}>Зіграно режимів</Text>
                 </View>
               </View>
 
               {/* Word that broke the party */}
               <View style={styles.brokenWordCard}>
-                <View style={styles.brokenWordHeader}>
-                  <Skull size={15} color={COLORS.spy} />
-                  <Text style={styles.brokenWordLabel}>
-                    СЛОВО, ЯКЕ ЗЛАМАЛО ВЕЧІРКУ:
-                  </Text>
-                </View>
+                <Text style={styles.brokenWordLabel}>
+                  СЛОВО, ЯКЕ ЗЛАМАЛО ВЕЧІРКУ
+                </Text>
                 <Text style={styles.brokenWordValue}>
-                  «{hardestUnansweredWord ?? 'Усе розгадали без промахів! 🔥'}»
+                  «{hardestUnansweredWord ?? 'Усе розгадали без промахів'}»
                 </Text>
               </View>
-
-              <Text style={styles.posterWatermark}>
-                Зроби скріншот та тегай друзів у Stories 📸
-              </Text>
             </LinearGradient>
 
             <View style={styles.posterActionsRow}>
@@ -322,10 +298,8 @@ export default function ScoreboardScreen() {
                 style={styles.sharePosterBtn}
                 onPress={handleSharePartySummary}
               >
-                <Share2 size={18} color={COLORS.textPrimary} />
-                <Text style={styles.sharePosterBtnText}>
-                  Поділитися підсумками
-                </Text>
+                <Share2 size={17} color={COLORS.textPrimary} />
+                <Text style={styles.sharePosterBtnText}>Поділитися</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -333,7 +307,7 @@ export default function ScoreboardScreen() {
                 style={styles.copyPosterBtn}
                 onPress={handleCopyPartySummary}
               >
-                <Copy size={18} color={COLORS.primary} />
+                <Copy size={17} color={COLORS.textPrimary} />
                 <Text style={styles.copyPosterBtnText}>Скопіювати</Text>
               </TouchableOpacity>
             </View>
@@ -349,8 +323,7 @@ export default function ScoreboardScreen() {
             style={styles.homeButton}
             onPress={handleExitToHome}
           >
-            <Home size={20} color={COLORS.textPrimary} />
-            <Text style={styles.homeButtonText}>Завершити та на головну</Text>
+            <Text style={styles.homeButtonText}>На головну</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -360,10 +333,10 @@ export default function ScoreboardScreen() {
           >
             <Text style={styles.continueButtonText}>
               {nextTeam
-                ? `Наступний хід: ${nextTeam.name}`
-                : 'Продовжити вечірку'}
+                ? `Наступний хід · ${nextTeam.name}`
+                : 'Продовжити гру'}
             </Text>
-            <ArrowRight size={20} color={COLORS.textPrimary} />
+            <ArrowRight size={18} color={COLORS.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -381,89 +354,85 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.lg,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
     gap: SPACING.xl,
   },
   lastTurnBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.crocodile}18`,
-    borderWidth: 1,
-    borderColor: `${COLORS.crocodile}55`,
-    paddingVertical: 10,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.md,
+  },
+  lastTurnOverline: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.2,
   },
   lastTurnText: {
     color: COLORS.textPrimary,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   lastTurnHighlight: {
     color: COLORS.crocodile,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   headerBlock: {
-    alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
-  trophyBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+  overline: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.5,
   },
   title: {
     color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.9,
   },
   subtitle: {
     color: COLORS.textSecondary,
-    fontSize: 15,
-    lineHeight: 21,
-    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
   },
   leaderboardList: {
-    gap: SPACING.sm,
+    gap: 8,
   },
   teamCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    padding: SPACING.lg,
+    borderRadius: RADIUS.md,
+    paddingVertical: 16,
+    paddingHorizontal: SPACING.lg,
+    overflow: 'hidden',
+    position: 'relative',
   },
   teamCardLeader: {
-    borderColor: `${COLORS.hot}88`,
-    backgroundColor: `${COLORS.hot}12`,
-  },
-  rankCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: RADIUS.full,
     backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+  },
+  leaderAccentStrip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
   rankText: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    fontWeight: '800',
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 24,
+    fontVariant: ['tabular-nums'],
   },
   teamInfo: {
     flex: 1,
@@ -471,11 +440,12 @@ const styles = StyleSheet.create({
   teamName: {
     color: COLORS.textPrimary,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '600',
   },
-  teamSubScore: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
+  leaderSubLabel: {
+    color: COLORS.hot,
+    fontSize: 11,
+    fontWeight: '600',
     marginTop: 2,
   },
   scoreBox: {
@@ -484,160 +454,143 @@ const styles = StyleSheet.create({
   scoreValue: {
     color: COLORS.textPrimary,
     fontSize: 26,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-  },
-  scoreLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
     fontWeight: '700',
+    letterSpacing: -0.6,
+    fontVariant: ['tabular-nums'],
   },
 
   // Poster Styles
   posterSection: {
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
-  posterHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  posterSectionTitle: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
+  posterSectionOverline: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.4,
   },
   posterCard: {
     borderRadius: RADIUS.xl,
-    borderWidth: 2,
-    borderColor: `${COLORS.primary}88`,
     padding: SPACING.xl,
-    gap: SPACING.lg,
+    gap: SPACING.xl,
   },
   posterBrandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  posterLogoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.5)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: RADIUS.full,
-  },
-  posterLogoText: {
+  posterBrandName: {
     color: COLORS.textPrimary,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 2.2,
   },
   posterPresetTag: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   posterMainBlock: {
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
   posterWinnerLabel: {
     color: COLORS.hot,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 6,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.4,
+    marginBottom: 8,
   },
   posterWinnerName: {
     color: COLORS.textPrimary,
-    fontSize: 30,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.9,
+    lineHeight: 38,
   },
-  posterScorePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: `${COLORS.hot}22`,
-    borderWidth: 1,
-    borderColor: `${COLORS.hot}66`,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-  },
-  posterScorePillText: {
-    color: COLORS.hot,
-    fontSize: 13,
-    fontWeight: '800',
+  posterScoreSub: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 6,
   },
   posterStatsRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
+    gap: 10,
   },
   posterStatBox: {
     flex: 1,
-    backgroundColor: 'rgba(22, 20, 33, 0.75)',
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.md,
   },
   posterStatNumber: {
     color: COLORS.textPrimary,
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
   },
   posterStatCaption: {
     color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
     marginTop: 2,
   },
   brokenWordCard: {
-    backgroundColor: `${COLORS.spy}18`,
-    borderWidth: 1,
-    borderColor: `${COLORS.spy}66`,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    alignItems: 'center',
-    gap: 4,
-  },
-  brokenWordHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
     gap: 6,
   },
   brokenWordLabel: {
     color: COLORS.spy,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.2,
   },
   brokenWordValue: {
     color: COLORS.textPrimary,
     fontSize: 18,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  posterWatermark: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
     fontWeight: '600',
-    textAlign: 'center',
   },
-
+  posterActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  sharePosterBtn: {
+    flex: 1.3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surfaceElevated,
+    height: 48,
+    borderRadius: RADIUS.md,
+  },
+  sharePosterBtnText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  copyPosterBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: COLORS.surface,
+    height: 48,
+    borderRadius: RADIUS.md,
+  },
+  copyPosterBtnText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   footer: {
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     backgroundColor: COLORS.background,
   },
   continueButton: {
@@ -646,63 +599,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: RADIUS.lg,
+    height: 56,
+    borderRadius: RADIUS.md,
   },
   continueButtonText: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
   },
   homeButton: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
     backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: RADIUS.lg,
+    height: 56,
+    borderRadius: RADIUS.md,
   },
   homeButtonText: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  posterActionsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginTop: SPACING.xs,
-  },
-  sharePosterBtn: {
-    flex: 1.4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.crocodile,
-    paddingVertical: 14,
-    borderRadius: RADIUS.lg,
-  },
-  sharePosterBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  copyPosterBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingVertical: 14,
-    borderRadius: RADIUS.lg,
-  },
-  copyPosterBtnText: {
-    color: COLORS.primary,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

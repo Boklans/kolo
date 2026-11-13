@@ -17,18 +17,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import {
-  AlertCircle,
-  ArrowDown,
-  ArrowUp,
-  Check,
-  CheckCircle2,
-  Play,
-  ShieldAlert,
-  Sparkles,
-  Users,
-  X,
-} from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -45,7 +33,7 @@ interface RoundWordRecord {
   points: -1 | 0 | 1;
 }
 
-const SWIPE_THRESHOLD = 85;
+const SWIPE_THRESHOLD = 75;
 
 export default function AliasGameScreen() {
   const router = useRouter();
@@ -96,9 +84,19 @@ export default function AliasGameScreen() {
   const [roundHistory, setRoundHistory] = useState<RoundWordRecord[]>([]);
   const roundWordIdsRef = useRef<string[]>([]);
 
-  // Анімаційні значення для свайпу картки
   const translateY = useSharedValue(0);
   const cardScale = useSharedValue(1);
+  const cardOpacity = useSharedValue(1);
+
+  const animateCardEntrance = useCallback(() => {
+    translateY.value = 14;
+    cardScale.value = 0.96;
+    cardOpacity.value = 0;
+
+    translateY.value = withTiming(0, { duration: 160 });
+    cardScale.value = withTiming(1, { duration: 160 });
+    cardOpacity.value = withTiming(1, { duration: 150 });
+  }, [translateY, cardScale, cardOpacity]);
 
   const pullNextCard = useCallback(() => {
     const next = drawNextItem(
@@ -110,8 +108,9 @@ export default function AliasGameScreen() {
     if (next) {
       roundWordIdsRef.current = [...roundWordIdsRef.current, next.id];
       setCurrentCard(next);
+      animateCardEntrance();
     }
-  }, [deck, drawNextItem]);
+  }, [deck, drawNextItem, animateCardEntrance]);
 
   const handleStartRound = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -145,11 +144,11 @@ export default function AliasGameScreen() {
       };
 
       setRoundHistory((prev) => [...prev, record]);
-      translateY.value = 0;
-      cardScale.value = 1;
 
-      // Якщо це була остання картка в OVERTIME -> переходимо у REVIEW
       if (phase === 'OVERTIME') {
+        translateY.value = 0;
+        cardScale.value = 1;
+        cardOpacity.value = 1;
         setPhase('REVIEW');
         return;
       }
@@ -163,6 +162,7 @@ export default function AliasGameScreen() {
       pullNextCard,
       translateY,
       cardScale,
+      cardOpacity,
     ]
   );
 
@@ -172,41 +172,35 @@ export default function AliasGameScreen() {
         .enabled(phase === 'PLAYING' || phase === 'OVERTIME')
         .onUpdate((event) => {
           translateY.value = event.translationY;
-          const progress = Math.min(1, Math.abs(event.translationY) / 200);
-          cardScale.value = 1 - progress * 0.04;
+          const progress = Math.min(1, Math.abs(event.translationY) / 220);
+          cardScale.value = 1 - progress * 0.035;
         })
         .onEnd((event) => {
           if (event.translationY < -SWIPE_THRESHOLD) {
-            // Свайп вгору -> Вгадали (+1)
-            translateY.value = withTiming(-320, { duration: 140 }, () => {
+            cardOpacity.value = withTiming(0, { duration: 110 });
+            translateY.value = withTiming(-240, { duration: 120 }, () => {
               runOnJS(handleCardDecision)(true);
             });
           } else if (event.translationY > SWIPE_THRESHOLD) {
-            // Свайп вниз -> Пропуск
-            translateY.value = withTiming(320, { duration: 140 }, () => {
+            cardOpacity.value = withTiming(0, { duration: 110 });
+            translateY.value = withTiming(240, { duration: 120 }, () => {
               runOnJS(handleCardDecision)(false);
             });
           } else {
-            translateY.value = withSpring(0, { damping: 16, stiffness: 180 });
+            translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
             cardScale.value = withSpring(1);
           }
         }),
-    [phase, handleCardDecision, translateY, cardScale]
+    [phase, handleCardDecision, translateY, cardScale, cardOpacity]
   );
 
   const animatedCardStyle = useAnimatedStyle(() => {
-    const borderCol =
-      translateY.value < -35
-        ? COLORS.crocodile
-        : translateY.value > 35
-          ? COLORS.spy
-          : phase === 'OVERTIME'
-            ? COLORS.spy
-            : `${COLORS.alias}88`;
-
     return {
-      transform: [{ translateY: translateY.value }, { scale: cardScale.value }],
-      borderColor: borderCol,
+      opacity: cardOpacity.value,
+      transform: [
+        { translateY: translateY.value },
+        { scale: cardScale.value },
+      ],
     };
   });
 
@@ -240,89 +234,66 @@ export default function AliasGameScreen() {
     router.replace('/session/scoreboard');
   };
 
+  const stepNumStr = String(currentStepIndex + 1).padStart(2, '0');
+  const totalStepsStr = String(Math.max(1, steps.length)).padStart(2, '0');
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <SessionTopBar
-        stepBadgeText={`ЕЛІАС • КРОК ${currentStepIndex + 1}/${Math.max(1, steps.length)}`}
+        stepBadgeText={`ЕЛІАС · ${stepNumStr} / ${totalStepsStr}`}
+        rightMetaText={`${currentStep.roundTimeSec} СЕК`}
         accentColor={COLORS.alias}
         onPauseChange={setIsPaused}
       />
 
       {/* PHASE 1: READY */}
       {phase === 'READY' ? (
-        <View style={styles.readyContainer}>
-          <View style={styles.teamBadgeLarge}>
-            <Users size={22} color={COLORS.alias} />
-            <Text style={styles.teamBadgeLabel}>ГОТУЄТЬСЯ КОМАНДА</Text>
+        <View style={styles.readyBody}>
+          <View style={styles.readyHeader}>
+            <Text style={styles.teamOverline}>
+              Раунд {currentRoundInStep} з {currentStep.roundsPerTeam}
+            </Text>
+            <Text style={styles.teamNameHero}>{currentTeam.name}</Text>
           </View>
 
-          <Text style={styles.teamNameHero}>{currentTeam.name}</Text>
-          <Text style={styles.roundSubtitle}>
-            Раунд {currentRoundInStep} з {currentStep.roundsPerTeam} • Колода:{' '}
-            {deck.emoji} {deck.title}
-          </Text>
-
-          <View style={styles.rulesCard}>
-            <View style={styles.ruleRow}>
-              <Sparkles size={18} color={COLORS.alias} />
-              <Text style={styles.ruleText}>
-                Пояснюй слова на швидкість без однокореневих підказок та перекладів.
-              </Text>
-            </View>
-            <View style={styles.ruleRow}>
-              <ArrowUp size={18} color={COLORS.crocodile} />
-              <Text style={styles.ruleText}>
-                Свайп вгору або зелена кнопка —{' '}
-                <Text style={{ color: COLORS.crocodile, fontWeight: '800' }}>
-                  Вгадали (+1)
-                </Text>
-              </Text>
-            </View>
-            <View style={styles.ruleRow}>
-              <ArrowDown size={18} color={COLORS.spy} />
-              <Text style={styles.ruleText}>
-                Свайп вниз або пропуск —{' '}
-                <Text style={{ color: COLORS.spy, fontWeight: '800' }}>
-                  {currentStep.penaltyForSkip
-                    ? 'Штраф (-1 бал)'
-                    : 'Без штрафу (0 балів)'}
-                </Text>
-              </Text>
-            </View>
+          <View style={styles.handoffBlock}>
+            <Text style={styles.handoffIndex}>01</Text>
+            <Text style={styles.handoffTitle}>Пояснюй слова команді</Text>
+            <Text style={styles.handoffSub}>
+              Не використовуй однокореневі слова та переклади.{' '}
+              {currentStep.penaltyForSkip
+                ? 'Пропуск забирає 1 бал.'
+                : 'Пропуск без штрафу.'}
+            </Text>
+            <Text style={styles.deckLabel}>Колода: {deck.title}</Text>
           </View>
 
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.startRoundBtn}
+            style={styles.startBtn}
             onPress={handleStartRound}
           >
-            <Play size={22} color={COLORS.textPrimary} fill={COLORS.textPrimary} />
-            <Text style={styles.startRoundBtnText}>
-              Почати раунд ({currentStep.roundTimeSec} сек)
-            </Text>
+            <Text style={styles.startBtnText}>Почати раунд</Text>
           </TouchableOpacity>
         </View>
       ) : null}
 
       {/* PHASE 2 & 3: PLAYING & OVERTIME */}
       {phase === 'PLAYING' || phase === 'OVERTIME' ? (
-        <View style={styles.playingContainer}>
-          {/* Top Status / Timer */}
-          <View style={styles.timerHeader}>
-            <View style={styles.liveScoreRow}>
-              <Text style={styles.liveTeamName}>{currentTeam.name}</Text>
-              <View style={styles.liveScoreBadge}>
-                <Text style={styles.liveScoreText}>
-                  Бали за раунд: {totalRoundPoints >= 0 ? `+${totalRoundPoints}` : totalRoundPoints}
-                </Text>
-              </View>
+        <View style={styles.playingBody}>
+          {/* Top Compact Info & Timer */}
+          <View style={styles.topHud}>
+            <View style={styles.hudMetaRow}>
+              <Text style={styles.hudTeamName}>{currentTeam.name}</Text>
+              <Text style={styles.hudScore}>
+                {totalRoundPoints > 0 ? `+${totalRoundPoints}` : totalRoundPoints}
+              </Text>
             </View>
 
             {phase === 'OVERTIME' ? (
-              <View style={styles.overtimeBanner}>
-                <AlertCircle size={18} color={COLORS.spy} />
-                <Text style={styles.overtimeBannerText}>
-                  ЧАС ВИЙШОВ! Дограйте останню картку
+              <View style={styles.overtimeStrip}>
+                <Text style={styles.overtimeStripText}>
+                  Час вийшов — дограйте останнє слово
                 </Text>
               </View>
             ) : (
@@ -331,69 +302,58 @@ export default function AliasGameScreen() {
                 isRunning={phase === 'PLAYING' && !isPaused}
                 onExpire={handleTimerExpire}
                 accentColor={COLORS.alias}
+                size="compact"
               />
             )}
           </View>
 
-          {/* Swipe Hints & Word Card */}
-          <View style={styles.arenaCenter}>
-            <View style={styles.swipeHintTop}>
-              <ArrowUp size={15} color={COLORS.crocodile} />
-              <Text style={[styles.swipeHintText, { color: COLORS.crocodile }]}>
-                СВАЙП ВГОРУ — ВГАДАЛИ (+1)
-              </Text>
-            </View>
-
+          {/* Dominant Word Card */}
+          <View style={styles.cardStage}>
             <GestureDetector gesture={panGesture}>
-              <Animated.View style={[styles.wordCard, animatedCardStyle]}>
-                {phase === 'OVERTIME' ? (
-                  <View style={styles.overtimeTag}>
-                    <Text style={styles.overtimeTagText}>ОСТАННЄ СЛОВО</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.cardCounterText}>
-                    Картка #{roundHistory.length + 1}
+              <Animated.View
+                style={[
+                  styles.wordSurface,
+                  phase === 'OVERTIME' && styles.wordSurfaceOvertime,
+                  animatedCardStyle,
+                ]}
+              >
+                <Text style={styles.cardIndexCounter}>
+                  {String(roundHistory.length + 1).padStart(2, '0')}
+                </Text>
+
+                <Text style={styles.dominantWord}>
+                  {currentCard?.word ?? 'Готово'}
+                </Text>
+
+                {roundHistory.length === 0 ? (
+                  <Text style={styles.subtleSwipeHint}>
+                    ↑ Свайп вгору — вгадали   ·   ↓ Вниз — пропуск
                   </Text>
+                ) : (
+                  <View style={styles.hintSpacer} />
                 )}
-
-                <Text style={styles.wordText}>
-                  {currentCard?.word ?? 'Готово!'}
-                </Text>
-
-                <Text style={styles.deckSubTag}>
-                  {deck.emoji} {deck.title}
-                </Text>
               </Animated.View>
             </GestureDetector>
-
-            <View style={styles.swipeHintBottom}>
-              <ArrowDown size={15} color={COLORS.textSecondary} />
-              <Text style={styles.swipeHintText}>
-                СВАЙП ВНИЗ — ПРОПУСК ({currentStep.penaltyForSkip ? '-1' : '0'})
-              </Text>
-            </View>
           </View>
 
-          {/* Bottom Duplicate One-Handed Buttons */}
+          {/* Bottom Controls */}
           <View style={styles.controlsRow}>
             <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.skipButton}
+              activeOpacity={0.8}
+              style={styles.skipBtn}
               onPress={() => handleCardDecision(false)}
             >
-              <X size={22} color={COLORS.spy} />
-              <Text style={styles.skipButtonText}>
-                Пропуск ({currentStep.penaltyForSkip ? '-1' : '0'})
+              <Text style={styles.skipBtnText}>
+                Пропуск{currentStep.penaltyForSkip ? '  -1' : ''}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.85}
-              style={styles.guessedButton}
+              style={styles.guessedBtn}
               onPress={() => handleCardDecision(true)}
             >
-              <Check size={22} color={COLORS.textPrimary} />
-              <Text style={styles.guessedButtonText}>Вгадали (+1)</Text>
+              <Text style={styles.guessedBtnText}>Вгадали  +1</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -401,26 +361,24 @@ export default function AliasGameScreen() {
 
       {/* PHASE 4: REVIEW */}
       {phase === 'REVIEW' ? (
-        <View style={styles.reviewContainer}>
+        <View style={styles.reviewBody}>
           <View style={styles.reviewHeader}>
-            <Text style={styles.reviewTitle}>Підсумки раунду</Text>
-            <Text style={styles.reviewSubtitle}>
-              Перевірте слова команди «{currentTeam.name}». Якщо був випадковий свайп — змініть бал:
-            </Text>
+            <Text style={styles.reviewOverline}>{currentTeam.name}</Text>
+            <Text style={styles.reviewTitle}>Перевірка слів</Text>
           </View>
 
           <ScrollView
-            style={styles.reviewList}
+            style={styles.reviewScroll}
             contentContainerStyle={styles.reviewListContent}
             showsVerticalScrollIndicator={false}
           >
             {roundHistory.map((item) => (
-              <View key={item.id} style={styles.reviewItemRow}>
-                <Text style={styles.reviewWordText} numberOfLines={2}>
+              <View key={item.id} style={styles.reviewRow}>
+                <Text style={styles.reviewWord} numberOfLines={2}>
                   {item.word}
                 </Text>
 
-                <View style={styles.segmentedControl}>
+                <View style={styles.segmentGroup}>
                   {([-1, 0, 1] as const).map((pts) => {
                     const active = item.points === pts;
                     const activeBg =
@@ -436,17 +394,20 @@ export default function AliasGameScreen() {
                         activeOpacity={0.8}
                         onPress={() => handleToggleReviewPoints(item.id, pts)}
                         style={[
-                          styles.segmentBtn,
-                          active && {
-                            backgroundColor: activeBg,
-                            borderColor: activeBg,
-                          },
+                          styles.segmentOption,
+                          active && { backgroundColor: activeBg },
                         ]}
                       >
                         <Text
                           style={[
-                            styles.segmentBtnText,
-                            active && { color: COLORS.textPrimary },
+                            styles.segmentOptionText,
+                            active && {
+                              color:
+                                pts === 1
+                                  ? COLORS.background
+                                  : COLORS.textPrimary,
+                              fontWeight: '700',
+                            },
                           ]}
                         >
                           {pts === 1 ? '+1' : pts === -1 ? '-1' : '0'}
@@ -460,34 +421,19 @@ export default function AliasGameScreen() {
           </ScrollView>
 
           <View style={styles.reviewFooter}>
-            <View style={styles.reviewSummaryRow}>
-              <Text style={styles.reviewTotalLabel}>Сума за цей раунд:</Text>
-              <Text
-                style={[
-                  styles.reviewTotalValue,
-                  {
-                    color:
-                      totalRoundPoints > 0
-                        ? COLORS.crocodile
-                        : totalRoundPoints < 0
-                          ? COLORS.spy
-                          : COLORS.textPrimary,
-                  },
-                ]}
-              >
-                {totalRoundPoints > 0 ? `+${totalRoundPoints}` : totalRoundPoints} балів
+            <View style={styles.reviewTotalRow}>
+              <Text style={styles.reviewTotalLabel}>Підсумок раунду</Text>
+              <Text style={styles.reviewTotalValue}>
+                {totalRoundPoints > 0 ? `+${totalRoundPoints}` : totalRoundPoints}
               </Text>
             </View>
 
             <TouchableOpacity
               activeOpacity={0.85}
-              style={styles.confirmReviewBtn}
+              style={styles.startBtn}
               onPress={handleConfirmReview}
             >
-              <CheckCircle2 size={20} color={COLORS.textPrimary} />
-              <Text style={styles.confirmReviewBtnText}>
-                Підтвердити та передати хід
-              </Text>
+              <Text style={styles.startBtnText}>Продовжити</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -501,307 +447,257 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  readyContainer: {
+
+  // READY
+  readyBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    justifyContent: 'space-between',
   },
-  teamBadgeLarge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.alias}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.alias}66`,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.md,
+  readyHeader: {
+    gap: 4,
   },
-  teamBadgeLabel: {
+  teamOverline: {
     color: COLORS.alias,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 14,
+    fontWeight: '600',
   },
   teamNameHero: {
     color: COLORS.textPrimary,
-    fontSize: 34,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.8,
   },
-  roundSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: SPACING.xxl,
-    textAlign: 'center',
-  },
-  rulesCard: {
-    width: '100%',
+  handoffBlock: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.xl,
-    gap: SPACING.md,
-    marginBottom: SPACING.xxxl,
+    padding: SPACING.xxl,
+    gap: SPACING.sm,
   },
-  ruleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
+  handoffIndex: {
+    color: COLORS.alias,
+    fontSize: 40,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
+    marginBottom: 4,
   },
-  ruleText: {
-    flex: 1,
+  handoffTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  handoffSub: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    fontWeight: '400',
+    lineHeight: 22,
   },
-  startRoundBtn: {
+  deckLabel: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: SPACING.xs,
+  },
+  startBtn: {
     width: '100%',
-    flexDirection: 'row',
+    backgroundColor: COLORS.alias,
+    paddingVertical: 17,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.alias,
-    paddingVertical: 18,
-    borderRadius: RADIUS.lg,
   },
-  startRoundBtnText: {
+  startBtnText: {
     color: COLORS.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 17,
+    fontWeight: '700',
   },
 
-  // Playing & Overtime
-  playingContainer: {
+  // PLAYING & OVERTIME
+  playingBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
   },
-  timerHeader: {
-    gap: SPACING.sm,
+  topHud: {
+    gap: SPACING.xs,
   },
-  liveScoreRow: {
+  hudMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  liveTeamName: {
+  hudTeamName: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  hudScore: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
-  liveScoreBadge: {
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: RADIUS.full,
-  },
-  liveScoreText: {
-    color: COLORS.alias,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  overtimeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.spy}25`,
-    borderWidth: 1.5,
-    borderColor: COLORS.spy,
-    paddingVertical: 12,
+  overtimeStrip: {
+    backgroundColor: `${COLORS.spy}20`,
+    paddingVertical: 10,
     paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.md,
+    marginTop: 4,
   },
-  overtimeBannerText: {
+  overtimeStripText: {
     color: COLORS.spy,
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
-  arenaCenter: {
+  cardStage: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: SPACING.md,
-    marginVertical: SPACING.md,
+    marginVertical: SPACING.lg,
   },
-  swipeHintTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  swipeHintBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  swipeHintText: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  wordCard: {
-    width: '100%',
-    minHeight: 250,
+  wordSurface: {
+    flex: 1,
+    maxHeight: 380,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 2.5,
     padding: SPACING.xxl,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  overtimeTag: {
-    backgroundColor: `${COLORS.spy}28`,
-    borderWidth: 1,
+  wordSurfaceOvertime: {
+    borderWidth: 1.5,
     borderColor: COLORS.spy,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
   },
-  overtimeTagText: {
-    color: COLORS.spy,
-    fontSize: 11,
-    fontWeight: '900',
+  cardIndexCounter: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
     letterSpacing: 1,
   },
-  cardCounterText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  wordText: {
+  dominantWord: {
     color: COLORS.textPrimary,
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -0.9,
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 44,
   },
-  deckSubTag: {
-    color: COLORS.textSecondary,
+  subtleSwipeHint: {
+    color: COLORS.textMuted,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  hintSpacer: {
+    height: 16,
   },
   controlsRow: {
     flexDirection: 'row',
     gap: SPACING.md,
   },
-  skipButton: {
+  skipBtn: {
     flex: 1,
-    flexDirection: 'row',
+    height: 56,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: `${COLORS.spy}66`,
-    paddingVertical: 18,
-    borderRadius: RADIUS.lg,
   },
-  skipButtonText: {
-    color: COLORS.spy,
+  skipBtnText: {
+    color: COLORS.textSecondary,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '600',
   },
-  guessedButton: {
-    flex: 1.25,
-    flexDirection: 'row',
+  guessedBtn: {
+    flex: 1.35,
+    height: 56,
+    backgroundColor: COLORS.alias,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.crocodile,
-    paddingVertical: 18,
-    borderRadius: RADIUS.lg,
   },
-  guessedButtonText: {
+  guessedBtnText: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '700',
   },
 
-  // Review Phase
-  reviewContainer: {
+  // REVIEW
+  reviewBody: {
     flex: 1,
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.xs,
   },
   reviewHeader: {
     paddingHorizontal: SPACING.xl,
     marginBottom: SPACING.md,
+    gap: 2,
+  },
+  reviewOverline: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
   },
   reviewTitle: {
     color: COLORS.textPrimary,
     fontSize: 26,
-    fontWeight: '900',
-    marginBottom: 4,
+    fontWeight: '700',
+    letterSpacing: -0.6,
   },
-  reviewSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  reviewList: {
+  reviewScroll: {
     flex: 1,
   },
   reviewListContent: {
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.xl,
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
-  reviewItemRow: {
+  reviewRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
   },
-  reviewWordText: {
+  reviewWord: {
     flex: 1,
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '500',
   },
-  segmentedControl: {
+  segmentGroup: {
     flexDirection: 'row',
     gap: 6,
   },
-  segmentBtn: {
-    minWidth: 42,
-    paddingVertical: 8,
+  segmentOption: {
+    minWidth: 40,
+    paddingVertical: 7,
     paddingHorizontal: 10,
     borderRadius: RADIUS.sm,
     backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segmentBtnText: {
-    color: COLORS.textSecondary,
+  segmentOptionText: {
+    color: COLORS.textMuted,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   reviewFooter: {
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
     backgroundColor: COLORS.background,
     gap: SPACING.md,
   },
-  reviewSummaryRow: {
+  reviewTotalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -809,24 +705,12 @@ const styles = StyleSheet.create({
   reviewTotalLabel: {
     color: COLORS.textSecondary,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   reviewTotalValue: {
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  confirmReviewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.alias,
-    paddingVertical: 16,
-    borderRadius: RADIUS.lg,
-  },
-  confirmReviewBtnText: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
 });

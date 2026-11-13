@@ -9,16 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import {
-  ArrowRight,
-  Eye,
-  EyeOff,
-  Lock,
-  MapPin,
-  Search,
-  Sparkles,
-  Users,
-} from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { HoldToRevealCard } from '@/components/game/HoldToRevealCard';
@@ -56,7 +46,6 @@ export default function SpyGameScreen() {
     } as SpyStep;
   }, [steps, currentStepIndex]);
 
-  // Якщо в обраній колоді немає локацій — беремо з base_ua
   const activeDeck = useMemo(() => {
     const requested = getDeckById(currentStep.deckId);
     if (requested && requested.items.spyLocations.length > 0) {
@@ -73,7 +62,6 @@ export default function SpyGameScreen() {
   const [hasSeenRole, setHasSeenRole] = useState<boolean>(false);
   const [isTruthRevealed, setIsTruthRevealed] = useState<boolean>(false);
 
-  // Ініціалізація партії при монтуванні
   useEffect(() => {
     const chosenLocation =
       drawNextItem(
@@ -84,7 +72,6 @@ export default function SpyGameScreen() {
 
     setSecretLocation(chosenLocation ?? null);
 
-    // Обираємо індекси шпигунів
     const safePlayerCount = Math.max(3, playerCount);
     const actualSpyCount = Math.max(
       1,
@@ -150,29 +137,33 @@ export default function SpyGameScreen() {
     }
   };
 
+  const stepNumStr = String(currentStepIndex + 1).padStart(2, '0');
+  const totalStepsStr = String(Math.max(1, steps.length)).padStart(2, '0');
+  const playerNumStr = String(currentPlayerIndex + 1).padStart(2, '0');
+  const totalPlayersStr = String(playerCount).padStart(2, '0');
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <SessionTopBar
-        stepBadgeText={`ШПИГУН • КРОК ${currentStepIndex + 1}/${Math.max(1, steps.length)}`}
+        stepBadgeText={`ШПИГУН · ${stepNumStr} / ${totalStepsStr}`}
+        rightMetaText={
+          phase === 'ROLE_DISTRIBUTION'
+            ? `${playerNumStr} / ${totalPlayersStr}`
+            : `${currentStep.discussionTimeSec / 60} ХВ`
+        }
         accentColor={COLORS.spy}
         onPauseChange={setIsPaused}
       />
 
       {/* PHASE 1: ROLE_DISTRIBUTION */}
       {phase === 'ROLE_DISTRIBUTION' ? (
-        <View style={styles.distributionContainer}>
-          <View style={styles.passHeader}>
-            <View style={styles.playerProgressPill}>
-              <Users size={15} color={COLORS.spy} />
-              <Text style={styles.playerProgressText}>
-                РОЗДАЧА РОЛЕЙ • ГРАВЕЦЬ {currentPlayerIndex + 1} З {playerCount}
-              </Text>
-            </View>
-            <Text style={styles.passTitle}>
-              Гравець №{currentPlayerIndex + 1}, візьми телефон
+        <View style={styles.distributionBody}>
+          <View style={styles.handoffHeader}>
+            <Text style={styles.playerOverline}>
+              ГРАВЕЦЬ {playerNumStr} З {totalPlayersStr}
             </Text>
-            <Text style={styles.passSubtitle}>
-              Переконайся, що ніхто інший не заглядає в екран
+            <Text style={styles.passHeadline}>
+              Гравець №{currentPlayerIndex + 1}
             </Text>
           </View>
 
@@ -185,151 +176,148 @@ export default function SpyGameScreen() {
             onRevealedEnough={() => setHasSeenRole(true)}
           />
 
-          <View style={styles.distributionFooter}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={!hasSeenRole}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={!hasSeenRole}
+            style={[
+              styles.primaryBtn,
+              !hasSeenRole && styles.primaryBtnDisabled,
+            ]}
+            onPress={handleNextPlayerOrStartDiscussion}
+          >
+            <Text
               style={[
-                styles.nextPlayerBtn,
-                !hasSeenRole && styles.nextPlayerBtnDisabled,
+                styles.primaryBtnText,
+                !hasSeenRole && styles.primaryBtnTextDisabled,
               ]}
-              onPress={handleNextPlayerOrStartDiscussion}
             >
-              {hasSeenRole ? (
-                <>
-                  <Text style={styles.nextPlayerBtnText}>
-                    {isLastPlayer
-                      ? 'Почати обговорення!'
-                      : `Я запам'ятав — передати Гравцю №${currentPlayerIndex + 2}`}
-                  </Text>
-                  <ArrowRight size={20} color={COLORS.textPrimary} />
-                </>
-              ) : (
-                <>
-                  <Lock size={18} color={COLORS.textSecondary} />
-                  <Text style={styles.nextPlayerBtnTextDisabled}>
-                    Затисни картку на 1 сек, щоб побачити роль
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+              {hasSeenRole
+                ? isLastPlayer
+                  ? 'Почати обговорення'
+                  : `Передати Гравцю №${currentPlayerIndex + 2}`
+                : 'Утримуй картку для перегляду'}
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
       {/* PHASE 2: DISCUSSION */}
       {phase === 'DISCUSSION' ? (
-        <View style={styles.discussionContainer}>
+        <View style={styles.discussionBody}>
           <View style={styles.discussionTop}>
-            <Text style={styles.discussionTitle}>Покладіть телефон на стіл</Text>
-            <Text style={styles.discussionSubtitle}>
-              Ставте одне одному запитання по колу. Шпигун серед вас ({spyIndices.length}{' '}
-              {spyIndices.length === 1 ? 'шпигун' : 'шпигуни'})!
-            </Text>
+            <View style={styles.discussionMetaRow}>
+              <Text style={styles.discussionLabel}>Обговорення</Text>
+              <Text style={styles.discussionSpyCount}>
+                Шпигунів: {spyIndices.length}
+              </Text>
+            </View>
 
             <AbsoluteTimer
               durationSec={currentStep.discussionTimeSec}
               isRunning={phase === 'DISCUSSION' && !isPaused}
               onExpire={handleGoToResolution}
               accentColor={COLORS.spy}
+              size="compact"
             />
           </View>
 
-          <View style={styles.locationsGridSection}>
-            <View style={styles.locationsGridHeader}>
-              <MapPin size={15} color={COLORS.primary} />
-              <Text style={styles.locationsGridTitle}>
-                Усі можливі локації колоди «{activeDeck.title}» ({activeDeck.items.spyLocations.length}):
-              </Text>
-            </View>
+          <View style={styles.locationsSection}>
+            <Text style={styles.locationsHeaderLabel}>
+              Можливі локації ({activeDeck.items.spyLocations.length})
+            </Text>
 
             <ScrollView
               style={styles.locationsScroll}
-              contentContainerStyle={styles.locationsChipsWrap}
+              contentContainerStyle={styles.locationsGrid}
               showsVerticalScrollIndicator={false}
             >
               {activeDeck.items.spyLocations.map((loc) => (
-                <View key={loc.id} style={styles.locationChip}>
-                  <MapPin size={12} color={COLORS.textSecondary} />
-                  <Text style={styles.locationChipText}>{loc.name}</Text>
+                <View key={loc.id} style={styles.locationItem}>
+                  <Text style={styles.locationItemText} numberOfLines={1}>
+                    {loc.name}
+                  </Text>
                 </View>
               ))}
             </ScrollView>
           </View>
 
-          <View style={styles.discussionFooter}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.earlyVoteBtn}
-              onPress={handleGoToResolution}
-            >
-              <Search size={19} color={COLORS.textPrimary} />
-              <Text style={styles.earlyVoteBtnText}>
-                Голосувати достроково / Розкрити карти
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.primaryBtn}
+            onPress={handleGoToResolution}
+          >
+            <Text style={styles.primaryBtnText}>Дострокове голосування</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
 
       {/* PHASE 3: RESOLUTION */}
       {phase === 'RESOLUTION' ? (
-        <View style={styles.resolutionContainer}>
+        <View style={styles.resolutionBody}>
           {!isTruthRevealed ? (
-            <View style={styles.intrigueCard}>
-              <View style={styles.intrigueIconCircle}>
-                <EyeOff size={42} color={COLORS.spy} />
+            <>
+              <View style={styles.resolutionHeader}>
+                <Text style={styles.playerOverline}>ГОЛОСУВАННЯ</Text>
+                <Text style={styles.passHeadline}>Хто Шпигун?</Text>
               </View>
 
-              <Text style={styles.intrigueTag}>МОМЕНТ ІСТИНИ</Text>
-              <Text style={styles.intrigueTitle}>Час на обговорення вийшов!</Text>
-              <Text style={styles.intrigueSubtitle}>
-                На рахунок «ТРИ» кожен гравець одночасно показує пальцем на того, кого вважає Шпигуном!
-              </Text>
+              <View style={styles.resolutionCenterCard}>
+                <Text style={styles.resolutionNumber}>03</Text>
+                <Text style={styles.resolutionPromptTitle}>
+                  Покажіть на підозрюваного
+                </Text>
+                <Text style={styles.resolutionPromptSub}>
+                  На рахунок «три» всі гравці одночасно вказують на того, кого вважають шпигуном.
+                </Text>
+              </View>
 
               <TouchableOpacity
                 activeOpacity={0.85}
-                style={styles.revealTruthBtn}
+                style={styles.primaryBtn}
                 onPress={handleRevealTruth}
               >
-                <Eye size={20} color={COLORS.textPrimary} />
-                <Text style={styles.revealTruthBtnText}>Показати правду</Text>
+                <Text style={styles.primaryBtnText}>Розкрити правду</Text>
               </TouchableOpacity>
-            </View>
+            </>
           ) : (
-            <View style={styles.truthCard}>
-              <View style={styles.truthBadge}>
-                <Sparkles size={15} color={COLORS.hot} />
-                <Text style={styles.truthBadgeText}>СЕКРЕТ РОЗКРИТО</Text>
+            <>
+              <View style={styles.resolutionHeader}>
+                <Text style={styles.playerOverline}>РЕЗУЛЬТАТ ПАРТІЇ</Text>
+                <Text style={styles.passHeadline}>Маски знято</Text>
               </View>
 
-              <Text style={styles.spyRevealLabel}>
-                {spyIndices.length === 1 ? 'ШПИГУНОМ БУВ:' : 'ШПИГУНАМИ БУЛИ:'}
-              </Text>
-              <Text style={styles.spyRevealValue}>
-                {spyIndices.map((idx) => `Гравець №${idx + 1}`).join(' та ')}!
-              </Text>
+              <View style={styles.truthSurface}>
+                <View style={styles.truthBlock}>
+                  <Text style={styles.truthCaption}>
+                    {spyIndices.length === 1 ? 'ШПИГУН' : 'ШПИГУНИ'}
+                  </Text>
+                  <Text style={styles.truthSpyHero}>
+                    {spyIndices.map((idx) => `Гравець №${idx + 1}`).join(', ')}
+                  </Text>
+                </View>
 
-              <View style={styles.trueLocationBox}>
-                <Text style={styles.trueLocationLabel}>СПРАВЖНЯ ЛОКАЦІЯ:</Text>
-                <Text style={styles.trueLocationValue}>
-                  📍 {secretLocation?.name}
-                </Text>
+                <View style={styles.truthDivider} />
+
+                <View style={styles.truthBlock}>
+                  <Text style={styles.truthCaption}>ЗАГАДАНА ЛОКАЦІЯ</Text>
+                  <Text style={styles.truthLocationHero}>
+                    {secretLocation?.name}
+                  </Text>
+                </View>
               </View>
 
               <TouchableOpacity
                 activeOpacity={0.85}
-                style={styles.finishStepBtn}
+                style={styles.primaryBtn}
                 onPress={handleFinishSpyStep}
               >
-                <Text style={styles.finishStepBtnText}>
+                <Text style={styles.primaryBtnText}>
                   {currentStepIndex + 1 < steps.length
-                    ? 'Перейти до наступного раунду'
+                    ? 'Наступний раунд'
                     : 'Завершити партію'}
                 </Text>
-                <ArrowRight size={20} color={COLORS.textPrimary} />
               </TouchableOpacity>
-            </View>
+            </>
           )}
         </View>
       ) : null}
@@ -342,307 +330,174 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  distributionContainer: {
+  distributionBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.md,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.lg,
   },
-  passHeader: {
-    alignItems: 'center',
+  handoffHeader: {
     gap: 4,
   },
-  playerProgressPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: `${COLORS.spy}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.spy}66`,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: RADIUS.full,
-    marginBottom: 4,
-  },
-  playerProgressText: {
+  playerOverline: {
     color: COLORS.spy,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1.2,
   },
-  passTitle: {
+  passHeadline: {
     color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.8,
   },
-  passSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  distributionFooter: {
+  primaryBtn: {
     width: '100%',
-  },
-  nextPlayerBtn: {
-    width: '100%',
-    flexDirection: 'row',
+    backgroundColor: COLORS.spy,
+    paddingVertical: 17,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 17,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.lg,
   },
-  nextPlayerBtnDisabled: {
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  primaryBtnDisabled: {
+    backgroundColor: COLORS.surface,
   },
-  nextPlayerBtnText: {
+  primaryBtnText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: '800',
-  },
-  nextPlayerBtnTextDisabled: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
     fontWeight: '700',
   },
+  primaryBtnTextDisabled: {
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
 
-  // Discussion
-  discussionContainer: {
+  // DISCUSSION
+  discussionBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
-    gap: SPACING.md,
+    gap: SPACING.lg,
   },
   discussionTop: {
-    alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
-  discussionTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  discussionSubtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
-  },
-  locationsGridSection: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  locationsGridHeader: {
+  discussionMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
   },
-  locationsGridTitle: {
-    color: COLORS.textPrimary,
+  discussionLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  discussionSpyCount: {
+    color: COLORS.spy,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
+  },
+  locationsSection: {
     flex: 1,
+    gap: SPACING.sm,
+  },
+  locationsHeaderLabel: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
   locationsScroll: {
     flex: 1,
   },
-  locationsChipsWrap: {
+  locationsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingTop: 4,
+    gap: SPACING.sm,
     paddingBottom: SPACING.md,
   },
-  locationChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
+  locationItem: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
   },
-  locationChipText: {
+  locationItemText: {
     color: COLORS.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  discussionFooter: {
-    width: '100%',
-  },
-  earlyVoteBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.spy,
-    paddingVertical: 17,
-    borderRadius: RADIUS.lg,
-  },
-  earlyVoteBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '500',
   },
 
-  // Resolution
-  resolutionContainer: {
+  // RESOLUTION
+  resolutionBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    justifyContent: 'space-between',
   },
-  intrigueCard: {
-    width: '100%',
+  resolutionHeader: {
+    gap: 4,
+  },
+  resolutionCenterCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 2,
-    borderColor: `${COLORS.spy}88`,
     padding: SPACING.xxl,
-    alignItems: 'center',
+    gap: SPACING.sm,
   },
-  intrigueIconCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: RADIUS.full,
-    backgroundColor: `${COLORS.spy}20`,
-    borderWidth: 1.5,
-    borderColor: COLORS.spy,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.lg,
-  },
-  intrigueTag: {
+  resolutionNumber: {
     color: COLORS.spy,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 6,
+    fontSize: 40,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
+    marginBottom: 4,
   },
-  intrigueTitle: {
+  resolutionPromptTitle: {
     color: COLORS.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
-  intrigueSubtitle: {
+  resolutionPromptSub: {
     color: COLORS.textSecondary,
     fontSize: 15,
+    fontWeight: '400',
     lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: SPACING.xxl,
   },
-  revealTruthBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.spy,
-    paddingVertical: 17,
-    borderRadius: RADIUS.lg,
-  },
-  revealTruthBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  truthCard: {
-    width: '100%',
+  truthSurface: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 2,
-    borderColor: `${COLORS.primary}88`,
     padding: SPACING.xxl,
-    alignItems: 'center',
+    gap: SPACING.xl,
   },
-  truthBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  truthBlock: {
     gap: 6,
-    backgroundColor: `${COLORS.hot}22`,
-    borderWidth: 1,
-    borderColor: `${COLORS.hot}66`,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.lg,
   },
-  truthBadgeText: {
-    color: COLORS.hot,
+  truthCaption: {
+    color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontWeight: '600',
+    letterSpacing: 1.2,
   },
-  spyRevealLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  spyRevealValue: {
+  truthSpyHero: {
     color: COLORS.spy,
-    fontSize: 32,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: SPACING.xl,
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.7,
   },
-  trueLocationBox: {
-    width: '100%',
-    backgroundColor: COLORS.surfaceElevated,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    borderColor: `${COLORS.crocodile}66`,
-    padding: SPACING.lg,
-    alignItems: 'center',
-    marginBottom: SPACING.xxl,
+  truthDivider: {
+    height: 1,
+    backgroundColor: '#262532',
   },
-  trueLocationLabel: {
-    color: COLORS.crocodile,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  trueLocationValue: {
+  truthLocationHero: {
     color: COLORS.textPrimary,
-    fontSize: 22,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  finishStepBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 17,
-    borderRadius: RADIUS.lg,
-  },
-  finishStepBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
 });

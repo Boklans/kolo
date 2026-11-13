@@ -2,23 +2,24 @@ import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { AlertTriangle, LogOut, Pause, Play } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { usePartyStore } from '@/stores/usePartyStore';
 
 interface SessionTopBarProps {
   stepBadgeText: string;
+  rightMetaText?: string;
   accentColor?: string;
   onPauseChange?: (isPaused: boolean) => void;
 }
 
 export function SessionTopBar({
   stepBadgeText,
+  rightMetaText,
   accentColor = COLORS.primary,
   onPauseChange,
 }: SessionTopBarProps) {
   const router = useRouter();
-  const presetTitle = usePartyStore((s) => s.presetTitle);
   const endSession = usePartyStore((s) => s.endSession);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -47,34 +48,25 @@ export function SessionTopBar({
     <>
       <View style={styles.topBar}>
         <View style={styles.leftGroup}>
-          <View
-            style={[
-              styles.stepBadge,
-              {
-                borderColor: `${accentColor}66`,
-                backgroundColor: `${accentColor}1A`,
-              },
-            ]}
-          >
-            <Text style={[styles.stepBadgeText, { color: accentColor }]}>
-              {stepBadgeText}
-            </Text>
-          </View>
-          {presetTitle ? (
-            <Text style={styles.presetTitleText} numberOfLines={1}>
-              {presetTitle}
-            </Text>
-          ) : null}
+          <View style={[styles.accentDot, { backgroundColor: accentColor }]} />
+          <Text style={styles.stepLabel} numberOfLines={1}>
+            {stepBadgeText}
+          </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.exitBtn}
-          onPress={handleOpenPauseModal}
-        >
-          <Pause size={16} color={COLORS.textSecondary} />
-          <Text style={styles.exitBtnText}>Пауза / Вихід</Text>
-        </TouchableOpacity>
+        <View style={styles.rightGroup}>
+          {rightMetaText ? (
+            <Text style={styles.rightMeta}>{rightMetaText}</Text>
+          ) : null}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.closeBtn}
+            onPress={handleOpenPauseModal}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <X size={20} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Modal
@@ -85,13 +77,10 @@ export function SessionTopBar({
       >
         <View style={styles.backdrop}>
           <View style={styles.modalCard}>
-            <View style={styles.iconCircle}>
-              <AlertTriangle size={28} color={COLORS.hot} />
-            </View>
-
-            <Text style={styles.modalTitle}>Точно перервати вечірку?</Text>
+            <Text style={styles.modalOverline}>ПАУЗА</Text>
+            <Text style={styles.modalTitle}>Перервати вечірку?</Text>
             <Text style={styles.modalSubtitle}>
-              Таймер поставлено на паузу. Якщо ви вийдете зараз, поточний прогрес раунду та бали команд буде скинуто.
+              Таймер зупинено. Ви можете продовжити поточний раунд або вийти на головний екран.
             </Text>
 
             <View style={styles.modalActions}>
@@ -100,17 +89,15 @@ export function SessionTopBar({
                 style={styles.resumeButton}
                 onPress={handleResume}
               >
-                <Play size={18} color={COLORS.textPrimary} fill={COLORS.textPrimary} />
                 <Text style={styles.resumeButtonText}>Продовжити гру</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                activeOpacity={0.85}
+                activeOpacity={0.8}
                 style={styles.confirmExitButton}
                 onPress={handleConfirmExit}
               >
-                <LogOut size={17} color={COLORS.spy} />
-                <Text style={styles.confirmExitText}>Завершити та вийти</Text>
+                <Text style={styles.confirmExitText}>Завершити вечірку</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -127,50 +114,47 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
-    gap: SPACING.sm,
   },
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: 8,
     flex: 1,
   },
-  stepBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
+  accentDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
-  stepBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  presetTitleText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  exitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  exitBtnText: {
+  stepLabel: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  rightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  rightMeta: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(11, 10, 16, 0.84)',
+    backgroundColor: 'rgba(16, 16, 20, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
@@ -179,68 +163,53 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
     padding: SPACING.xxl,
-    alignItems: 'center',
   },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: RADIUS.full,
-    backgroundColor: `${COLORS.hot}20`,
-    borderWidth: 1,
-    borderColor: `${COLORS.hot}55`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
+  modalOverline: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.4,
+    marginBottom: 6,
   },
   modalTitle: {
     color: COLORS.textPrimary,
-    fontSize: 21,
-    fontWeight: '800',
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
     marginBottom: SPACING.xs,
   },
   modalSubtitle: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: SPACING.xl,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: SPACING.xxl,
   },
   modalActions: {
-    width: '100%',
     gap: SPACING.sm,
   },
   resumeButton: {
-    flexDirection: 'row',
+    backgroundColor: COLORS.textPrimary,
+    paddingVertical: 16,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 15,
-    borderRadius: RADIUS.lg,
   },
   resumeButtonText: {
-    color: COLORS.textPrimary,
+    color: COLORS.background,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   confirmExitButton: {
-    flexDirection: 'row',
+    backgroundColor: COLORS.surfaceElevated,
+    paddingVertical: 15,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: `${COLORS.spy}1A`,
-    borderWidth: 1,
-    borderColor: `${COLORS.spy}55`,
-    paddingVertical: 14,
-    borderRadius: RADIUS.lg,
   },
   confirmExitText: {
     color: COLORS.spy,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

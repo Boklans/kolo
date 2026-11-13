@@ -9,67 +9,86 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import {
-  MessageSquareMore,
-  Drama,
-  EyeOff,
-  ChevronRight,
-  Users,
-  Timer,
-} from 'lucide-react-native';
+import { ArrowRight } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { GameType } from '@/types';
 
-type GameCardInfo = {
+type GameEntry = {
   id: GameType;
+  number: string;
+  label: string;
   title: string;
-  tagline: string;
-  description: string;
-  playersLabel: string;
-  durationLabel: string;
+  explanation: string;
+  players: string;
+  duration: string;
   accentColor: string;
-  emoji: string;
-  Icon: React.ComponentType<{ size?: number; color?: string }>;
 };
 
-const GAMES: GameCardInfo[] = [
+const GAMES: GameEntry[] = [
   {
     id: 'alias',
+    number: '01',
+    label: 'ШВИДКІСТЬ ТА СЛОВА',
     title: 'Еліас',
-    tagline: 'Пояснюй слова на швидкість',
-    description:
-      'Поясни команді якомога більше слів за раунд без однокореневих підказок. Свайпай вгору або вниз!',
-    playersLabel: '4–16 гравців (команди)',
-    durationLabel: '30–90 сек / раунд',
+    explanation: 'Поясни команді якомога більше слів за раунд без однокореневих підказок.',
+    players: '4–16 гравців',
+    duration: '30–90 сек',
     accentColor: COLORS.alias,
-    emoji: '⚡',
-    Icon: MessageSquareMore,
   },
   {
     id: 'crocodile',
+    number: '02',
+    label: 'РУХ ТА МІМІКА',
     title: 'Крокодил',
-    tagline: 'Тільки жести та міміка',
-    description:
-      'Покажи кумедну дію чи фразу без жодного слова чи звуку. Перемагає найартистичніша команда!',
-    playersLabel: '3–16 гравців',
-    durationLabel: '60–120 сек / хід',
+    explanation: 'Покажи дію чи кумедну сцену тілом без жодного слова або звуку.',
+    players: '3–16 гравців',
+    duration: '60–120 сек',
     accentColor: COLORS.crocodile,
-    emoji: '🐊',
-    Icon: Drama,
   },
   {
     id: 'spy',
+    number: '03',
+    label: 'БЛЕФ ТА ДЕДУКЦІЯ',
     title: 'Шпигун',
-    tagline: 'Блеф, інтуїція та підозри',
-    description:
-      'Усі знають секретну локацію, крім шпигуна. Ставте хитрі запитання та викрийте самозванця до кінця таймера!',
-    playersLabel: '3–12 гравців',
-    durationLabel: '3–7 хв / партія',
+    explanation: 'Усі знають секретну локацію, крім шпигуна. Викрийте самозванця за питаннями.',
+    players: '3–12 гравців',
+    duration: '3–7 хв',
     accentColor: COLORS.spy,
-    emoji: '🕵️',
-    Icon: EyeOff,
   },
 ];
+
+function GeometricMotif({ gameId, color }: { gameId: GameType; color: string }) {
+  if (gameId === 'alias') {
+    // Кінетичні смуги швидкості
+    return (
+      <View style={styles.motifBox}>
+        <View style={[styles.speedBar, { width: 44, backgroundColor: color }]} />
+        <View style={[styles.speedBar, { width: 28, backgroundColor: color, opacity: 0.55 }]} />
+        <View style={[styles.speedBar, { width: 16, backgroundColor: color, opacity: 0.25 }]} />
+      </View>
+    );
+  }
+
+  if (gameId === 'crocodile') {
+    // Ступінчасті блоки руху / сцени
+    return (
+      <View style={styles.motifStepsRow}>
+        <View style={[styles.stepBlock, { height: 14, backgroundColor: color, opacity: 0.3 }]} />
+        <View style={[styles.stepBlock, { height: 24, backgroundColor: color, opacity: 0.6 }]} />
+        <View style={[styles.stepBlock, { height: 34, backgroundColor: color }]} />
+      </View>
+    );
+  }
+
+  // Шпигун: приціл / радар секретності
+  return (
+    <View style={[styles.radarOuter, { borderColor: `${color}55` }]}>
+      <View style={[styles.radarInner, { borderColor: color }]}>
+        <View style={[styles.radarCore, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
 
 export default function GamesScreen() {
   const router = useRouter();
@@ -87,73 +106,49 @@ export default function GamesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Усі ігри</Text>
-          <Text style={styles.subtitle}>
-            Запусти окремий режим зі власними правилами, часом раунду та обраною колодою.
-          </Text>
+          <Text style={styles.overline}>ОКРЕМІ РЕЖИМИ</Text>
+          <Text style={styles.headline}>Ігри</Text>
         </View>
 
         <View style={styles.list}>
-          {GAMES.map((game) => {
-            const IconComponent = game.Icon;
-            return (
-              <TouchableOpacity
-                key={game.id}
-                activeOpacity={0.85}
-                onPress={() => handleSelectGame(game.id)}
-                style={[
-                  styles.card,
-                  { borderColor: `${game.accentColor}44` },
-                ]}
-              >
-                <View style={styles.cardHeader}>
-                  <View
-                    style={[
-                      styles.iconBox,
-                      {
-                        backgroundColor: `${game.accentColor}20`,
-                        borderColor: `${game.accentColor}55`,
-                      },
-                    ]}
-                  >
-                    <IconComponent size={24} color={game.accentColor} />
-                  </View>
-
-                  <View style={styles.titleBlock}>
-                    <View style={styles.titleRow}>
-                      <Text style={styles.cardTitle}>{game.title}</Text>
-                      <Text style={styles.cardEmoji}>{game.emoji}</Text>
-                    </View>
-                    <Text style={[styles.tagline, { color: game.accentColor }]}>
-                      {game.tagline}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.actionCircle,
-                      { backgroundColor: game.accentColor },
-                    ]}
-                  >
-                    <ChevronRight size={18} color={COLORS.textPrimary} />
-                  </View>
+          {GAMES.map((game) => (
+            <TouchableOpacity
+              key={game.id}
+              activeOpacity={0.88}
+              onPress={() => handleSelectGame(game.id)}
+              style={styles.gameBlock}
+            >
+              {/* Top Row: Large Editorial Number + Geometric Identity Motif */}
+              <View style={styles.topRow}>
+                <View style={styles.numberGroup}>
+                  <Text style={[styles.indexNumber, { color: game.accentColor }]}>
+                    {game.number}
+                  </Text>
+                  <Text style={styles.categoryLabel}>{game.label}</Text>
                 </View>
 
-                <Text style={styles.description}>{game.description}</Text>
+                <GeometricMotif gameId={game.id} color={game.accentColor} />
+              </View>
 
-                <View style={styles.metaRow}>
-                  <View style={styles.metaBadge}>
-                    <Users size={13} color={COLORS.textSecondary} />
-                    <Text style={styles.metaText}>{game.playersLabel}</Text>
-                  </View>
-                  <View style={styles.metaBadge}>
-                    <Timer size={13} color={COLORS.textSecondary} />
-                    <Text style={styles.metaText}>{game.durationLabel}</Text>
-                  </View>
+              {/* Title & Explanation */}
+              <Text style={styles.gameTitle}>{game.title}</Text>
+              <Text style={styles.gameExplanation}>{game.explanation}</Text>
+
+              {/* Bottom Row: Players · Duration + Start Action */}
+              <View style={styles.bottomRow}>
+                <Text style={styles.metaText}>
+                  {game.players}  ·  {game.duration}
+                </Text>
+
+                <View style={styles.startAction}>
+                  <Text style={[styles.startActionText, { color: game.accentColor }]}>
+                    Грати
+                  </Text>
+                  <ArrowRight size={16} color={game.accentColor} />
                 </View>
-              </TouchableOpacity>
-            );
-          })}
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -170,100 +165,130 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.lg,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
   },
   header: {
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.lg,
+    gap: 2,
   },
-  title: {
+  overline: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.8,
+  },
+  headline: {
     color: COLORS.textPrimary,
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.7,
   },
   list: {
-    gap: SPACING.lg,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1.5,
-    padding: SPACING.xl,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
     gap: SPACING.md,
   },
-  iconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  gameBlock: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
   },
-  titleBlock: {
-    flex: 1,
-  },
-  titleRow: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
   },
-  cardTitle: {
-    color: COLORS.textPrimary,
+  numberGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+  },
+  indexNumber: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
   },
-  cardEmoji: {
-    fontSize: 18,
-  },
-  tagline: {
-    fontSize: 13,
+  categoryLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 2,
+    letterSpacing: 1.2,
   },
-  actionCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+  gameTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    marginBottom: 6,
   },
-  description: {
+  gameExplanation: {
     color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    fontWeight: '400',
+    lineHeight: 21,
     marginBottom: SPACING.lg,
   },
-  metaRow: {
+  bottomRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: '#23222E',
   },
-  metaBadge: {
+  metaText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  startAction: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
   },
-  metaText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
+  startActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  // Geometric Motifs
+  motifBox: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  speedBar: {
+    height: 4,
+    borderRadius: 2,
+  },
+  motifStepsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  stepBlock: {
+    width: 7,
+    borderRadius: 2,
+  },
+  radarOuter: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radarCore: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });
