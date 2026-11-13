@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { ArrowUpRight, Play, X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { VibePosterArtwork } from '@/components/graphics/KoloArtwork';
 import { PARTY_PRESETS } from '@/data/presets';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { GameType, PartyPreset } from '@/types';
@@ -75,7 +76,8 @@ export default function VibesScreen() {
   };
 
   const activeTeamName = teams[currentTeamIndex]?.name;
-  const warmupPreset = PARTY_PRESETS.find((p) => p.id === 'warmup') ?? PARTY_PRESETS[0];
+  const warmupPreset =
+    PARTY_PRESETS.find((p) => p.id === 'warmup') ?? PARTY_PRESETS[0];
   const uncensoredPreset =
     PARTY_PRESETS.find((p) => p.id === 'uncensored_18') ?? PARTY_PRESETS[2];
   const strangersPreset =
@@ -136,18 +138,15 @@ export default function VibesScreen() {
           </View>
         ) : null}
 
-        {/* 01 / РОЗІГРІВ — Big Orange Hero Poster */}
+        {/* 01 / РОЗІГРІВ — Big Orange Hero Poster with Custom SVG Artwork */}
         {warmupPreset ? (
           <TouchableOpacity
             activeOpacity={0.88}
             style={styles.warmupPoster}
             onPress={() => handleSelectPreset(warmupPreset)}
           >
-            {/* Expressive Geometric Orange Sunburst Graphic */}
-            <View pointerEvents="none" style={styles.warmupGraphicWrap}>
-              <View style={styles.warmupRingOuter} />
-              <View style={styles.warmupRingInner} />
-              <View style={styles.warmupCoreDisk} />
+            <View pointerEvents="none" style={styles.warmupSvgArtPos}>
+              <VibePosterArtwork presetId="warmup" size={148} />
             </View>
 
             <View style={styles.posterTopRow}>
@@ -173,7 +172,11 @@ export default function VibesScreen() {
               </View>
 
               <View style={styles.warmupLaunchCircle}>
-                <ArrowUpRight size={20} color={COLORS.background} strokeWidth={2.6} />
+                <ArrowUpRight
+                  size={20}
+                  color={COLORS.background}
+                  strokeWidth={2.6}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -187,7 +190,9 @@ export default function VibesScreen() {
               style={styles.uncensoredPoster}
               onPress={() => handleSelectPreset(uncensoredPreset)}
             >
-              <View pointerEvents="none" style={styles.uncensoredSlashGraphic} />
+              <View pointerEvents="none" style={styles.splitSvgArtPos}>
+                <VibePosterArtwork presetId="uncensored_18" size={108} />
+              </View>
 
               <View style={styles.splitHeaderRow}>
                 <Text style={styles.uncensoredBadge}>18+ · БЕЗ ФІЛЬТРІВ</Text>
@@ -215,8 +220,8 @@ export default function VibesScreen() {
               style={styles.strangersPoster}
               onPress={() => handleSelectPreset(strangersPreset)}
             >
-              <View pointerEvents="none" style={styles.strangersRadarGraphic}>
-                <View style={styles.strangersRadarDot} />
+              <View pointerEvents="none" style={styles.splitSvgArtPos}>
+                <VibePosterArtwork presetId="strangers" size={108} />
               </View>
 
               <View style={styles.splitHeaderRow}>
@@ -240,17 +245,16 @@ export default function VibesScreen() {
           ) : null}
         </View>
 
-        {/* 04 / БИТВА КОМАНД — Blue Tournament Show Poster */}
+        {/* 04 / БИТВА КОМАНД — Blue Tournament Show Poster with Custom Trophy SVG */}
         {battlePreset ? (
           <TouchableOpacity
             activeOpacity={0.88}
             style={styles.battlePoster}
             onPress={() => handleSelectPreset(battlePreset)}
           >
-            {/* Giant Background Mode Number */}
-            <Text pointerEvents="none" style={styles.battleWatermarkNumber}>
-              04
-            </Text>
+            <View pointerEvents="none" style={styles.battleSvgArtPos}>
+              <VibePosterArtwork presetId="team_battle" size={140} />
+            </View>
 
             <View style={styles.posterTopRow}>
               <Text style={styles.battleOverline}>04 · ГОЛОВНИЙ ТУРНІР</Text>
@@ -275,7 +279,11 @@ export default function VibesScreen() {
               </View>
 
               <View style={styles.battleActionBox}>
-                <ArrowUpRight size={20} color={COLORS.textPrimary} strokeWidth={2.5} />
+                <ArrowUpRight
+                  size={20}
+                  color={COLORS.textPrimary}
+                  strokeWidth={2.5}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -370,39 +378,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#221713',
     borderRadius: RADIUS.xl,
     padding: SPACING.xl,
-    minHeight: 220,
+    minHeight: 224,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
   },
-  warmupGraphicWrap: {
+  warmupSvgArtPos: {
     position: 'absolute',
-    right: -36,
-    top: -36,
-    width: 180,
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  warmupRingOuter: {
-    position: 'absolute',
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(249, 115, 22, 0.10)',
-  },
-  warmupRingInner: {
-    position: 'absolute',
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    backgroundColor: 'rgba(249, 115, 22, 0.18)',
-  },
-  warmupCoreDisk: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: 'rgba(249, 115, 22, 0.35)',
+    right: -12,
+    top: 22,
+    opacity: 0.92,
   },
   warmupOverline: {
     color: COLORS.hot,
@@ -419,6 +404,7 @@ const styles = StyleSheet.create({
   warmupCenter: {
     marginVertical: SPACING.md,
     gap: 6,
+    maxWidth: '72%',
   },
   warmupHeroTitle: {
     color: COLORS.textPrimary,
@@ -429,10 +415,9 @@ const styles = StyleSheet.create({
   },
   warmupTagline: {
     color: '#E5CFC5',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    lineHeight: 22,
-    maxWidth: '88%',
+    lineHeight: 21,
   },
   warmupFooter: {
     flexDirection: 'row',
@@ -482,6 +467,12 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.md,
     gap: 6,
   },
+  splitSvgArtPos: {
+    position: 'absolute',
+    right: -14,
+    bottom: -10,
+    opacity: 0.45,
+  },
 
   // БЕЗ ЦЕНЗУРИ Poster
   uncensoredPoster: {
@@ -489,20 +480,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#231218',
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    minHeight: 215,
+    minHeight: 216,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
-  },
-  uncensoredSlashGraphic: {
-    position: 'absolute',
-    right: -25,
-    bottom: -20,
-    width: 90,
-    height: 160,
-    backgroundColor: 'rgba(244, 63, 94, 0.14)',
-    transform: [{ rotate: '-28deg' }],
-    borderRadius: RADIUS.md,
   },
   uncensoredBadge: {
     color: COLORS.spy,
@@ -535,28 +516,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#13201C',
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    minHeight: 215,
+    minHeight: 216,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
-  },
-  strangersRadarGraphic: {
-    position: 'absolute',
-    right: -24,
-    bottom: -24,
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 10,
-    borderColor: 'rgba(16, 185, 129, 0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  strangersRadarDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(16, 185, 129, 0.22)',
   },
   strangersBadge: {
     color: COLORS.crocodile,
@@ -588,20 +551,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#131A29',
     borderRadius: RADIUS.xl,
     padding: SPACING.xl,
-    minHeight: 200,
+    minHeight: 208,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
   },
-  battleWatermarkNumber: {
+  battleSvgArtPos: {
     position: 'absolute',
-    right: 12,
-    top: 4,
-    fontSize: 108,
-    fontWeight: '900',
-    color: 'rgba(59, 130, 246, 0.12)',
-    letterSpacing: -4,
-    fontVariant: ['tabular-nums'],
+    right: -6,
+    top: 18,
+    opacity: 0.85,
   },
   battleOverline: {
     color: COLORS.alias,
@@ -618,6 +577,7 @@ const styles = StyleSheet.create({
   battleMainBlock: {
     marginVertical: SPACING.md,
     gap: 6,
+    maxWidth: '70%',
   },
   battleTitle: {
     color: COLORS.textPrimary,

@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { playRoundEndBuzzer, playTimerTick } from '@/utils/sound';
 
 interface AbsoluteTimerProps {
   durationSec: number;
@@ -104,17 +105,20 @@ export function AbsoluteTimer({
 
       if (secondsLeft === 20 || secondsLeft === 15) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        playTimerTick('warning');
       } else if (secondsLeft <= 10 && secondsLeft > 5) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        playTimerTick('warning');
       } else if (secondsLeft <= 5 && secondsLeft > 0) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        playTimerTick('critical');
       }
     }
 
     if (diffMs <= 0 && !hasExpiredRef.current) {
       hasExpiredRef.current = true;
       endTimestampRef.current = null;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      playRoundEndBuzzer();
       onExpireRef.current();
     }
   }, [totalMs, triggerTickAnimation]);
@@ -159,7 +163,6 @@ export function AbsoluteTimer({
     };
   }, [isRunning, syncRemainingTime]);
 
-  // Emotional 3-tier state: Calm (>20s), Warning (20..11s), Critical (<=10s)
   const timerState: 'calm' | 'warning' | 'critical' =
     displaySeconds <= 10
       ? 'critical'

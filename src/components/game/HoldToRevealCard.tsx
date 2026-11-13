@@ -6,8 +6,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Fingerprint } from 'lucide-react-native';
+import { CheckCircle2, Fingerprint } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { playRoleRevealLock } from '@/utils/sound';
 
 interface HoldToRevealCardProps {
   playerNumber: number;
@@ -31,26 +32,30 @@ export function HoldToRevealCard({
   const [isHolding, setIsHolding] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealAnim = useSharedValue(0);
+  const scanProgressAnim = useSharedValue(0);
 
   useEffect(() => {
+    scanProgressAnim.value = 0;
     return () => {
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
       }
     };
-  }, [playerNumber]);
+  }, [playerNumber, scanProgressAnim]);
 
   const handlePressIn = () => {
     setIsHolding(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     revealAnim.value = withTiming(1, { duration: 140 });
+    scanProgressAnim.value = 0;
+    scanProgressAnim.value = withTiming(1, { duration: HOLD_THRESHOLD_MS });
 
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
     }
 
     holdTimerRef.current = setTimeout(() => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      playRoleRevealLock(isSpy);
       onRevealedEnough();
     }, HOLD_THRESHOLD_MS);
   };
@@ -59,6 +64,7 @@ export function HoldToRevealCard({
     setIsHolding(false);
     // Миттєве приховування за 100 мс
     revealAnim.value = withTiming(0, { duration: 100 });
+    scanProgressAnim.value = withTiming(0, { duration: 120 });
 
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
@@ -68,11 +74,15 @@ export function HoldToRevealCard({
 
   const secretContentStyle = useAnimatedStyle(() => ({
     opacity: revealAnim.value,
-    transform: [{ scale: 0.97 + revealAnim.value * 0.03 }],
+    transform: [{ scale: 0.96 + revealAnim.value * 0.04 }],
   }));
 
   const coverStyle = useAnimatedStyle(() => ({
     opacity: 1 - revealAnim.value,
+  }));
+
+  const scanBarStyle = useAnimatedStyle(() => ({
+    width: `${Math.round(scanProgressAnim.value * 100)}%`,
   }));
 
   return (
@@ -95,28 +105,47 @@ export function HoldToRevealCard({
         >
           {isSpy ? (
             <View style={styles.roleInner}>
-              <Text style={[styles.roleOverline, { color: COLORS.spy }]}>
-                СЕКРЕТНИЙ СТАТУС
-              </Text>
+              <View style={styles.classifiedBadgeSpy}>
+                <Text style={styles.classifiedBadgeSpyText}>
+                  ЦІЛКОМ ТАЄМНО · САМОЗВАНЕЦЬ
+                </Text>
+              </View>
               <Text style={[styles.roleHeadline, { color: COLORS.spy }]}>
-                Ти Шпигун
+                ТИ ШПИГУН!
               </Text>
               <Text style={styles.roleDescription}>
-                Не видай себе. Слухай запитання інших гравців і спробуй зрозуміти, у якій ви локації.
+                Не видай себе. Слухай запитання інших гравців і спробуй
+                вирахувати секретну локацію.
               </Text>
             </View>
           ) : (
             <View style={styles.roleInner}>
-              <Text style={styles.roleOverline}>ЛОКАЦІЯ</Text>
+              <View style={styles.classifiedBadgeCitizen}>
+                <Text style={styles.classifiedBadgeCitizenText}>
+                  ДОСТУП НАДАНО · ЛОКАЦІЯ
+                </Text>
+              </View>
               <Text style={styles.locationTitle}>{locationName}</Text>
               {roleName ? (
-                <Text style={styles.roleTag}>Твоя роль: {roleName}</Text>
+                <Text style={styles.roleTag}>Твоя легенда: {roleName}</Text>
               ) : null}
               <Text style={styles.roleDescription}>
-                Став запитання іншим, щоб викрити шпигуна, але не називай локацію прямо.
+                Став хитрі запитання іншим, щоб викрити шпигуна, але не називай
+                локацію прямо.
               </Text>
             </View>
           )}
+
+          {/* Hold progress indicator at bottom of secret card */}
+          <View style={styles.scanTrack}>
+            <Animated.View
+              style={[
+                styles.scanFill,
+                { backgroundColor: isSpy ? COLORS.spy : COLORS.crocodile },
+                scanBarStyle,
+              ]}
+            />
+          </View>
         </Animated.View>
 
         {/* Concealed Curtain Layer */}
@@ -124,18 +153,31 @@ export function HoldToRevealCard({
           style={[styles.coverLayer, coverStyle]}
           pointerEvents="none"
         >
-          <View style={styles.targetRing}>
-            <Fingerprint
-              size={36}
-              color={hasSeenRole ? COLORS.textSecondary : COLORS.spy}
-            />
+          <View
+            style={[
+              styles.targetRing,
+              hasSeenRole && styles.targetRingSeen,
+            ]}
+          >
+            {hasSeenRole ? (
+              <CheckCircle2 size={36} color={COLORS.crocodile} />
+            ) : (
+              <Fingerprint size={38} color={COLORS.spy} />
+            )}
           </View>
 
-          <Text style={styles.coverTitle}>Утримуй, щоб відкрити роль</Text>
+          <Text style={styles.coverOverline}>
+            {hasSeenRole ? 'ДОСЬЄ ПЕРЕВІРЕНО' : 'СЕКРЕТНЕ ДОСЬЄ'}
+          </Text>
+          <Text style={styles.coverTitle}>
+            {hasSeenRole
+              ? 'Роль відкрито — передай телефон'
+              : 'Утримуй палець на сканері'}
+          </Text>
           <Text style={styles.coverSub}>
             {hasSeenRole
-              ? 'Роль переглянуто — передай телефон далі'
-              : 'Переконайся, що ніхто не заглядає в екран'}
+              ? 'Можеш утримати ще раз, якщо забув роль'
+              : 'Переконайся, що сусіди за столом не бачать екран'}
           </Text>
         </Animated.View>
       </View>
@@ -147,7 +189,7 @@ const styles = StyleSheet.create({
   pressableWrap: {
     width: '100%',
     flex: 1,
-    maxHeight: 380,
+    maxHeight: 390,
   },
   cardContainer: {
     flex: 1,
@@ -159,10 +201,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardContainerSpy: {
-    backgroundColor: '#241319',
+    backgroundColor: '#261118',
   },
   cardContainerCitizen: {
-    backgroundColor: COLORS.surfaceElevated,
+    backgroundColor: '#17222B',
   },
   secretLayer: {
     position: 'absolute',
@@ -186,19 +228,29 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   targetRing: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: COLORS.surfaceElevated,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: `${COLORS.spy}1C`,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.lg,
   },
+  targetRingSeen: {
+    backgroundColor: `${COLORS.crocodile}1E`,
+  },
+  coverOverline: {
+    color: COLORS.spy,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    marginBottom: 6,
+  },
   coverTitle: {
     color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.4,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -213,32 +265,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    gap: SPACING.sm,
+    gap: 10,
   },
-  roleOverline: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1.5,
+  classifiedBadgeSpy: {
+    backgroundColor: `${COLORS.spy}28`,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+  },
+  classifiedBadgeSpyText: {
+    color: COLORS.spy,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
+  },
+  classifiedBadgeCitizen: {
+    backgroundColor: `${COLORS.crocodile}24`,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+  },
+  classifiedBadgeCitizenText: {
+    color: COLORS.crocodile,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.3,
   },
   roleHeadline: {
-    fontSize: 36,
-    fontWeight: '700',
-    letterSpacing: -0.9,
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: -1.2,
     textAlign: 'center',
   },
   locationTitle: {
     color: COLORS.textPrimary,
-    fontSize: 30,
-    fontWeight: '700',
-    letterSpacing: -0.7,
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.8,
     textAlign: 'center',
-    lineHeight: 36,
+    lineHeight: 38,
   },
   roleTag: {
     color: COLORS.crocodile,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     marginTop: 2,
   },
   roleDescription: {
@@ -248,5 +318,19 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
     marginTop: SPACING.xs,
+  },
+  scanTrack: {
+    position: 'absolute',
+    left: SPACING.xxl,
+    right: SPACING.xxl,
+    bottom: SPACING.xl,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: RADIUS.full,
+    overflow: 'hidden',
+  },
+  scanFill: {
+    height: '100%',
+    borderRadius: RADIUS.full,
   },
 });

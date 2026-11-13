@@ -9,8 +9,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { ArrowRight, ArrowUp, EyeOff, Zap } from 'lucide-react-native';
+import { ArrowRight } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { GameWorldArtwork } from '@/components/graphics/KoloArtwork';
 import { GameType } from '@/types';
 
 export default function GamesScreen() {
@@ -40,14 +41,8 @@ export default function GamesScreen() {
             onPress={() => handleSelectGame('alias')}
             style={[styles.gameWorldCard, styles.aliasWorld]}
           >
-            {/* Visual Graphic: Flying Card Stack & Speed Arrows */}
-            <View pointerEvents="none" style={styles.aliasGraphicStage}>
-              <View style={styles.aliasGhostCardBack} />
-              <View style={styles.aliasGhostCardFront}>
-                <ArrowUp size={16} color={COLORS.alias} strokeWidth={3} />
-                <Text style={styles.aliasGhostWord}>СЛОВО</Text>
-                <Text style={styles.aliasGhostPlus}>+1</Text>
-              </View>
+            <View pointerEvents="none" style={styles.svgArtworkPos}>
+              <GameWorldArtwork gameId="alias" size={114} />
             </View>
 
             <View style={styles.worldTopRow}>
@@ -68,7 +63,11 @@ export default function GamesScreen() {
               <Text style={styles.worldMeta}>4–16 гравців · 30–90 сек</Text>
               <View style={[styles.playPill, { backgroundColor: COLORS.alias }]}>
                 <Text style={styles.playPillText}>ГРАТИ</Text>
-                <ArrowRight size={14} color={COLORS.textPrimary} strokeWidth={2.6} />
+                <ArrowRight
+                  size={14}
+                  color={COLORS.textPrimary}
+                  strokeWidth={2.6}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -79,13 +78,8 @@ export default function GamesScreen() {
             onPress={() => handleSelectGame('crocodile')}
             style={[styles.gameWorldCard, styles.crocodileWorld]}
           >
-            {/* Visual Graphic: Kinetic Action Frames */}
-            <View pointerEvents="none" style={styles.crocGraphicStage}>
-              <View style={[styles.crocFrame, styles.crocFrame1]} />
-              <View style={[styles.crocFrame, styles.crocFrame2]} />
-              <View style={[styles.crocFrame, styles.crocFrame3]}>
-                <Zap size={18} color={COLORS.background} fill={COLORS.background} />
-              </View>
+            <View pointerEvents="none" style={styles.svgArtworkPos}>
+              <GameWorldArtwork gameId="crocodile" size={114} />
             </View>
 
             <View style={styles.worldTopRow}>
@@ -110,7 +104,11 @@ export default function GamesScreen() {
                 <Text style={[styles.playPillText, { color: COLORS.background }]}>
                   ГРАТИ
                 </Text>
-                <ArrowRight size={14} color={COLORS.background} strokeWidth={2.6} />
+                <ArrowRight
+                  size={14}
+                  color={COLORS.background}
+                  strokeWidth={2.6}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -121,13 +119,8 @@ export default function GamesScreen() {
             onPress={() => handleSelectGame('spy')}
             style={[styles.gameWorldCard, styles.spyWorld]}
           >
-            {/* Visual Graphic: Secret Target Radar & Classified Stamp */}
-            <View pointerEvents="none" style={styles.spyGraphicStage}>
-              <View style={styles.spyRadarOuter}>
-                <View style={styles.spyRadarInner}>
-                  <EyeOff size={16} color={COLORS.spy} />
-                </View>
-              </View>
+            <View pointerEvents="none" style={styles.svgArtworkPos}>
+              <GameWorldArtwork gameId="spy" size={114} />
             </View>
 
             <View style={styles.worldTopRow}>
@@ -148,7 +141,11 @@ export default function GamesScreen() {
               <Text style={styles.worldMeta}>3–12 гравців · 3–7 хв</Text>
               <View style={[styles.playPill, { backgroundColor: COLORS.spy }]}>
                 <Text style={styles.playPillText}>ГРАТИ</Text>
-                <ArrowRight size={14} color={COLORS.textPrimary} strokeWidth={2.6} />
+                <ArrowRight
+                  size={14}
+                  color={COLORS.textPrimary}
+                  strokeWidth={2.6}
+                />
               </View>
             </View>
           </TouchableOpacity>
@@ -207,7 +204,11 @@ const styles = StyleSheet.create({
   spyWorld: {
     backgroundColor: '#211117',
   },
-
+  svgArtworkPos: {
+    position: 'absolute',
+    right: 10,
+    top: 28,
+  },
   worldTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,7 +227,7 @@ const styles = StyleSheet.create({
   },
   worldBody: {
     marginVertical: SPACING.md,
-    maxWidth: '72%',
+    maxWidth: '70%',
     gap: 6,
   },
   worldTitle: {
@@ -265,105 +266,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.8,
-  },
-
-  // 01 Alias Graphic Stage
-  aliasGraphicStage: {
-    position: 'absolute',
-    right: 16,
-    top: 38,
-    width: 86,
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aliasGhostCardBack: {
-    position: 'absolute',
-    width: 72,
-    height: 88,
-    borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(59, 130, 246, 0.16)',
-    transform: [{ rotate: '10deg' }, { translateX: 8 }],
-  },
-  aliasGhostCardFront: {
-    width: 74,
-    height: 90,
-    borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(59, 130, 246, 0.26)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    transform: [{ rotate: '-6deg' }],
-  },
-  aliasGhostWord: {
-    color: COLORS.textPrimary,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  aliasGhostPlus: {
-    color: COLORS.crocodile,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
-  // 02 Crocodile Graphic Stage
-  crocGraphicStage: {
-    position: 'absolute',
-    right: 18,
-    top: 42,
-    width: 86,
-    height: 90,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-    gap: 6,
-  },
-  crocFrame: {
-    borderRadius: RADIUS.sm,
-  },
-  crocFrame1: {
-    width: 18,
-    height: 42,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-  },
-  crocFrame2: {
-    width: 22,
-    height: 62,
-    backgroundColor: 'rgba(16, 185, 129, 0.34)',
-  },
-  crocFrame3: {
-    width: 30,
-    height: 82,
-    backgroundColor: COLORS.crocodile,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // 03 Spy Graphic Stage
-  spyGraphicStage: {
-    position: 'absolute',
-    right: 16,
-    top: 38,
-    width: 92,
-    height: 92,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  spyRadarOuter: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: 'rgba(244, 63, 94, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  spyRadarInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(244, 63, 94, 0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

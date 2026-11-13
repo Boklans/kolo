@@ -17,20 +17,16 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import {
   ClipboardPaste,
-  Code2,
   Download,
-  Flame,
-  Layers,
   Pencil,
   Plus,
   RotateCcw,
   Share2,
-  Sparkles,
   Trash2,
   X,
-  Zap,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { DeckCoverArtwork } from '@/components/graphics/KoloArtwork';
 import {
   CustomDeckTargetMode,
   OFFICIAL_DECKS,
@@ -52,7 +48,6 @@ type CoverTheme = {
   bg: string;
   accent: string;
   tag: string;
-  IconComponent: typeof Sparkles;
 };
 
 function getDeckCoverTheme(deck: Deck): CoverTheme {
@@ -61,7 +56,6 @@ function getDeckCoverTheme(deck: Deck): CoverTheme {
       bg: '#1F182B',
       accent: COLORS.primary,
       tag: 'CUSTOM PACK',
-      IconComponent: Layers,
     };
   }
   switch (deck.id) {
@@ -70,35 +64,30 @@ function getDeckCoverTheme(deck: Deck): CoverTheme {
         bg: '#231712',
         accent: COLORS.hot,
         tag: 'PARTY START',
-        IconComponent: Flame,
       };
     case 'memes_ua':
       return {
         bg: '#11221B',
         accent: COLORS.crocodile,
         tag: 'POP & MEMES',
-        IconComponent: Zap,
       };
     case 'it_office_ua':
       return {
         bg: '#121C2E',
         accent: COLORS.alias,
         tag: 'TECH & WORK',
-        IconComponent: Code2,
       };
     case 'adult_18_ua':
       return {
         bg: '#261118',
         accent: COLORS.spy,
         tag: 'NSFW · 18+',
-        IconComponent: Flame,
       };
     default:
       return {
         bg: '#191729',
         accent: COLORS.primary,
         tag: 'CLASSIC EDITION',
-        IconComponent: Sparkles,
       };
   }
 }
@@ -280,7 +269,6 @@ export default function DecksScreen() {
 
   const renderDeckCover = (deck: Deck) => {
     const theme = getDeckCoverTheme(deck);
-    const IconComp = theme.IconComponent;
     const totalCards =
       deck.items.alias.length +
       deck.items.crocodile.length +
@@ -299,22 +287,13 @@ export default function DecksScreen() {
         onPress={() => handleOpenPreview(deck)}
         style={[styles.coverCard, { backgroundColor: theme.bg }]}
       >
-        {/* Decorative Box-Art Geometric Illustration */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.coverArtCircle,
-            { backgroundColor: `${theme.accent}1E` },
-          ]}
-        >
-          <View
-            style={[
-              styles.coverArtInner,
-              { backgroundColor: `${theme.accent}33` },
-            ]}
-          >
-            <IconComp size={20} color={theme.accent} />
-          </View>
+        {/* Custom Vector SVG Box-Art Illustration */}
+        <View pointerEvents="none" style={styles.coverSvgArtworkPos}>
+          <DeckCoverArtwork
+            deckId={deck.id}
+            accentColor={theme.accent}
+            size={92}
+          />
         </View>
 
         {/* Top Row: Category Tag + PRO Badge */}
@@ -919,22 +898,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  coverArtCircle: {
+  coverSvgArtworkPos: {
     position: 'absolute',
-    right: -24,
-    bottom: 24,
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coverArtInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
+    right: -12,
+    bottom: 22,
+    opacity: 0.9,
   },
   coverTopRow: {
     flexDirection: 'row',

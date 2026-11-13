@@ -23,6 +23,12 @@ import { baseUaDeck, useDeckStore } from '@/stores/useDeckStore';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { useUsedContentStore } from '@/stores/useUsedContentStore';
 import { CrocodileItem, CrocodileStep } from '@/types';
+import {
+  playCountdownBeep,
+  playCountdownGo,
+  playWordGuessed,
+  playWordSkipped,
+} from '@/utils/sound';
 
 type CrocodilePhase = 'READY' | 'PREPARATION' | 'COUNTDOWN' | 'ACTING' | 'RESULT';
 
@@ -121,7 +127,6 @@ export default function CrocodileGameScreen() {
   };
 
   const handleStartCountdown = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setIsPeekingSpoiler(false);
     setIsTimeExpired(false);
     setCountdownLabel('3');
@@ -145,9 +150,9 @@ export default function CrocodileGameScreen() {
       countdownOpacity.value = withTiming(1, { duration: 110 });
 
       if (isFinal) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        playCountdownGo();
       } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        playCountdownBeep();
       }
     };
 
@@ -173,9 +178,9 @@ export default function CrocodileGameScreen() {
 
   const handleFinishTurn = (guessed: boolean) => {
     if (guessed) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      playWordGuessed(3);
     } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      playWordSkipped();
     }
 
     setTurnGuessed(guessed);

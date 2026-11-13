@@ -28,6 +28,13 @@ import { baseUaDeck, useDeckStore } from '@/stores/useDeckStore';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { useUsedContentStore } from '@/stores/useUsedContentStore';
 import { AliasItem, AliasStep } from '@/types';
+import {
+  playCountdownBeep,
+  playCountdownGo,
+  playVictoryFanfare,
+  playWordGuessed,
+  playWordSkipped,
+} from '@/utils/sound';
 
 type AliasPhase = 'READY' | 'COUNTDOWN' | 'PLAYING' | 'OVERTIME' | 'REVIEW';
 
@@ -105,6 +112,7 @@ export default function AliasGameScreen() {
 
   const roundWordIdsRef = useRef<string[]>([]);
   const isAnimatingDecisionRef = useRef<boolean>(false);
+  const streakRef = useRef<number>(0);
 
   // Card physics shared values
   const translateY = useSharedValue(0);
@@ -184,8 +192,8 @@ export default function AliasGameScreen() {
 
   // 3 - 2 - 1 - ПОГНАЛИ! Countdown sequence
   const handleStartCountdown = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     roundWordIdsRef.current = [];
+    streakRef.current = 0;
     setRoundHistory([]);
     setCurrentStreak(0);
     setBestStreak(0);
@@ -211,9 +219,9 @@ export default function AliasGameScreen() {
       countdownOpacity.value = withTiming(1, { duration: 110 });
 
       if (isFinal) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        playCountdownGo();
       } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        playCountdownBeep();
       }
     };
 
@@ -268,6 +276,7 @@ export default function AliasGameScreen() {
         translateX.value = 0;
         cardScale.value = 1;
         cardOpacity.value = 1;
+        playVictoryFanfare();
         setPhase('REVIEW');
         return;
       }
@@ -292,10 +301,12 @@ export default function AliasGameScreen() {
       isAnimatingDecisionRef.current = true;
 
       if (guessed) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        streakRef.current += 1;
+        playWordGuessed(streakRef.current);
         flashSuccessOpacity.value = withTiming(1, { duration: 70 });
       } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        streakRef.current = 0;
+        playWordSkipped();
         flashSkipOpacity.value = withTiming(1, { duration: 70 });
       }
 

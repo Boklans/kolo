@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { X } from 'lucide-react-native';
+import { Volume2, VolumeX, X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { usePartyStore } from '@/stores/usePartyStore';
+import { useSoundStore } from '@/utils/sound';
 
 interface SessionTopBarProps {
   stepBadgeText: string;
@@ -21,8 +22,15 @@ export function SessionTopBar({
 }: SessionTopBarProps) {
   const router = useRouter();
   const endSession = usePartyStore((s) => s.endSession);
+  const isSoundEnabled = useSoundStore((s) => s.isSoundEnabled);
+  const toggleSound = useSoundStore((s) => s.toggleSound);
 
   const [modalVisible, setModalVisible] = useState(false);
+
+  const handleToggleSound = () => {
+    Haptics.selectionAsync();
+    toggleSound();
+  };
 
   const handleOpenPauseModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -58,13 +66,27 @@ export function SessionTopBar({
           {rightMetaText ? (
             <Text style={styles.rightMeta}>{rightMetaText}</Text>
           ) : null}
+
           <TouchableOpacity
             activeOpacity={0.7}
-            style={styles.closeBtn}
-            onPress={handleOpenPauseModal}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.iconBtn}
+            onPress={handleToggleSound}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
-            <X size={20} color={COLORS.textSecondary} />
+            {isSoundEnabled ? (
+              <Volume2 size={16} color={COLORS.textSecondary} />
+            ) : (
+              <VolumeX size={16} color={COLORS.textMuted} />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.iconBtn}
+            onPress={handleOpenPauseModal}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          >
+            <X size={18} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -136,15 +158,16 @@ const styles = StyleSheet.create({
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: 8,
   },
   rightMeta: {
     color: COLORS.textMuted,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.6,
+    marginRight: 4,
   },
-  closeBtn: {
+  iconBtn: {
     width: 32,
     height: 32,
     borderRadius: RADIUS.full,
