@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Copy,
   Share2,
+  Smartphone,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -64,7 +65,7 @@ export default function ScoreboardScreen() {
   const nextTeam = teams[currentTeamIndex];
 
   const handleContinue = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.replace('/session/orchestrator');
   };
 
@@ -142,14 +143,20 @@ export default function ScoreboardScreen() {
         {/* Banner of Last Turn (if intermediate) */}
         {!isCompleted && lastTurnInfo ? (
           <View style={styles.lastTurnBanner}>
-            <Text style={styles.lastTurnOverline}>ХІД ЗАВЕРШЕНО</Text>
-            <Text style={styles.lastTurnText}>
-              {lastTurnInfo.teamName}{' '}
-              <Text style={styles.lastTurnHighlight}>
-                {lastTurnInfo.pointsDelta >= 0
-                  ? `+${lastTurnInfo.pointsDelta}`
-                  : lastTurnInfo.pointsDelta}
-              </Text>
+            <View>
+              <Text style={styles.lastTurnOverline}>ПІДСУМОК ХОДУ</Text>
+              <Text style={styles.lastTurnTeamName}>{lastTurnInfo.teamName}</Text>
+            </View>
+            <Text
+              style={[
+                styles.lastTurnDelta,
+                lastTurnInfo.pointsDelta > 0 && { color: COLORS.crocodile },
+                lastTurnInfo.pointsDelta < 0 && { color: COLORS.spy },
+              ]}
+            >
+              {lastTurnInfo.pointsDelta >= 0
+                ? `+${lastTurnInfo.pointsDelta}`
+                : lastTurnInfo.pointsDelta}
             </Text>
           </View>
         ) : null}
@@ -157,16 +164,11 @@ export default function ScoreboardScreen() {
         {/* Editorial Header */}
         <View style={styles.headerBlock}>
           <Text style={styles.overline}>
-            {isCompleted ? 'ПІДСУМКИ ВЕЧІРКИ' : 'ТУРНІРНА ТАБЛИЦЯ'}
+            {isCompleted ? 'ФІНАЛ ШОУ' : 'ТУРНІРНА ТАБЛИЦЯ'}
           </Text>
           <Text style={styles.title}>
             {isCompleted ? presetTitle || 'Фінал гри' : 'Рахунок команд'}
           </Text>
-          {!isCompleted && nextTeam && currentStep ? (
-            <Text style={styles.subtitle}>
-              Далі готується: {nextTeam.name} · Коло {currentRoundInStep}
-            </Text>
-          ) : null}
         </View>
 
         {/* Standings List */}
@@ -203,7 +205,7 @@ export default function ScoreboardScreen() {
                   <View style={styles.teamInfo}>
                     <Text style={styles.teamName}>{team.name}</Text>
                     {isLeader ? (
-                      <Text style={styles.leaderSubLabel}>Лідер вечора</Text>
+                      <Text style={styles.leaderSubLabel}>ЛІДЕР ВЕЧОРА</Text>
                     ) : null}
                   </View>
 
@@ -220,6 +222,27 @@ export default function ScoreboardScreen() {
                 </View>
               );
             })}
+          </View>
+        ) : null}
+
+        {/* Dedicated Handoff Callout Block between turns */}
+        {!isCompleted && nextTeam && currentStep ? (
+          <View style={styles.handoffCalloutCard}>
+            <View style={styles.handoffIconRow}>
+              <View style={styles.handoffIconCircle}>
+                <Smartphone size={18} color={COLORS.primary} />
+              </View>
+              <Text style={styles.handoffOverline}>
+                ПЕРЕДАЧА ТЕЛЕФОНА · КОЛО {currentRoundInStep}
+              </Text>
+            </View>
+            <Text style={styles.handoffTeamHeadline}>
+              Тепер {nextTeam.name}!
+            </Text>
+            <Text style={styles.handoffSubText}>
+              Передайте телефон ведучому команди «{nextTeam.name}» для наступного
+              раунду.
+            </Text>
           </View>
         ) : null}
 
@@ -323,7 +346,7 @@ export default function ScoreboardScreen() {
             style={styles.homeButton}
             onPress={handleExitToHome}
           >
-            <Text style={styles.homeButtonText}>На головну</Text>
+            <Text style={styles.homeButtonText}>ЗАВЕРШИТИ ТА НА ГОЛОВНУ</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -333,10 +356,10 @@ export default function ScoreboardScreen() {
           >
             <Text style={styles.continueButtonText}>
               {nextTeam
-                ? `Наступний хід · ${nextTeam.name}`
-                : 'Продовжити гру'}
+                ? `${nextTeam.name.toUpperCase()}, ВАШ ВИХІД!`
+                : 'ПРОДОВЖИТИ ВЕЧІРКУ'}
             </Text>
-            <ArrowRight size={18} color={COLORS.textPrimary} />
+            <ArrowRight size={20} color={COLORS.textPrimary} />
           </TouchableOpacity>
         )}
       </View>
@@ -356,31 +379,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
-    gap: SPACING.xl,
+    gap: SPACING.lg,
   },
   lastTurnBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: COLORS.surface,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
   },
   lastTurnOverline: {
     color: COLORS.textMuted,
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-  },
-  lastTurnText: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  lastTurnHighlight: {
-    color: COLORS.crocodile,
     fontWeight: '700',
+    letterSpacing: 1.3,
+    marginBottom: 2,
+  },
+  lastTurnTeamName: {
+    color: COLORS.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  lastTurnDelta: {
+    color: COLORS.textPrimary,
+    fontSize: 32,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.8,
   },
   headerBlock: {
     gap: 4,
@@ -388,20 +415,14 @@ const styles = StyleSheet.create({
   overline: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1.5,
+    fontWeight: '700',
+    letterSpacing: 1.6,
   },
   title: {
     color: COLORS.textPrimary,
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.9,
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 2,
   },
   leaderboardList: {
     gap: 8,
@@ -430,7 +451,7 @@ const styles = StyleSheet.create({
   rankText: {
     color: COLORS.textMuted,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     minWidth: 24,
     fontVariant: ['tabular-nums'],
   },
@@ -439,13 +460,14 @@ const styles = StyleSheet.create({
   },
   teamName: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   leaderSubLabel: {
     color: COLORS.hot,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
     marginTop: 2,
   },
   scoreBox: {
@@ -453,10 +475,49 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     color: COLORS.textPrimary,
-    fontSize: 26,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '800',
     letterSpacing: -0.6,
     fontVariant: ['tabular-nums'],
+  },
+
+  // Handoff Callout Block
+  handoffCalloutCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    gap: 8,
+  },
+  handoffIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 2,
+  },
+  handoffIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.full,
+    backgroundColor: `${COLORS.primary}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  handoffOverline: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  handoffTeamHeadline: {
+    color: COLORS.textPrimary,
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  handoffSubText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   // Poster Styles
@@ -466,7 +527,7 @@ const styles = StyleSheet.create({
   posterSectionOverline: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 1.4,
   },
   posterCard: {
@@ -482,13 +543,13 @@ const styles = StyleSheet.create({
   posterBrandName: {
     color: COLORS.textPrimary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 2.2,
   },
   posterPresetTag: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   posterMainBlock: {
     paddingVertical: SPACING.xs,
@@ -496,14 +557,14 @@ const styles = StyleSheet.create({
   posterWinnerLabel: {
     color: COLORS.hot,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '800',
     letterSpacing: 1.4,
     marginBottom: 8,
   },
   posterWinnerName: {
     color: COLORS.textPrimary,
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.9,
     lineHeight: 38,
   },
@@ -527,7 +588,7 @@ const styles = StyleSheet.create({
   posterStatNumber: {
     color: COLORS.textPrimary,
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
   },
@@ -546,13 +607,13 @@ const styles = StyleSheet.create({
   brokenWordLabel: {
     color: COLORS.spy,
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 1.2,
   },
   brokenWordValue: {
     color: COLORS.textPrimary,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   posterActionsRow: {
     flexDirection: 'row',
@@ -571,7 +632,7 @@ const styles = StyleSheet.create({
   sharePosterBtnText: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   copyPosterBtn: {
     flex: 1,
@@ -586,7 +647,7 @@ const styles = StyleSheet.create({
   copyPosterBtnText: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   footer: {
     paddingHorizontal: SPACING.xl,
@@ -599,24 +660,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: COLORS.primary,
-    height: 56,
-    borderRadius: RADIUS.md,
+    height: 58,
+    borderRadius: RADIUS.lg,
   },
   continueButtonText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   homeButton: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.primary,
-    height: 56,
-    borderRadius: RADIUS.md,
+    height: 58,
+    borderRadius: RADIUS.lg,
   },
   homeButtonText: {
     color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

@@ -30,14 +30,7 @@ function formatPresetFlow(preset: PartyPreset): string {
       }
       return GAME_NAMES[step.gameType];
     })
-    .join('  →  ');
-}
-
-function formatScoringMeta(preset: PartyPreset): string {
-  const hasTeam = preset.steps.some((s) => s.scoring.type === 'team');
-  const count = preset.steps.length;
-  const gamesWord = count === 1 ? 'гра' : count < 5 ? 'гри' : 'ігор';
-  return `${count} ${gamesWord}  ·  ${hasTeam ? 'Командний залік' : 'Вільний режим'}`;
+    .join(' → ');
 }
 
 export default function VibesScreen() {
@@ -82,9 +75,13 @@ export default function VibesScreen() {
   };
 
   const activeTeamName = teams[currentTeamIndex]?.name;
-  const heroPreset = PARTY_PRESETS[0];
-  const pairPresets = PARTY_PRESETS.slice(1, 3);
-  const finalePreset = PARTY_PRESETS[3];
+  const warmupPreset = PARTY_PRESETS.find((p) => p.id === 'warmup') ?? PARTY_PRESETS[0];
+  const uncensoredPreset =
+    PARTY_PRESETS.find((p) => p.id === 'uncensored_18') ?? PARTY_PRESETS[2];
+  const strangersPreset =
+    PARTY_PRESETS.find((p) => p.id === 'strangers') ?? PARTY_PRESETS[1];
+  const battlePreset =
+    PARTY_PRESETS.find((p) => p.id === 'team_battle') ?? PARTY_PRESETS[3];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -93,10 +90,10 @@ export default function VibesScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Compact Editorial Header */}
+        {/* Editorial Party Header */}
         <View style={styles.header}>
-          <Text style={styles.overline}>KOLO</Text>
-          <Text style={styles.headline}>Що граємо сьогодні?</Text>
+          <Text style={styles.overline}>KOLO · PARTY GAME SHOW</Text>
+          <Text style={styles.headline}>Афіша вечора</Text>
         </View>
 
         {/* Unfinished Session Bar */}
@@ -116,7 +113,10 @@ export default function VibesScreen() {
               </View>
               <View style={styles.resumeTextCol}>
                 <Text style={styles.resumeLabel}>
-                  ПРОДОВЖИТИ  ·  {isCompleted ? 'ФІНАЛ' : `КРОК ${Math.min(currentStepIndex + 1, steps.length)}/${steps.length}`}
+                  В ЕФІРІ ·{' '}
+                  {isCompleted
+                    ? 'ФІНАЛ'
+                    : `КРОК ${Math.min(currentStepIndex + 1, steps.length)}/${steps.length}`}
                 </Text>
                 <Text style={styles.resumeTitle} numberOfLines={1}>
                   {presetTitle || 'Вечірка'}
@@ -136,149 +136,147 @@ export default function VibesScreen() {
           </View>
         ) : null}
 
-        {/* 01 / Hero Editorial Poster */}
-        {heroPreset ? (
+        {/* 01 / РОЗІГРІВ — Big Orange Hero Poster */}
+        {warmupPreset ? (
           <TouchableOpacity
             activeOpacity={0.88}
-            style={styles.heroPoster}
-            onPress={() => handleSelectPreset(heroPreset)}
+            style={styles.warmupPoster}
+            onPress={() => handleSelectPreset(warmupPreset)}
           >
-            <View
-              style={[
-                styles.heroAccentStrip,
-                { backgroundColor: heroPreset.accentColor },
-              ]}
-            />
+            {/* Expressive Geometric Orange Sunburst Graphic */}
+            <View pointerEvents="none" style={styles.warmupGraphicWrap}>
+              <View style={styles.warmupRingOuter} />
+              <View style={styles.warmupRingInner} />
+              <View style={styles.warmupCoreDisk} />
+            </View>
 
-            <View style={styles.heroBody}>
-              <View style={styles.posterTopRow}>
-                <Text style={styles.posterIndex}>01 / PARTY MODE</Text>
-                <Text
-                  style={[
-                    styles.posterDuration,
-                    { color: heroPreset.accentColor },
-                  ]}
-                >
-                  {heroPreset.durationLabel.toUpperCase()}
+            <View style={styles.posterTopRow}>
+              <Text style={styles.warmupOverline}>01 · СТАРТ ВЕЧОРА</Text>
+              <Text style={styles.warmupTimeTag}>
+                {warmupPreset.durationLabel.toUpperCase()}
+              </Text>
+            </View>
+
+            <View style={styles.warmupCenter}>
+              <Text style={styles.warmupHeroTitle}>РОЗІГРІВ</Text>
+              <Text style={styles.warmupTagline}>
+                Почніть спокійно. Закінчите не скоро.
+              </Text>
+            </View>
+
+            <View style={styles.warmupFooter}>
+              <View style={styles.routeFlowBlock}>
+                <Text style={styles.routeFlowLabel}>МАРШРУТ</Text>
+                <Text style={styles.routeFlowValue}>
+                  {formatPresetFlow(warmupPreset)}
                 </Text>
               </View>
 
-              <View style={styles.heroTitleRow}>
-                <Text style={styles.heroTitle}>
-                  {heroPreset.title.toUpperCase()}
-                </Text>
-                <Text style={styles.heroEmoji}>{heroPreset.emoji}</Text>
-              </View>
-
-              <Text style={styles.heroFlow}>{formatPresetFlow(heroPreset)}</Text>
-
-              <View style={styles.posterBottomRow}>
-                <Text style={styles.posterMeta}>
-                  {formatScoringMeta(heroPreset)}
-                </Text>
-                <View
-                  style={[
-                    styles.heroActionCircle,
-                    { backgroundColor: heroPreset.accentColor },
-                  ]}
-                >
-                  <ArrowUpRight size={18} color={COLORS.background} />
-                </View>
+              <View style={styles.warmupLaunchCircle}>
+                <ArrowUpRight size={20} color={COLORS.background} strokeWidth={2.6} />
               </View>
             </View>
           </TouchableOpacity>
         ) : null}
 
-        {/* 02 & 03 / Asymmetric Split Poster Grid */}
-        <View style={styles.splitRow}>
-          {pairPresets.map((preset, idx) => {
-            const numberStr = `0${idx + 2}`;
-            return (
-              <TouchableOpacity
-                key={preset.id}
-                activeOpacity={0.88}
-                style={styles.splitPoster}
-                onPress={() => handleSelectPreset(preset)}
-              >
-                <View style={styles.splitTopRow}>
-                  <Text
-                    style={[
-                      styles.splitIndex,
-                      { color: preset.accentColor },
-                    ]}
-                  >
-                    {numberStr}
-                  </Text>
-                  <Text style={styles.splitDuration}>
-                    {preset.durationLabel.toUpperCase()}
-                  </Text>
-                </View>
+        {/* 02 & 03 / Asymmetric Contrast Posters: БЕЗ ЦЕНЗУРИ 18+ & НЕЗНАЙОМЦІ */}
+        <View style={styles.asymmetricRow}>
+          {uncensoredPreset ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.uncensoredPoster}
+              onPress={() => handleSelectPreset(uncensoredPreset)}
+            >
+              <View pointerEvents="none" style={styles.uncensoredSlashGraphic} />
 
-                <View style={styles.splitMiddle}>
-                  <Text style={styles.splitEmoji}>{preset.emoji}</Text>
-                  <Text style={styles.splitTitle}>
-                    {preset.title}
-                  </Text>
-                </View>
+              <View style={styles.splitHeaderRow}>
+                <Text style={styles.uncensoredBadge}>18+ · БЕЗ ФІЛЬТРІВ</Text>
+                <Text style={styles.splitDurationText}>
+                  {uncensoredPreset.durationLabel}
+                </Text>
+              </View>
 
-                <View style={styles.splitFooter}>
-                  <Text style={styles.splitFlow} numberOfLines={1}>
-                    {formatPresetFlow(preset)}
-                  </Text>
-                  <Text style={styles.splitSubMeta}>
-                    {preset.steps.some((s) => s.scoring.type === 'team')
-                      ? 'Командний'
-                      : 'Айсбрейкер'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+              <View style={styles.splitCenterBlock}>
+                <Text style={styles.uncensoredTitle}>БЕЗ ЦЕНЗУРИ</Text>
+                <Text style={styles.uncensoredQuote}>
+                  Тут краще не грати з батьками.
+                </Text>
+              </View>
+
+              <Text style={styles.uncensoredRoute}>
+                {formatPresetFlow(uncensoredPreset)}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {strangersPreset ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.strangersPoster}
+              onPress={() => handleSelectPreset(strangersPreset)}
+            >
+              <View pointerEvents="none" style={styles.strangersRadarGraphic}>
+                <View style={styles.strangersRadarDot} />
+              </View>
+
+              <View style={styles.splitHeaderRow}>
+                <Text style={styles.strangersBadge}>ICEBREAKER</Text>
+                <Text style={styles.splitDurationText}>
+                  {strangersPreset.durationLabel}
+                </Text>
+              </View>
+
+              <View style={styles.splitCenterBlock}>
+                <Text style={styles.strangersTitle}>НЕЗНАЙОМЦІ</Text>
+                <Text style={styles.strangersQuote}>
+                  За 10 хвилин усі стануть своїми.
+                </Text>
+              </View>
+
+              <Text style={styles.strangersRoute}>
+                {formatPresetFlow(strangersPreset)}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        {/* 04 / Tournament Finale Poster */}
-        {finalePreset ? (
+        {/* 04 / БИТВА КОМАНД — Blue Tournament Show Poster */}
+        {battlePreset ? (
           <TouchableOpacity
             activeOpacity={0.88}
-            style={styles.finalePoster}
-            onPress={() => handleSelectPreset(finalePreset)}
+            style={styles.battlePoster}
+            onPress={() => handleSelectPreset(battlePreset)}
           >
+            {/* Giant Background Mode Number */}
+            <Text pointerEvents="none" style={styles.battleWatermarkNumber}>
+              04
+            </Text>
+
             <View style={styles.posterTopRow}>
-              <Text style={styles.posterIndex}>04 / TOURNAMENT</Text>
-              <Text
-                style={[
-                  styles.posterDuration,
-                  { color: finalePreset.accentColor },
-                ]}
-              >
-                {finalePreset.durationLabel.toUpperCase()}
+              <Text style={styles.battleOverline}>04 · ГОЛОВНИЙ ТУРНІР</Text>
+              <Text style={styles.battleDurationTag}>
+                {battlePreset.durationLabel.toUpperCase()}
               </Text>
             </View>
 
-            <View style={styles.finaleMainRow}>
+            <View style={styles.battleMainBlock}>
+              <Text style={styles.battleTitle}>БИТВА КОМАНД</Text>
+              <Text style={styles.battleTagline}>
+                Хто сьогодні найрозумніший?
+              </Text>
+            </View>
+
+            <View style={styles.battleFooter}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.finaleTitle}>
-                  {finalePreset.title.toUpperCase()}
-                </Text>
-                <Text style={styles.heroFlow}>
-                  {formatPresetFlow(finalePreset)}
+                <Text style={styles.routeFlowLabel}>3 ЕТАПИ ТУРНІРУ</Text>
+                <Text style={styles.battleRouteText}>
+                  {formatPresetFlow(battlePreset)}
                 </Text>
               </View>
 
-              <View
-                style={[
-                  styles.finaleActionBox,
-                  { backgroundColor: finalePreset.accentColor },
-                ]}
-              >
-                <ArrowUpRight size={20} color={COLORS.textPrimary} />
+              <View style={styles.battleActionBox}>
+                <ArrowUpRight size={20} color={COLORS.textPrimary} strokeWidth={2.5} />
               </View>
-            </View>
-
-            <View style={styles.finaleStagesRow}>
-              <Text style={styles.posterMeta}>
-                {formatScoringMeta(finalePreset)}
-              </Text>
             </View>
           </TouchableOpacity>
         ) : null}
@@ -299,23 +297,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
-    gap: SPACING.md,
+    gap: 14,
   },
   header: {
-    marginBottom: SPACING.sm,
+    marginBottom: 4,
     gap: 2,
   },
   overline: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 1.8,
   },
   headline: {
     color: COLORS.textPrimary,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: -0.7,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1,
   },
 
   // Unfinished Session Bar
@@ -326,7 +324,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     paddingVertical: 12,
     paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.xs,
     gap: SPACING.sm,
   },
   resumeMainTouch: {
@@ -348,177 +345,309 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   resumeLabel: {
-    color: COLORS.primary,
+    color: COLORS.hot,
     fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1,
+    fontWeight: '800',
+    letterSpacing: 1.2,
   },
   resumeTitle: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   resumeCloseBtn: {
     padding: 6,
   },
 
-  // 01 / Hero Poster
-  heroPoster: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden',
-  },
-  heroAccentStrip: {
-    width: 5,
-  },
-  heroBody: {
-    flex: 1,
-    padding: SPACING.xl,
-    gap: SPACING.sm,
-  },
   posterTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  posterIndex: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-  },
-  posterDuration: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  heroTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  // 01 / РОЗІГРІВ Poster
+  warmupPoster: {
+    backgroundColor: '#221713',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    minHeight: 220,
     justifyContent: 'space-between',
-    marginTop: 2,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  heroTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 30,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-  },
-  heroEmoji: {
-    fontSize: 24,
-  },
-  heroFlow: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  posterBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: SPACING.sm,
-  },
-  posterMeta: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '400',
-  },
-  heroActionCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: RADIUS.full,
+  warmupGraphicWrap: {
+    position: 'absolute',
+    right: -36,
+    top: -36,
+    width: 180,
+    height: 180,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // 02 & 03 / Split Grid
-  splitRow: {
-    flexDirection: 'row',
-    gap: SPACING.md,
+  warmupRingOuter: {
+    position: 'absolute',
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: 'rgba(249, 115, 22, 0.10)',
   },
-  splitPoster: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    justifyContent: 'space-between',
-    minHeight: 196,
+  warmupRingInner: {
+    position: 'absolute',
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: 'rgba(249, 115, 22, 0.18)',
   },
-  splitTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  warmupCoreDisk: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: 'rgba(249, 115, 22, 0.35)',
   },
-  splitIndex: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-  },
-  splitDuration: {
-    color: COLORS.textMuted,
+  warmupOverline: {
+    color: COLORS.hot,
     fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.8,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
-  splitMiddle: {
+  warmupTimeTag: {
+    color: COLORS.textPrimary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  warmupCenter: {
     marginVertical: SPACING.md,
     gap: 6,
   },
-  splitEmoji: {
-    fontSize: 22,
-  },
-  splitTitle: {
+  warmupHeroTitle: {
     color: COLORS.textPrimary,
-    fontSize: 21,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    lineHeight: 25,
+    fontSize: 38,
+    fontWeight: '900',
+    letterSpacing: -1.3,
+    lineHeight: 42,
   },
-  splitFooter: {
-    gap: 3,
-  },
-  splitFlow: {
-    color: COLORS.textPrimary,
-    fontSize: 13,
+  warmupTagline: {
+    color: '#E5CFC5',
+    fontSize: 16,
     fontWeight: '500',
+    lineHeight: 22,
+    maxWidth: '88%',
   },
-  splitSubMeta: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '400',
-  },
-
-  // 04 / Finale Poster
-  finalePoster: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    gap: SPACING.sm,
-  },
-  finaleMainRow: {
+  warmupFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: SPACING.md,
-    marginTop: 2,
+    marginTop: SPACING.xs,
   },
-  finaleTitle: {
+  routeFlowBlock: {
+    gap: 2,
+  },
+  routeFlowLabel: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.3,
+  },
+  routeFlowValue: {
     color: COLORS.textPrimary,
-    fontSize: 26,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: -0.7,
-    marginBottom: 4,
   },
-  finaleActionBox: {
+  warmupLaunchCircle: {
     width: 42,
     height: 42,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.hot,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  finaleStagesRow: {
-    marginTop: 4,
+
+  // 02 & 03 / Asymmetric Row
+  asymmetricRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  splitHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  splitDurationText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  splitCenterBlock: {
+    marginVertical: SPACING.md,
+    gap: 6,
+  },
+
+  // БЕЗ ЦЕНЗУРИ Poster
+  uncensoredPoster: {
+    flex: 1.08,
+    backgroundColor: '#231218',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    minHeight: 215,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  uncensoredSlashGraphic: {
+    position: 'absolute',
+    right: -25,
+    bottom: -20,
+    width: 90,
+    height: 160,
+    backgroundColor: 'rgba(244, 63, 94, 0.14)',
+    transform: [{ rotate: '-28deg' }],
+    borderRadius: RADIUS.md,
+  },
+  uncensoredBadge: {
+    color: COLORS.spy,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  uncensoredTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 23,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+    lineHeight: 26,
+  },
+  uncensoredQuote: {
+    color: '#E2BEC6',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  uncensoredRoute: {
+    color: COLORS.spy,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // НЕЗНАЙОМЦІ Poster
+  strangersPoster: {
+    flex: 0.96,
+    backgroundColor: '#13201C',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    minHeight: 215,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  strangersRadarGraphic: {
+    position: 'absolute',
+    right: -24,
+    bottom: -24,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 10,
+    borderColor: 'rgba(16, 185, 129, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  strangersRadarDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+  },
+  strangersBadge: {
+    color: COLORS.crocodile,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  strangersTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 21,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+    lineHeight: 25,
+  },
+  strangersQuote: {
+    color: '#BBDAD0',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  strangersRoute: {
+    color: COLORS.crocodile,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // 04 / БИТВА КОМАНД Poster
+  battlePoster: {
+    backgroundColor: '#131A29',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    minHeight: 200,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  battleWatermarkNumber: {
+    position: 'absolute',
+    right: 12,
+    top: 4,
+    fontSize: 108,
+    fontWeight: '900',
+    color: 'rgba(59, 130, 246, 0.12)',
+    letterSpacing: -4,
+    fontVariant: ['tabular-nums'],
+  },
+  battleOverline: {
+    color: COLORS.alias,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  battleDurationTag: {
+    color: COLORS.textPrimary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  battleMainBlock: {
+    marginVertical: SPACING.md,
+    gap: 6,
+  },
+  battleTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  battleTagline: {
+    color: '#BFD2F2',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  battleFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+  },
+  battleRouteText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  battleActionBox: {
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.alias,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

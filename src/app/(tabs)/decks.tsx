@@ -17,14 +17,18 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import {
   ClipboardPaste,
+  Code2,
   Download,
-  Eye,
+  Flame,
+  Layers,
   Pencil,
   Plus,
   RotateCcw,
   Share2,
+  Sparkles,
   Trash2,
   X,
+  Zap,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import {
@@ -43,6 +47,61 @@ const TARGET_MODES: { id: CustomDeckTargetMode; label: string }[] = [
   { id: 'alias', label: 'Тільки Еліас' },
   { id: 'crocodile', label: 'Тільки Крокодил' },
 ];
+
+type CoverTheme = {
+  bg: string;
+  accent: string;
+  tag: string;
+  IconComponent: typeof Sparkles;
+};
+
+function getDeckCoverTheme(deck: Deck): CoverTheme {
+  if (deck.isCustom) {
+    return {
+      bg: '#1F182B',
+      accent: COLORS.primary,
+      tag: 'CUSTOM PACK',
+      IconComponent: Layers,
+    };
+  }
+  switch (deck.id) {
+    case 'warmup_ua':
+      return {
+        bg: '#231712',
+        accent: COLORS.hot,
+        tag: 'PARTY START',
+        IconComponent: Flame,
+      };
+    case 'memes_ua':
+      return {
+        bg: '#11221B',
+        accent: COLORS.crocodile,
+        tag: 'POP & MEMES',
+        IconComponent: Zap,
+      };
+    case 'it_office_ua':
+      return {
+        bg: '#121C2E',
+        accent: COLORS.alias,
+        tag: 'TECH & WORK',
+        IconComponent: Code2,
+      };
+    case 'adult_18_ua':
+      return {
+        bg: '#261118',
+        accent: COLORS.spy,
+        tag: 'NSFW · 18+',
+        IconComponent: Flame,
+      };
+    default:
+      return {
+        bg: '#191729',
+        accent: COLORS.primary,
+        tag: 'CLASSIC EDITION',
+        IconComponent: Sparkles,
+      };
+  }
+}
 
 export default function DecksScreen() {
   const customDecks = useDeckStore((s) => s.customDecks);
@@ -123,12 +182,12 @@ export default function DecksScreen() {
 
     try {
       await Share.share({
-        message: `${deck.emoji} Колода KOLO «${deck.title}» (${words.length} карток)\n\nСкопіюй список нижче та встав у «Колоди → Швидкий імпорт»:\n\n${listText}`,
+        message: `Колода KOLO «${deck.title}» (${words.length} карток)\n\nСкопіюй список нижче та встав у «Колоди → Імпорт»:\n\n${listText}`,
       });
     } catch {
       Alert.alert(
         'Скопійовано в буфер обміну',
-        `Список із ${words.length} карток колоди «${deck.title}» скопійовано! Можете надіслати його друзям.`
+        `Список із ${words.length} карток колоди «${deck.title}» скопійовано!`
       );
     }
   };
@@ -138,11 +197,16 @@ export default function DecksScreen() {
       const text = await Clipboard.getStringAsync();
       if (!text || !text.trim()) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert('Буфер порожній', 'Скопіюйте список слів (кожне з нового рядка) та спробуйте ще раз.');
+        Alert.alert(
+          'Буфер порожній',
+          'Скопіюйте список слів (кожне з нового рядка) та спробуйте ще раз.'
+        );
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setRawText((prev) => (prev.trim() ? `${prev.trim()}\n${text.trim()}` : text.trim()));
+      setRawText((prev) =>
+        prev.trim() ? `${prev.trim()}\n${text.trim()}` : text.trim()
+      );
     } catch {
       Alert.alert('Помилка', 'Не вдалося прочитати буфер обміну.');
     }
@@ -159,11 +223,15 @@ export default function DecksScreen() {
   const handleSaveCustomDeck = () => {
     if (parsedPreviewItems.length === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Немає карток', 'Додайте хоча б одне слово або фразу довжиною від 2 символів.');
+      Alert.alert(
+        'Немає карток',
+        'Додайте хоча б одне слово або фразу довжиною від 2 символів.'
+      );
       return;
     }
 
-    const deckTitle = title.trim() || `Кастомна колода #${customDecks.length + 1}`;
+    const deckTitle =
+      title.trim() || `Власна колода #${customDecks.length + 1}`;
     const payload = {
       title: deckTitle,
       emoji: selectedEmoji,
@@ -197,6 +265,7 @@ export default function DecksScreen() {
           onPress: () => {
             deleteCustomDeck(deck.id);
             resetDeckHistory(deck.id);
+            setPreviewDeck(null);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           },
         },
@@ -209,129 +278,73 @@ export default function DecksScreen() {
     resetDeckHistory(deck.id);
   };
 
-  const renderDeckCard = (deck: Deck) => {
-    const deckUsed = usedMap[deck.id];
-    const usedCount =
-      (deckUsed?.alias?.length ?? 0) +
-      (deckUsed?.crocodile?.length ?? 0) +
-      (deckUsed?.spyLocations?.length ?? 0);
+  const renderDeckCover = (deck: Deck) => {
+    const theme = getDeckCoverTheme(deck);
+    const IconComp = theme.IconComponent;
+    const totalCards =
+      deck.items.alias.length +
+      deck.items.crocodile.length +
+      deck.items.spyLocations.length;
 
-    const accentStripColor = deck.isCustom
-      ? COLORS.hot
-      : deck.isPremium
-        ? COLORS.primary
-        : COLORS.alias;
+    const sampleWord =
+      deck.items.alias[0]?.word ??
+      deck.items.crocodile[0]?.phrase ??
+      deck.items.spyLocations[0]?.name ??
+      'KOLO';
 
     return (
       <TouchableOpacity
         key={deck.id}
         activeOpacity={0.88}
         onPress={() => handleOpenPreview(deck)}
-        style={styles.deckCard}
+        style={[styles.coverCard, { backgroundColor: theme.bg }]}
       >
+        {/* Decorative Box-Art Geometric Illustration */}
         <View
+          pointerEvents="none"
           style={[
-            styles.deckAccentStrip,
-            { backgroundColor: accentStripColor },
+            styles.coverArtCircle,
+            { backgroundColor: `${theme.accent}1E` },
           ]}
-        />
-
-        <View style={styles.deckInner}>
-          <View style={styles.deckTopRow}>
-            <Text style={styles.emoji}>{deck.emoji}</Text>
-
-            <View style={styles.deckTitleWrap}>
-              <View style={styles.deckOverlineRow}>
-                <Text
-                  style={[
-                    styles.deckTypeTag,
-                    { color: deck.isCustom || deck.isPremium ? COLORS.hot : COLORS.textMuted },
-                  ]}
-                >
-                  {deck.isCustom
-                    ? 'ВЛАСНА КОЛОДА'
-                    : deck.isPremium
-                      ? 'PRO · БЕЗКОШТОВНО В БЕТА'
-                      : 'ОФІЦІЙНА КОЛОДА'}
-                </Text>
-
-                {usedCount > 0 ? (
-                  <TouchableOpacity
-                    style={styles.resetHistoryChip}
-                    onPress={() => handleResetDeckUsed(deck)}
-                  >
-                    <RotateCcw size={11} color={COLORS.textSecondary} />
-                    <Text style={styles.resetHistoryText}>
-                      Зіграно {usedCount} · скинути
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              <Text style={styles.deckTitle} numberOfLines={1}>
-                {deck.title}
-              </Text>
-            </View>
-
-            <View style={styles.deckIconActions}>
-              <TouchableOpacity
-                style={styles.iconActionBtn}
-                onPress={() => handleOpenPreview(deck)}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-              >
-                <Eye size={16} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-
-              {deck.isCustom ? (
-                <>
-                  <TouchableOpacity
-                    style={styles.iconActionBtn}
-                    onPress={() => handleEditCustomDeck(deck)}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  >
-                    <Pencil size={15} color={COLORS.textPrimary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconActionBtn}
-                    onPress={() => handleShareOrCopyDeck(deck)}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  >
-                    <Share2 size={15} color={COLORS.crocodile} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.iconActionBtn}
-                    onPress={() => handleDeleteCustomDeck(deck)}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  >
-                    <Trash2 size={15} color={COLORS.spy} />
-                  </TouchableOpacity>
-                </>
-              ) : null}
-            </View>
+        >
+          <View
+            style={[
+              styles.coverArtInner,
+              { backgroundColor: `${theme.accent}33` },
+            ]}
+          >
+            <IconComp size={20} color={theme.accent} />
           </View>
+        </View>
 
-          {deck.description ? (
-            <Text style={styles.deckDescription}>{deck.description}</Text>
+        {/* Top Row: Category Tag + PRO Badge */}
+        <View style={styles.coverTopRow}>
+          <Text style={[styles.coverSeriesTag, { color: theme.accent }]}>
+            {theme.tag}
+          </Text>
+          {deck.isPremium ? (
+            <View style={styles.proMiniPill}>
+              <Text style={styles.proMiniPillText}>PRO</Text>
+            </View>
           ) : null}
+        </View>
 
-          <View style={styles.inlineStatsRow}>
-            <Text style={styles.inlineStatItem}>
-              <Text style={styles.inlineStatNumber}>{deck.items.alias.length}</Text>{' '}
-              Еліас
-            </Text>
-            <Text style={styles.inlineStatDot}>·</Text>
-            <Text style={styles.inlineStatItem}>
-              <Text style={styles.inlineStatNumber}>{deck.items.crocodile.length}</Text>{' '}
-              Крокодил
-            </Text>
-            <Text style={styles.inlineStatDot}>·</Text>
-            <Text style={styles.inlineStatItem}>
-              <Text style={styles.inlineStatNumber}>
-                {deck.items.spyLocations.length}
-              </Text>{' '}
-              Шпигун
-            </Text>
-          </View>
+        {/* Center Box Title & Sample Card Preview */}
+        <View style={styles.coverTitleBlock}>
+          <Text style={styles.coverTitle} numberOfLines={2}>
+            {deck.title}
+          </Text>
+          <Text style={styles.coverSamplePreview} numberOfLines={1}>
+            «{sampleWord}»
+          </Text>
+        </View>
+
+        {/* Bottom Compact Card Count */}
+        <View style={styles.coverBottomRow}>
+          <Text style={styles.coverCountText}>{totalCards} карток</Text>
+          <Text style={[styles.coverOpenHint, { color: theme.accent }]}>
+            Відкрити →
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -344,50 +357,55 @@ export default function DecksScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Editorial Header */}
-        <View style={styles.header}>
-          <Text style={styles.overline}>КОЛЕКЦІЯ СЛІВ</Text>
-          <Text style={styles.title}>Колоди</Text>
+        {/* Header with Compact Non-Competing Actions */}
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.overline}>КОЛЕКЦІЯ ПАКІВ</Text>
+            <Text style={styles.title}>Колоди</Text>
+          </View>
+
+          <View style={styles.headerCompactActions}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.compactImportBtn}
+              onPress={() => openModal(true)}
+            >
+              <Download size={14} color={COLORS.textSecondary} />
+              <Text style={styles.compactImportText}>Імпорт</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.compactCreateBtn}
+              onPress={() => openModal(false)}
+            >
+              <Plus size={15} color={COLORS.textPrimary} />
+              <Text style={styles.compactCreateText}>Створити</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[styles.actionButton, styles.primaryActionButton]}
-            onPress={() => openModal(false)}
-          >
-            <Plus size={17} color={COLORS.textPrimary} />
-            <Text style={styles.primaryActionText}>Нова колода</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[styles.actionButton, styles.secondaryActionButton]}
-            onPress={() => openModal(true)}
-          >
-            <Download size={17} color={COLORS.textPrimary} />
-            <Text style={styles.secondaryActionText}>Швидкий імпорт</Text>
-          </TouchableOpacity>
+        {/* Official Party Packs Grid (2-Column Box Covers) */}
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionOverline}>
+            ОФІЦІЙНІ ВИДАННЯ KOLO · {OFFICIAL_DECKS.length}
+          </Text>
+          <View style={styles.coversGrid}>
+            {OFFICIAL_DECKS.map(renderDeckCover)}
+          </View>
         </View>
 
         {/* Custom Decks Section */}
         {customDecks.length > 0 ? (
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionOverline}>
-              ВЛАСНІ КОЛОДИ · {customDecks.length}
+              ВЛАСНІ ПАКИ · {customDecks.length}
             </Text>
-            <View style={styles.decksList}>{customDecks.map(renderDeckCard)}</View>
+            <View style={styles.coversGrid}>
+              {customDecks.map(renderDeckCover)}
+            </View>
           </View>
         ) : null}
-
-        {/* Official Decks Section */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionOverline}>
-            ОФІЦІЙНІ КОЛОДИ KOLO · {OFFICIAL_DECKS.length}
-          </Text>
-          <View style={styles.decksList}>{OFFICIAL_DECKS.map(renderDeckCard)}</View>
-        </View>
       </ScrollView>
 
       {/* Modal: Quick Import / Create Custom Deck */}
@@ -402,10 +420,9 @@ export default function DecksScreen() {
             style={styles.modalFlex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalHeaderTitle}>
-                {editingDeckId ? 'Редагувати колоду' : 'Нова колода'}
+                {editingDeckId ? 'Редагувати колоду' : 'Новий пак карток'}
               </Text>
               <TouchableOpacity
                 style={styles.closeBtn}
@@ -434,7 +451,7 @@ export default function DecksScreen() {
                 maxLength={40}
               />
 
-              <Text style={styles.fieldLabel}>ЕМОДЗІ</Text>
+              <Text style={styles.fieldLabel}>СИМВОЛ ПАКУ</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -461,7 +478,7 @@ export default function DecksScreen() {
                 })}
               </ScrollView>
 
-              <Text style={styles.fieldLabel}>ПРИЗНАЧЕННЯ КАРТОК</Text>
+              <Text style={styles.fieldLabel}>ДЛЯ ЯКИХ ІГОР</Text>
               <View style={styles.modeSelectorRow}>
                 {TARGET_MODES.map((m) => {
                   const active = targetMode === m.id;
@@ -515,7 +532,6 @@ export default function DecksScreen() {
                 textAlignVertical="top"
               />
 
-              {/* Live Preview Chips */}
               <View style={styles.previewSection}>
                 <View style={styles.previewHeaderRow}>
                   <Text style={styles.previewTitle}>
@@ -555,7 +571,6 @@ export default function DecksScreen() {
               </View>
             </ScrollView>
 
-            {/* Modal Footer */}
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -567,8 +582,8 @@ export default function DecksScreen() {
               >
                 <Text style={styles.saveButtonText}>
                   {editingDeckId
-                    ? `Оновити колоду (${parsedPreviewItems.length})`
-                    : `Зберегти колоду (${parsedPreviewItems.length})`}
+                    ? `Оновити пак (${parsedPreviewItems.length})`
+                    : `Зберегти пак (${parsedPreviewItems.length})`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -576,7 +591,7 @@ export default function DecksScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* Modal: Preview Deck Cards */}
+      {/* Modal: Deck Box Showcase & Sample Cards */}
       <Modal
         visible={previewDeck !== null}
         animationType="slide"
@@ -584,23 +599,58 @@ export default function DecksScreen() {
         onRequestClose={() => setPreviewDeck(null)}
       >
         <SafeAreaView style={styles.modalSafeArea} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderTitleRow}>
-              <Text style={styles.previewDeckEmoji}>{previewDeck?.emoji}</Text>
-              <Text style={styles.modalHeaderTitle} numberOfLines={1}>
-                {previewDeck?.title}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setPreviewDeck(null)}
-            >
-              <X size={18} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
           {previewDeck ? (
             <View style={styles.modalFlex}>
+              {/* Rich Deck Showcase Header */}
+              <View
+                style={[
+                  styles.showcaseBanner,
+                  { backgroundColor: getDeckCoverTheme(previewDeck).bg },
+                ]}
+              >
+                <View style={styles.showcaseTopRow}>
+                  <Text
+                    style={[
+                      styles.showcaseSeriesTag,
+                      { color: getDeckCoverTheme(previewDeck).accent },
+                    ]}
+                  >
+                    {getDeckCoverTheme(previewDeck).tag}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.closeBtn}
+                    onPress={() => setPreviewDeck(null)}
+                  >
+                    <X size={18} color={COLORS.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.showcaseTitle}>{previewDeck.title}</Text>
+                {previewDeck.description ? (
+                  <Text style={styles.showcaseDescription}>
+                    {previewDeck.description}
+                  </Text>
+                ) : null}
+
+                {/* Played count reset option if any cards played */}
+                {((usedMap[previewDeck.id]?.alias?.length ?? 0) +
+                  (usedMap[previewDeck.id]?.crocodile?.length ?? 0) +
+                  (usedMap[previewDeck.id]?.spyLocations?.length ?? 0)) >
+                0 ? (
+                  <TouchableOpacity
+                    style={styles.resetHistoryPill}
+                    onPress={() => handleResetDeckUsed(previewDeck)}
+                  >
+                    <RotateCcw size={12} color={COLORS.textPrimary} />
+                    <Text style={styles.resetHistoryText}>
+                      Скинути історію зіграних карток
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Mode Tabs */}
               <View style={styles.previewTabsRow}>
                 {(
                   [
@@ -655,15 +705,16 @@ export default function DecksScreen() {
                 {previewTab === 'alias' ? (
                   previewDeck.items.alias.length === 0 ? (
                     <Text style={styles.previewEmptyText}>
-                      У цій колоді немає слів для Еліасу.
+                      У цьому паку немає слів для Еліасу.
                     </Text>
                   ) : (
-                    <View style={styles.previewChipsGrid}>
-                      {previewDeck.items.alias.map((item) => (
-                        <View key={item.id} style={styles.previewCardPill}>
-                          <Text style={styles.previewCardPillText}>
-                            {item.word}
+                    <View style={styles.sampleCardsGrid}>
+                      {previewDeck.items.alias.map((item, idx) => (
+                        <View key={item.id} style={styles.sampleAliasCard}>
+                          <Text style={styles.sampleCardNumber}>
+                            #{String(idx + 1).padStart(2, '0')}
                           </Text>
+                          <Text style={styles.sampleCardWord}>{item.word}</Text>
                         </View>
                       ))}
                     </View>
@@ -673,13 +724,18 @@ export default function DecksScreen() {
                 {previewTab === 'crocodile' ? (
                   previewDeck.items.crocodile.length === 0 ? (
                     <Text style={styles.previewEmptyText}>
-                      У цій колоді немає фраз для Крокодила.
+                      У цьому паку немає фраз для Крокодила.
                     </Text>
                   ) : (
                     <View style={styles.previewLinesList}>
                       {previewDeck.items.crocodile.map((item, idx) => (
                         <View key={item.id} style={styles.previewLineCard}>
-                          <Text style={styles.previewLineIndex}>
+                          <Text
+                            style={[
+                              styles.previewLineIndex,
+                              { color: COLORS.crocodile },
+                            ]}
+                          >
                             {String(idx + 1).padStart(2, '0')}
                           </Text>
                           <Text style={styles.previewLineText}>
@@ -694,17 +750,24 @@ export default function DecksScreen() {
                 {previewTab === 'spy' ? (
                   previewDeck.items.spyLocations.length === 0 ? (
                     <Text style={styles.previewEmptyText}>
-                      У кастомній колоді немає власних локацій Шпигуна (під час гри автоматично використовуються локації з базової колоди).
+                      У власному паку немає локацій Шпигуна (під час гри використовуються локації з класичної колоди).
                     </Text>
                   ) : (
                     <View style={styles.previewLinesList}>
                       {previewDeck.items.spyLocations.map((loc, idx) => (
                         <View key={loc.id} style={styles.previewLineCard}>
-                          <Text style={[styles.previewLineIndex, { color: COLORS.spy }]}>
+                          <Text
+                            style={[
+                              styles.previewLineIndex,
+                              { color: COLORS.spy },
+                            ]}
+                          >
                             {String(idx + 1).padStart(2, '0')}
                           </Text>
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.previewLineText}>{loc.name}</Text>
+                            <Text style={styles.previewLineText}>
+                              {loc.name}
+                            </Text>
                             {loc.roles?.length ? (
                               <Text style={styles.previewRolesSub}>
                                 {loc.roles.join(' · ')}
@@ -725,7 +788,7 @@ export default function DecksScreen() {
                     style={styles.previewEditBtn}
                     onPress={() => handleEditCustomDeck(previewDeck)}
                   >
-                    <Pencil size={16} color={COLORS.textPrimary} />
+                    <Pencil size={15} color={COLORS.textPrimary} />
                     <Text style={styles.previewFooterBtnText}>Редагувати</Text>
                   </TouchableOpacity>
 
@@ -734,8 +797,23 @@ export default function DecksScreen() {
                     style={styles.previewShareBtn}
                     onPress={() => handleShareOrCopyDeck(previewDeck)}
                   >
-                    <Share2 size={16} color={COLORS.textPrimary} />
-                    <Text style={styles.previewFooterBtnText}>Поділитися</Text>
+                    <Share2 size={15} color={COLORS.background} />
+                    <Text
+                      style={[
+                        styles.previewFooterBtnText,
+                        { color: COLORS.background },
+                      ]}
+                    >
+                      Поділитися
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    style={styles.previewDeleteBtn}
+                    onPress={() => handleDeleteCustomDeck(previewDeck)}
+                  >
+                    <Trash2 size={16} color={COLORS.spy} />
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -760,163 +838,156 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.xxxl,
   },
-  header: {
-    marginBottom: SPACING.lg,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xl,
+    gap: SPACING.md,
   },
   overline: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1.6,
-    marginBottom: 6,
+    fontWeight: '700',
+    letterSpacing: 1.8,
+    marginBottom: 2,
   },
   title: {
     color: COLORS.textPrimary,
     fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -0.9,
+    fontWeight: '800',
+    letterSpacing: -1,
   },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: SPACING.xl,
-  },
-  actionButton: {
-    flex: 1,
+  headerCompactActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    height: 48,
-    borderRadius: RADIUS.md,
   },
-  primaryActionButton: {
-    backgroundColor: COLORS.primary,
-  },
-  primaryActionText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  secondaryActionButton: {
+  compactImportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: COLORS.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: RADIUS.full,
   },
-  secondaryActionText: {
+  compactImportText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  compactCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: RADIUS.full,
+  },
+  compactCreateText: {
     color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '800',
   },
+
   sectionBlock: {
     marginBottom: SPACING.xl,
   },
   sectionOverline: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 1.4,
     marginBottom: SPACING.md,
   },
-  decksList: {
+
+  // 2-Column Box-Art Covers Grid
+  coversGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  deckCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
+  coverCard: {
+    width: '48%',
+    flexGrow: 1,
+    minHeight: 206,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
   },
-  deckAccentStrip: {
+  coverArtCircle: {
     position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-  },
-  deckInner: {
-    padding: SPACING.lg,
-    paddingLeft: SPACING.lg + 4,
-  },
-  deckTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.md,
-  },
-  emoji: {
-    fontSize: 28,
-    marginTop: 2,
-  },
-  deckTitleWrap: {
-    flex: 1,
-  },
-  deckOverlineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
-  },
-  deckTypeTag: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 1.1,
-  },
-  deckTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.4,
-  },
-  deckIconActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  iconActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceElevated,
+    right: -24,
+    bottom: 24,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resetHistoryChip: {
+  coverArtInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'space-between',
+    gap: 6,
   },
-  resetHistoryText: {
+  coverSeriesTag: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  proMiniPill: {
+    backgroundColor: 'rgba(249, 115, 22, 0.24)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+  },
+  proMiniPillText: {
+    color: COLORS.hot,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  coverTitleBlock: {
+    marginVertical: SPACING.md,
+    gap: 6,
+  },
+  coverTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+    lineHeight: 26,
+  },
+  coverSamplePreview: {
+    color: 'rgba(245, 245, 247, 0.58)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  coverBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  coverCountText: {
     color: COLORS.textSecondary,
     fontSize: 11,
-    fontWeight: '500',
-  },
-  deckDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 10,
-  },
-  inlineStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
-  },
-  inlineStatItem: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  inlineStatNumber: {
-    color: COLORS.textPrimary,
     fontWeight: '700',
-    fontVariant: ['tabular-nums'],
   },
-  inlineStatDot: {
-    color: COLORS.textMuted,
-    fontSize: 12,
+  coverOpenHint: {
+    fontSize: 11,
+    fontWeight: '800',
   },
 
   // Modal styles
@@ -934,25 +1005,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
   },
-  modalHeaderTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    paddingRight: SPACING.sm,
-  },
   modalHeaderTitle: {
     color: COLORS.textPrimary,
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.4,
-    flexShrink: 1,
   },
   closeBtn: {
     width: 34,
     height: 34,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -964,7 +1027,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 1.2,
     marginBottom: SPACING.sm,
     marginTop: SPACING.md,
@@ -976,7 +1039,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   emojiPickerRow: {
     gap: 8,
@@ -991,9 +1054,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emojiOptionSelected: {
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
   },
   emojiOptionText: {
     fontSize: 22,
@@ -1017,7 +1078,7 @@ const styles = StyleSheet.create({
   modeChipText: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   modeChipTextActive: {
@@ -1042,7 +1103,7 @@ const styles = StyleSheet.create({
   pasteButtonText: {
     color: COLORS.textPrimary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   multilineInput: {
     backgroundColor: COLORS.surface,
@@ -1073,7 +1134,7 @@ const styles = StyleSheet.create({
   clearAllText: {
     color: COLORS.spy,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   previewEmptyText: {
     color: COLORS.textMuted,
@@ -1098,7 +1159,7 @@ const styles = StyleSheet.create({
   wordChipText: {
     color: COLORS.textPrimary,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     flexShrink: 1,
   },
   modalFooter: {
@@ -1119,18 +1180,58 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 
-  // Preview Deck Modal styles
-  previewDeckEmoji: {
-    fontSize: 22,
+  // Showcase Modal
+  showcaseBanner: {
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.lg,
+    gap: 6,
+  },
+  showcaseTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  showcaseSeriesTag: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  showcaseTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  showcaseDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  resetHistoryPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    marginTop: 6,
+  },
+  resetHistoryText: {
+    color: COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   previewTabsRow: {
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: SPACING.xl,
-    paddingBottom: SPACING.md,
+    paddingVertical: SPACING.md,
   },
   previewTabBtn: {
     flex: 1,
@@ -1143,28 +1244,39 @@ const styles = StyleSheet.create({
   previewTabText: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   previewCardsScroll: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.xs,
     paddingBottom: SPACING.xxxl,
   },
-  previewChipsGrid: {
+  sampleCardsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
-  previewCardPill: {
+  sampleAliasCard: {
+    width: '48%',
+    flexGrow: 1,
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    minHeight: 84,
+    justifyContent: 'space-between',
   },
-  previewCardPillText: {
+  sampleCardNumber: {
+    color: COLORS.alias,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  sampleCardWord: {
     color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginTop: 6,
   },
   previewLinesList: {
     gap: 8,
@@ -1180,7 +1292,7 @@ const styles = StyleSheet.create({
   previewLineIndex: {
     color: COLORS.textMuted,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '800',
     minWidth: 22,
     marginTop: 2,
     fontVariant: ['tabular-nums'],
@@ -1188,7 +1300,7 @@ const styles = StyleSheet.create({
   previewLineText: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
     lineHeight: 21,
   },
@@ -1225,9 +1337,17 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: RADIUS.md,
   },
+  previewDeleteBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   previewFooterBtnText: {
     color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });
