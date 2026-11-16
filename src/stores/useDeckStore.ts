@@ -30,7 +30,6 @@ export function parseRawDeckText(rawText: string): string[] {
   const uniqueItems: string[] = [];
 
   for (const rawLine of lines) {
-    // Видаляємо можливі маркери списків на початку рядка (наприклад "• ", "- ", "1. ")
     const cleaned = rawLine.replace(/^(\d+[\.\)]\s*|[-•*]\s*)/, '').trim();
     if (cleaned.length < 2) continue;
 
@@ -108,6 +107,11 @@ interface DeckStoreState {
   customDecks: Deck[];
   getAllDecks: () => Deck[];
   getDeckById: (deckId: string) => Deck;
+  resolveStepDeck: (
+    deckId: string,
+    deckIds?: string[],
+    minDifficulty?: 1 | 2
+  ) => Deck;
   createCustomDeck: (params: CreateCustomDeckParams) => Deck | null;
   updateCustomDeck: (deckId: string, params: CreateCustomDeckParams) => Deck | null;
   deleteCustomDeck: (deckId: string) => void;
@@ -125,6 +129,57 @@ export const useDeckStore = create<DeckStoreState>()(
       getDeckById: (deckId: string) => {
         const allDecks = get().getAllDecks();
         return allDecks.find((d) => d.id === deckId) ?? baseUaDeck;
+      },
+
+      resolveStepDeck: (deckId, deckIds, minDifficulty = 1) => {
+        const allDecks = get().getAllDecks();
+        const targetIds =
+          deckIds && deckIds.length > 0 ? deckIds : [deckId];
+        const matched = targetIds
+          .map((id) => allDecks.find((d) => d.id === id))
+          .filter((d): d is Deck => Boolean(d));
+
+        const sourceDecks = matched.length > 0 ? matched : [baseUaDeck];
+
+        const rawAlias = sourceDecks.flatMap((d) => d.items.alias);
+        const rawCroc = sourceDecks.flatMap((d) => d.items.crocodile);
+        const rawSpy = sourceDecks.flatMap((d) => d.items.spyLocations);
+
+        const filteredAlias =
+          minDifficulty > 1
+            ? rawAlias.filter((item) => item.difficulty >= minDifficulty)
+            : rawAlias;
+        const filteredCroc =
+          minDifficulty > 1
+            ? rawCroc.filter((item) => item.difficulty >= minDifficulty)
+            : rawCroc;
+
+        if (sourceDecks.length === 1 && minDifficulty === 1) {
+          return sourceDecks[0];
+        }
+
+        const combinedTitle =
+          sourceDecks.length === 1
+            ? sourceDecks[0].title
+            : `Мікс (${sourceDecks.length}: ${sourceDecks
+                .map((d) => d.emoji)
+                .join(' ')})`;
+
+        return {
+          id: sourceDecks.map((d) => d.id).join('+'),
+          title: combinedTitle,
+          description: 'Об’єднана колода для вечірки',
+          emoji: sourceDecks[0].emoji,
+          isCustom: false,
+          isPremium: false,
+          items: {
+            alias: filteredAlias.length > 0 ? filteredAlias : rawAlias,
+            crocodile: filteredCroc.length > 0 ? filteredCroc : rawCroc,
+            taboo: [],
+            spyLocations:
+              rawSpy.length > 0 ? rawSpy : baseUaDeck.items.spyLocations,
+          },
+        };
       },
 
       createCustomDeck: (params) => {

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { GameType, PresetStep } from '@/types';
+import { GameType, PresetStep, SpyLocation } from '@/types';
 
 export interface PartyTeam {
   id: string;
@@ -21,6 +21,23 @@ export interface LastTurnInfo {
   stepTitle?: string;
 }
 
+export interface SpyTurnDraft {
+  stepId: string;
+  secretLocation: SpyLocation;
+  spyIndices: number[];
+  currentPlayerIndex: number;
+  phase: 'ROLE_DISTRIBUTION' | 'DISCUSSION' | 'RESOLUTION';
+  crossedLocationIds: string[];
+  firstAskerIndex?: number;
+  firstTargetIndex?: number;
+}
+
+export interface SpyPartyStats {
+  roundsPlayed: number;
+  citizensWins: number;
+  spyWins: number;
+}
+
 export interface StartSessionConfig {
   title: string;
   steps: PresetStep[];
@@ -35,18 +52,23 @@ interface PartyStoreState {
   steps: PresetStep[];
   currentStepIndex: number;
   teams: PartyTeam[];
+  savedTeamNames: string[];
   currentTeamIndex: number;
   currentRoundInStep: number;
   playerCount: number;
 
-  // Статистика вечірки для фінального постера (Ітерація 4)
   totalGuessedWords: number;
   hardestUnansweredWord: string | null;
   lastTurnInfo: LastTurnInfo | null;
+  spyDraft: SpyTurnDraft | null;
+  spyStats: SpyPartyStats;
 
   startSession: (config: StartSessionConfig) => void;
+  restartRematch: () => void;
   submitTeamTurnResult: (pointsDelta: number, stats?: TurnStatsPayload) => void;
   recordPartyStats: (stats: TurnStatsPayload) => void;
+  setSpyDraft: (draft: SpyTurnDraft | null) => void;
+  recordSpyOutcome: (winnerSide: 'citizens' | 'spy' | null) => void;
   advanceToNextStep: () => void;
   endSession: () => void;
 }
@@ -65,22 +87,25 @@ export const usePartyStore = create<PartyStoreState>()(
       steps: [],
       currentStepIndex: 0,
       teams: DEFAULT_TEAMS,
+      savedTeamNames: ['Бойові Гуси', 'Хмільні Сови'],
       currentTeamIndex: 0,
       currentRoundInStep: 1,
       playerCount: 5,
       totalGuessedWords: 0,
       hardestUnansweredWord: null,
       lastTurnInfo: null,
+      spyDraft: null,
+      spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
 
       startSession: ({ title, steps, teamNames, playerCount }) => {
         const cleanTeamNames =
           teamNames.length >= 2
-            ? teamNames
+            ? teamNames.map((n, i) => n.trim() || `Команда ${i + 1}`)
             : ['Команда 1', 'Команда 2'];
 
         const initialTeams: PartyTeam[] = cleanTeamNames.map((name, idx) => ({
           id: `team_${idx + 1}_${Date.now()}`,
-          name: name.trim() || `Команда ${idx + 1}`,
+          name,
           scoresByGroup: { main: 0 },
         }));
 
@@ -91,13 +116,55 @@ export const usePartyStore = create<PartyStoreState>()(
           steps,
           currentStepIndex: 0,
           teams: initialTeams,
+          savedTeamNames: cleanTeamNames,
           currentTeamIndex: 0,
           currentRoundInStep: 1,
           playerCount: Math.max(3, Math.min(16, playerCount)),
           totalGuessedWords: 0,
           hardestUnansweredWord: null,
           lastTurnInfo: null,
+          spyDraft: null,
+          spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
         });
+      },
+
+      restartRematch: () => {
+        const state = get();
+        const resetTeams: PartyTeam[] = state.teams.map((t, idx) => ({
+          id: `team_${idx + 1}_${Date.now()}`,
+          name: t.name,
+          scoresByGroup: { main: 0 },
+        }));
+
+        set({
+          isActive: true,
+          isCompleted: false,
+          currentStepIndex: 0,
+          teams: resetTeams,
+          currentTeamIndex: 0,
+          currentRoundInStep: 1,
+          totalGuessedWords: 0,
+          hardestUnansweredWord: null,
+          lastTurnInfo: null,
+          spyDraft: null,
+          spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
+        });
+      },
+
+      setSpyDraft: (draft) => {
+        set({ spyDraft: draft });
+      },
+
+      recordSpyOutcome: (winnerSide) => {
+        set((state) => ({
+          spyDraft: null,
+          spyStats: {
+            roundsPlayed: state.spyStats.roundsPlayed + 1,
+            citizensWins:
+              state.spyStats.citizensWins + (winnerSide === 'citizens' ? 1 : 0),
+            spyWins: state.spyStats.spyWins + (winnerSide === 'spy' ? 1 : 0),
+          },
+        }));
       },
 
       recordPartyStats: (stats) => {
@@ -108,7 +175,6 @@ export const usePartyStore = create<PartyStoreState>()(
           let nextHardest = state.hardestUnansweredWord;
 
           if (skipped.length > 0) {
-            // Обираємо найдовше або випадкове пропущене слово з раунду як кандидата
             const candidate = [...skipped].sort((a, b) => b.length - a.length)[0];
             if (
               candidate &&
@@ -177,7 +243,6 @@ export const usePartyStore = create<PartyStoreState>()(
           return;
         }
 
-        // Усі команди відіграли поточне коло
         if (state.currentRoundInStep < roundsPerTeam) {
           set({
             teams: updatedTeams,
@@ -188,7 +253,6 @@ export const usePartyStore = create<PartyStoreState>()(
           return;
         }
 
-        // Усі команди відіграли всі раунди поточного кроку -> переходимо до наступного кроку
         set({
           teams: updatedTeams,
           lastTurnInfo: turnInfo,
@@ -205,6 +269,7 @@ export const usePartyStore = create<PartyStoreState>()(
             isCompleted: true,
             currentTeamIndex: 0,
             currentRoundInStep: 1,
+            spyDraft: null,
           });
         } else {
           set({
@@ -212,6 +277,7 @@ export const usePartyStore = create<PartyStoreState>()(
             currentTeamIndex: 0,
             currentRoundInStep: 1,
             isCompleted: false,
+            spyDraft: null,
           });
         }
       },
@@ -226,6 +292,8 @@ export const usePartyStore = create<PartyStoreState>()(
           currentTeamIndex: 0,
           currentRoundInStep: 1,
           lastTurnInfo: null,
+          spyDraft: null,
+          spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
         });
       },
     }),

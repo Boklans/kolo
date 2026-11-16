@@ -41,7 +41,8 @@ type AliasPhase = 'READY' | 'COUNTDOWN' | 'PLAYING' | 'OVERTIME' | 'REVIEW';
 interface RoundWordRecord {
   id: string;
   word: string;
-  points: -1 | 0 | 1;
+  points: -1 | 0 | 1 | 2;
+  isBonus?: boolean;
 }
 
 const SWIPE_THRESHOLD = 70;
@@ -56,7 +57,7 @@ export default function AliasGameScreen() {
   const currentRoundInStep = usePartyStore((s) => s.currentRoundInStep);
   const submitTeamTurnResult = usePartyStore((s) => s.submitTeamTurnResult);
 
-  const getDeckById = useDeckStore((s) => s.getDeckById);
+  const resolveStepDeck = useDeckStore((s) => s.resolveStepDeck);
   const drawNextItem = useUsedContentStore((s) => s.drawNextItem);
 
   const currentStep = useMemo(() => {
@@ -76,12 +77,12 @@ export default function AliasGameScreen() {
   }, [steps, currentStepIndex]);
 
   const deck = useMemo(() => {
-    const found = getDeckById(currentStep.deckId);
+    const found = resolveStepDeck(currentStep.deckId, currentStep.deckIds, currentStep.minDifficulty);
     if (found && found.items.alias.length > 0) {
       return found;
     }
     return baseUaDeck;
-  }, [getDeckById, currentStep.deckId]);
+  }, [resolveStepDeck, currentStep.deckId, currentStep.deckIds, currentStep.minDifficulty]);
 
   const currentTeam = teams[currentTeamIndex] ?? {
     id: 'team_1',
@@ -250,13 +251,15 @@ export default function AliasGameScreen() {
       isAnimatingDecisionRef.current = false;
       if (!currentCard) return;
 
+      const isBonus = currentCard.difficulty === 3;
       const defaultSkipScore: -1 | 0 = currentStep.penaltyForSkip ? -1 : 0;
-      const points: -1 | 0 | 1 = guessed ? 1 : defaultSkipScore;
+      const points: -1 | 0 | 1 | 2 = guessed ? (isBonus ? 2 : 1) : defaultSkipScore;
 
       const record: RoundWordRecord = {
         id: `${currentCard.id}_${Date.now()}`,
         word: currentCard.word,
         points,
+        isBonus,
       };
 
       setRoundHistory((prev) => [...prev, record]);
@@ -435,7 +438,7 @@ export default function AliasGameScreen() {
     transform: [{ scale: countdownScale.value }],
   }));
 
-  const handleToggleReviewPoints = (recordId: string, nextPoints: -1 | 0 | 1) => {
+  const handleToggleReviewPoints = (recordId: string, nextPoints: -1 | 0 | 1 | 2) => {
     Haptics.selectionAsync();
     setRoundHistory((prev) =>
       prev.map((item) =>
@@ -687,7 +690,7 @@ export default function AliasGameScreen() {
 
                   <View style={styles.swipeDirectionHint}>
                     <ArrowUp size={13} color={COLORS.crocodile} />
-                    <Text style={styles.swipeUpHintText}>ВГАДАЛИ +1</Text>
+                    <Text style={styles.swipeUpHintText}>ВГАДАЛИ +{currentCard?.difficulty === 3 ? '2' : '1'}</Text>
                   </View>
                 </View>
 
@@ -812,7 +815,7 @@ export default function AliasGameScreen() {
                 </Text>
 
                 <View style={styles.segmentGroup}>
-                  {([-1, 0, 1] as const).map((pts) => {
+                  {([-1, 0, (item.isBonus ? 2 : 1)] as (-1 | 0 | 1 | 2)[]).map((pts) => {
                     const active = item.points === pts;
                     const activeBg =
                       pts === 1
@@ -843,7 +846,7 @@ export default function AliasGameScreen() {
                             },
                           ]}
                         >
-                          {pts === 1 ? '+1' : pts === -1 ? '−1' : '0'}
+                          {pts > 0 ? `+${pts}` : pts === -1 ? '−1' : '0'}
                         </Text>
                       </TouchableOpacity>
                     );

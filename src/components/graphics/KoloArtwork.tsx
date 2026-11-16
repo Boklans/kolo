@@ -51,7 +51,7 @@ export function VibePosterArtwork({
     );
   }
 
-  if (presetId === 'uncensored_18') {
+  if (presetId === 'uncensored_18' || presetId === 'uncensored') {
     // Неонове полум'я + ріжки 18+ та діагональна стрічка
     return (
       <Svg width={size} height={size} viewBox="0 0 120 120" fill="none">

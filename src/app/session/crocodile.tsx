@@ -42,7 +42,7 @@ export default function CrocodileGameScreen() {
   const currentRoundInStep = usePartyStore((s) => s.currentRoundInStep);
   const submitTeamTurnResult = usePartyStore((s) => s.submitTeamTurnResult);
 
-  const getDeckById = useDeckStore((s) => s.getDeckById);
+  const resolveStepDeck = useDeckStore((s) => s.resolveStepDeck);
   const drawNextItem = useUsedContentStore((s) => s.drawNextItem);
 
   const currentStep = useMemo(() => {
@@ -61,12 +61,12 @@ export default function CrocodileGameScreen() {
   }, [steps, currentStepIndex]);
 
   const deck = useMemo(() => {
-    const found = getDeckById(currentStep.deckId);
+    const found = resolveStepDeck(currentStep.deckId, currentStep.deckIds, currentStep.minDifficulty);
     if (found && found.items.crocodile.length > 0) {
       return found;
     }
     return baseUaDeck;
-  }, [getDeckById, currentStep.deckId]);
+  }, [resolveStepDeck, currentStep.deckId, currentStep.deckIds, currentStep.minDifficulty]);
 
   const currentTeam = teams[currentTeamIndex] ?? {
     id: 'team_1',

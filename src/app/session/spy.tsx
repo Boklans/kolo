@@ -60,9 +60,12 @@ export default function SpyGameScreen() {
   const steps = usePartyStore((s) => s.steps);
   const currentStepIndex = usePartyStore((s) => s.currentStepIndex);
   const playerCount = usePartyStore((s) => s.playerCount);
+  const spyDraft = usePartyStore((s) => s.spyDraft);
+  const setSpyDraft = usePartyStore((s) => s.setSpyDraft);
+  const recordSpyOutcome = usePartyStore((s) => s.recordSpyOutcome);
   const advanceToNextStep = usePartyStore((s) => s.advanceToNextStep);
 
-  const getDeckById = useDeckStore((s) => s.getDeckById);
+  const resolveStepDeck = useDeckStore((s) => s.resolveStepDeck);
   const drawNextItem = useUsedContentStore((s) => s.drawNextItem);
 
   const currentStep = useMemo(() => {
@@ -81,12 +84,12 @@ export default function SpyGameScreen() {
   }, [steps, currentStepIndex]);
 
   const activeDeck = useMemo(() => {
-    const requested = getDeckById(currentStep.deckId);
+    const requested = resolveStepDeck(currentStep.deckId, currentStep.deckIds);
     if (requested && requested.items.spyLocations.length > 0) {
       return requested;
     }
     return baseUaDeck;
-  }, [getDeckById, currentStep.deckId]);
+  }, [resolveStepDeck, currentStep.deckId, currentStep.deckIds]);
 
   const [phase, setPhase] = useState<SpyPhase>('ROLE_DISTRIBUTION');
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -248,6 +251,7 @@ export default function SpyGameScreen() {
 
   const handleFinishSpyStep = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    recordSpyOutcome(winnerSide);
     advanceToNextStep();
     const updatedState = usePartyStore.getState();
     if (updatedState.isCompleted) {

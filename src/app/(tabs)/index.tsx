@@ -79,11 +79,11 @@ export default function VibesScreen() {
   const warmupPreset =
     PARTY_PRESETS.find((p) => p.id === 'warmup') ?? PARTY_PRESETS[0];
   const uncensoredPreset =
-    PARTY_PRESETS.find((p) => p.id === 'uncensored_18') ?? PARTY_PRESETS[2];
+    PARTY_PRESETS.find((p) => p.id === 'uncensored' || p.id === 'uncensored_18') ?? PARTY_PRESETS[2];
   const strangersPreset =
     PARTY_PRESETS.find((p) => p.id === 'strangers') ?? PARTY_PRESETS[1];
   const battlePreset =
-    PARTY_PRESETS.find((p) => p.id === 'team_battle') ?? PARTY_PRESETS[3];
+    PARTY_PRESETS.find((p) => p.id === 'battle' || p.id === 'team_battle') ?? PARTY_PRESETS[3];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

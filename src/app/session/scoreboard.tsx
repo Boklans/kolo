@@ -36,6 +36,8 @@ export default function ScoreboardScreen() {
   const totalGuessedWords = usePartyStore((s) => s.totalGuessedWords);
   const hardestUnansweredWord = usePartyStore((s) => s.hardestUnansweredWord);
   const lastTurnInfo = usePartyStore((s) => s.lastTurnInfo);
+  const spyStats = usePartyStore((s) => s.spyStats);
+  const restartRematch = usePartyStore((s) => s.restartRematch);
   const endSession = usePartyStore((s) => s.endSession);
 
   const hasTeamSteps = useMemo(
@@ -69,6 +71,12 @@ export default function ScoreboardScreen() {
     router.replace('/session/orchestrator');
   };
 
+  const handleRematch = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    restartRematch();
+    router.replace('/session/orchestrator');
+  };
+
   const handleExitToHome = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     endSession();
@@ -89,6 +97,9 @@ export default function ScoreboardScreen() {
     }
 
     lines.push(`Відгадано за вечір: ${totalGuessedWords}`);
+    if (spyStats.roundsPlayed > 0) {
+      lines.push(`Шпигун: мирні викрили ${spyStats.citizensWins} з ${spyStats.roundsPlayed}`);
+    }
     lines.push(
       `Слово, яке зламало вечірку: «${hardestUnansweredWord ?? 'Усе розгадали без промахів'}»`
     );
@@ -341,13 +352,24 @@ export default function ScoreboardScreen() {
       {/* Footer Button */}
       <View style={styles.footer}>
         {isCompleted ? (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.homeButton}
-            onPress={handleExitToHome}
-          >
-            <Text style={styles.homeButtonText}>ЗАВЕРШИТИ ТА НА ГОЛОВНУ</Text>
-          </TouchableOpacity>
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.homeButton, { backgroundColor: COLORS.hot }]}
+              onPress={handleRematch}
+            >
+              <Text style={[styles.homeButtonText, { color: COLORS.background }]}>
+                🔥 ЗІГРАТИ РЕВАНШ (ТІ САМІ КОМАНДИ)
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.homeButton, { backgroundColor: COLORS.surface }]}
+              onPress={handleExitToHome}
+            >
+              <Text style={styles.homeButtonText}>ЗАВЕРШИТИ ТА НА ГОЛОВНУ</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <TouchableOpacity
             activeOpacity={0.85}

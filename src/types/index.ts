@@ -36,6 +36,8 @@ export type ScoringPolicy = TeamScoringPolicy | NoScoringPolicy;
 export type BaseStep = {
   id: string;
   deckId: string;
+  deckIds?: string[];
+  minDifficulty?: 1 | 2;
 };
 
 export type AliasStep = BaseStep & {
@@ -72,11 +74,10 @@ export type PartyPreset = {
   steps: PresetStep[];
 };
 
-// Конфігурація сесії, яка формується на екрані setup перед запуском
 export type SessionSetupConfig = {
   mode: 'preset' | 'single_game';
-  targetId: string; // id пресета або типу гри
+  targetId: string;
   deckId: string;
   teams: { id: string; name: string; score: number }[];
-  playerCount: number; // реальна кількість учасників за столом (для Шпигуна)
+  playerCount: number;
 };

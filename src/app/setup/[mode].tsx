@@ -96,16 +96,21 @@ export default function SetupScreen() {
     return 'alias';
   }, [targetId]);
 
-  const defaultPresetDeckId =
-    isPresetMode && selectedPreset
-      ? selectedPreset.steps[0]?.deckId ?? 'base_ua'
-      : 'base_ua';
+  const savedTeamNames = usePartyStore((s) => s.savedTeamNames);
+  const defaultPresetDeckIds = useMemo(() => {
+    if (isPresetMode && selectedPreset) {
+      const uniqueIds = Array.from(new Set(selectedPreset.steps.map((s) => s.deckId)));
+      return uniqueIds.length > 0 ? uniqueIds : ['base_ua'];
+    }
+    return ['base_ua'];
+  }, [isPresetMode, selectedPreset]);
 
-  const [selectedDeckId, setSelectedDeckId] = useState<string>(defaultPresetDeckId);
+  const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>(defaultPresetDeckIds);
+  const [minDifficulty, setMinDifficulty] = useState<1 | 2>(1);
 
   useEffect(() => {
-    setSelectedDeckId(defaultPresetDeckId);
-  }, [defaultPresetDeckId]);
+    setSelectedDeckIds(defaultPresetDeckIds);
+  }, [defaultPresetDeckIds]);
 
   const [aliasTimeSec, setAliasTimeSec] = useState<30 | 60 | 90>(60);
   const [aliasPenalty, setAliasPenalty] = useState<boolean>(false);
@@ -114,10 +119,10 @@ export default function SetupScreen() {
   const [spyTimeSec, setSpyTimeSec] = useState<180 | 300 | 420>(300);
   const [spyCount, setSpyCount] = useState<1 | 2>(1);
 
-  const [teams, setTeams] = useState([
-    { id: 'team_1', name: 'Команда 1' },
-    { id: 'team_2', name: 'Команда 2' },
-  ]);
+  const [teams, setTeams] = useState(() => {
+    const baseNames = savedTeamNames && savedTeamNames.length >= 2 ? savedTeamNames : ['Бойові Гуси', 'Хмільні Сови'];
+    return baseNames.map((name, idx) => ({ id: `team_${idx + 1}`, name }));
+  });
   const [playerCount, setPlayerCount] = useState<number>(5);
 
   const hasSpyMode = useMemo(() => {
@@ -261,14 +266,20 @@ export default function SetupScreen() {
       return;
     }
     Haptics.selectionAsync();
-    setSelectedDeckId(deck.id);
+    setSelectedDeckIds((prev) => {
+      if (prev.includes(deck.id)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter((id) => id !== deck.id);
+      }
+      return [...prev, deck.id];
+    });
   };
 
   const handleStartParty = () => {
     let stepsToRun: PresetStep[] = [];
 
     const chosenDeck =
-      allDecks.find((d) => d.id === selectedDeckId) ?? OFFICIAL_DECKS[0];
+      useDeckStore.getState().resolveStepDeck(selectedDeckIds[0] ?? 'base_ua', selectedDeckIds, minDifficulty);
 
     if (isPresetMode && selectedPreset) {
       stepsToRun = selectedPreset.steps.map((step) => {
@@ -623,12 +634,12 @@ export default function SetupScreen() {
 
         {/* Deck Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionOverline}>ОБЕРІТЬ КОЛОДУ</Text>
+          <Text style={styles.sectionOverline}>ОБЕРІТЬ КОЛОДИ (МОЖНА КІЛЬКА ДЛЯ МІКСУ · {selectedDeckIds.length})</Text>
 
           <View style={styles.decksSelectList}>
             {allDecks.map((deck) => {
               const suitability = getDeckSuitability(deck);
-              const isSelected = deck.id === selectedDeckId;
+              const isSelected = selectedDeckIds.includes(deck.id);
               const isDisabled = !suitability.isSupported;
 
               return (

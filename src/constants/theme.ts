@@ -9,7 +9,7 @@ export const COLORS = {
   // Типографіка
   textPrimary: '#F5F5F7',
   textSecondary: '#8E8C9E',
-  textMuted: '#5E5C6E',
+  textMuted: '#7C7A8E',
 
   // Фірмовий акцент та кольори ігор
   primary: '#8B5CF6', // Brand Purple
