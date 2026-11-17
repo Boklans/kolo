@@ -16,7 +16,7 @@ interface AbsoluteTimerProps {
   isRunning: boolean;
   onExpire: () => void;
   accentColor?: string;
-  size?: 'compact' | 'large' | 'hero';
+  size?: 'compact' | 'large' | 'hero' | 'stage';
   onSecondChange?: (secondsLeft: number) => void;
 }
 
@@ -205,6 +205,51 @@ export function AbsoluteTimer({
     opacity: barGlowOpacity.value,
   }));
 
+  if (size === 'stage') {
+    return (
+      <View
+        style={[
+          styles.stageContainer,
+          timerState === 'critical' && styles.heroContainerCritical,
+          timerState === 'warning' && styles.heroContainerWarning,
+        ]}
+      >
+        <View style={styles.heroStateBadge}>
+          <View
+            style={[styles.heroStateDot, { backgroundColor: activeColor }]}
+          />
+          <Text style={[styles.heroStateText, { color: activeColor }]}>
+            {stateLabel}
+          </Text>
+        </View>
+
+        <Animated.Text
+          style={[
+            styles.timeTextStage,
+            timerState === 'warning' && { color: COLORS.hot },
+            timerState === 'critical' && { color: COLORS.spy },
+            animatedTextStyle,
+          ]}
+        >
+          {formattedTime}
+        </Animated.Text>
+
+        <View style={styles.progressTrackHero}>
+          <Animated.View
+            style={[
+              styles.progressFill,
+              {
+                width: `${(progressFraction * 100).toFixed(1)}%` as any,
+                backgroundColor: activeColor,
+              },
+              animatedBarStyle,
+            ]}
+          />
+        </View>
+      </View>
+    );
+  }
+
   if (size === 'hero') {
     return (
       <View
@@ -286,19 +331,42 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: SPACING.sm,
   },
+  stageContainer: {
+    width: '100%',
+    backgroundColor: 'rgba(22, 22, 31, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.xl,
+    alignItems: 'center',
+    gap: 14,
+  },
+  timeTextStage: {
+    color: COLORS.textPrimary,
+    fontSize: 78,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -3,
+    lineHeight: 84,
+  },
   heroContainer: {
     width: '100%',
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(22, 22, 31, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: 12,
-    gap: 10,
+    paddingVertical: 11,
+    gap: 9,
   },
   heroContainerWarning: {
-    backgroundColor: '#231915',
+    backgroundColor: '#251912',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
   },
   heroContainerCritical: {
-    backgroundColor: '#261319',
+    backgroundColor: '#291118',
+    borderColor: 'rgba(244, 63, 94, 0.45)',
   },
   heroTopRow: {
     flexDirection: 'row',

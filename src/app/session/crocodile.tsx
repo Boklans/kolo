@@ -467,25 +467,15 @@ export default function CrocodileGameScreen() {
       {/* PHASE 4: ACTING */}
       {phase === 'ACTING' ? (
         <View style={styles.screenBody}>
-          <View style={styles.actingTopBlock}>
-            <View style={styles.actingHeader}>
-              <Text style={styles.prepTeamLabel}>{currentTeam.name}</Text>
-              {isTimeExpired ? (
-                <Text style={styles.expiredStatus}>ЧАС ВИЙШОВ!</Text>
-              ) : (
-                <Text style={styles.prepDeckLabel}>
-                  Триває показ (+{targetPoints} бали)
-                </Text>
-              )}
-            </View>
-
-            <AbsoluteTimer
-              durationSec={currentStep.roundTimeSec}
-              isRunning={!isPaused && !isTimeExpired}
-              onExpire={() => setIsTimeExpired(true)}
-              accentColor={COLORS.crocodile}
-              size="hero"
-            />
+          <View style={styles.actingHeader}>
+            <Text style={styles.prepTeamLabel}>{currentTeam.name}</Text>
+            {isTimeExpired ? (
+              <Text style={styles.expiredStatus}>ЧАС ВИЙШОВ!</Text>
+            ) : (
+              <Text style={styles.prepDeckLabel}>
+                Зараз на сцені · +{targetPoints} бали
+              </Text>
+            )}
           </View>
 
           <View style={styles.actingCenter}>
@@ -496,6 +486,14 @@ export default function CrocodileGameScreen() {
                 </Text>
               </View>
             ) : null}
+
+            <AbsoluteTimer
+              durationSec={currentStep.roundTimeSec}
+              isRunning={!isPaused && !isTimeExpired}
+              onExpire={() => setIsTimeExpired(true)}
+              accentColor={COLORS.crocodile}
+              size="stage"
+            />
 
             <Pressable
               onPressIn={() => {
@@ -512,26 +510,23 @@ export default function CrocodileGameScreen() {
               accessibilityLabel="Утримуй, щоб підглянути секретне слово"
             >
               {isPaused ? (
-                <>
-                  <EyeOff size={24} color={COLORS.textMuted} />
+                <View style={styles.peekInlineRow}>
+                  <EyeOff size={18} color={COLORS.textMuted} />
                   <Text style={styles.peekPromptText}>
-                    ПАУЗА · ЗАВДАННЯ ПРИХОВАНО
+                    ПАУЗА · СЛОВО ПРИХОВАНО
                   </Text>
-                </>
+                </View>
               ) : isPeekingSpoiler ? (
-                <>
-                  <Eye size={22} color={COLORS.crocodile} />
-                  <Text style={styles.peekRevealedText}>
-                    {currentPhrase?.phrase}
-                  </Text>
-                </>
+                <Text style={styles.peekRevealedText}>
+                  {currentPhrase?.phrase}
+                </Text>
               ) : (
-                <>
-                  <Eye size={22} color={COLORS.textMuted} />
+                <View style={styles.peekInlineRow}>
+                  <Eye size={18} color={COLORS.crocodile} />
                   <Text style={styles.peekPromptText}>
-                    Забув слово? Утримуй палець, щоб підглянути
+                    Забув слово? Натисни й тримай тут
                   </Text>
-                </>
+                </View>
               )}
             </Pressable>
           </View>
@@ -628,7 +623,7 @@ export default function CrocodileGameScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.arenaCrocodile,
   },
   screenBody: {
     flex: 1,
@@ -644,6 +639,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.24)',
+    borderTopWidth: 5,
+    borderTopColor: COLORS.crocodile,
     padding: SPACING.xl,
     justifyContent: 'space-between',
   },
@@ -743,24 +742,27 @@ const styles = StyleSheet.create({
   },
   prepCardSurface: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.cardPaper,
     borderRadius: RADIUS.xl,
+    borderBottomWidth: 6,
+    borderBottomColor: COLORS.lipPaper,
     padding: SPACING.xxl,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   prepHint: {
-    color: COLORS.crocodile,
+    color: '#047857',
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.4,
+    textAlign: 'center',
   },
   prepPhraseHero: {
-    color: COLORS.textPrimary,
-    fontSize: 36,
-    fontWeight: '800',
-    lineHeight: 44,
-    letterSpacing: -1,
+    color: COLORS.cardInk,
+    fontSize: 40,
+    fontWeight: '900',
+    lineHeight: 46,
+    letterSpacing: -1.2,
     textAlign: 'center',
   },
   subtleSwapAction: {
@@ -770,17 +772,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.surfaceElevated,
+    backgroundColor: 'rgba(18, 18, 24, 0.08)',
   },
   subtleSwapText: {
-    color: COLORS.textPrimary,
+    color: COLORS.cardInk,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   swapUsedLabel: {
-    color: COLORS.textMuted,
+    color: COLORS.cardInkMuted,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
   // PHASE 3: COUNTDOWN
@@ -794,23 +796,25 @@ const styles = StyleSheet.create({
   countdownTeamLabel: {
     color: COLORS.crocodile,
     fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 2,
+    fontWeight: '900',
+    letterSpacing: 2.2,
     textAlign: 'center',
   },
   countdownCircle: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 232,
+    height: 232,
+    borderRadius: 116,
     backgroundColor: COLORS.surface,
+    borderWidth: 4,
+    borderColor: COLORS.crocodile,
     alignItems: 'center',
     justifyContent: 'center',
   },
   countdownNumber: {
     color: COLORS.textPrimary,
-    fontSize: 96,
+    fontSize: 104,
     fontWeight: '900',
-    letterSpacing: -3,
+    letterSpacing: -3.5,
     fontVariant: ['tabular-nums'],
   },
   countdownGoText: {
@@ -859,27 +863,34 @@ const styles = StyleSheet.create({
   },
   peekSurface: {
     backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
     borderRadius: RADIUS.xl,
-    minHeight: 200,
-    padding: SPACING.xxl,
+    minHeight: 84,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
   },
   peekSurfaceActive: {
-    backgroundColor: COLORS.surfaceElevated,
+    backgroundColor: COLORS.cardPaper,
+    borderColor: COLORS.crocodile,
+  },
+  peekInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   peekPromptText: {
     color: COLORS.textSecondary,
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 22,
   },
   peekRevealedText: {
-    color: COLORS.textPrimary,
+    color: COLORS.cardInk,
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '900',
     lineHeight: 34,
     textAlign: 'center',
   },
@@ -962,21 +973,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Shared Buttons
+  // Shared Buttons (Tactile 3D Arcade Keycaps)
   dominantBtn: {
     width: '100%',
     backgroundColor: COLORS.crocodile,
-    paddingVertical: 18,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipCrocodile,
+    paddingVertical: 17,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   dominantBtnSub: {
-    color: 'rgba(16, 16, 20, 0.68)',
+    color: 'rgba(16, 16, 20, 0.72)',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.6,
     textAlign: 'center',
   },
@@ -989,9 +1002,12 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     width: '100%',
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceElevated,
+    borderBottomWidth: 4,
+    borderBottomColor: COLORS.lipNeutral,
     paddingVertical: 15,
-    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -712,16 +712,11 @@ export default function TabooGameScreen() {
                     <View
                       style={[
                         styles.cardCounterPill,
-                        { backgroundColor: 'rgba(249, 115, 22, 0.16)' },
+                        styles.cardBonusPill,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.cardCounterText,
-                          { color: COLORS.hot, fontWeight: '800' },
-                        ]}
-                      >
-                        🔥 БОНУС x2 · +2 БАЛИ
+                      <Text style={styles.cardBonusText}>
+                        🔥 БОНУС x2 · +2
                       </Text>
                     </View>
                   ) : (
@@ -736,17 +731,12 @@ export default function TabooGameScreen() {
                     <TouchableOpacity
                       activeOpacity={0.75}
                       onPress={handleUndoLastCard}
-                      style={[
-                        styles.cardCounterPill,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 5,
-                        },
-                      ]}
+                      style={[styles.cardCounterPill, styles.cardUndoPill]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Повернути попереднє слово"
                     >
-                      <RotateCcw size={11} color={COLORS.textSecondary} />
-                      <Text style={styles.cardCounterText}>Повернути</Text>
+                      <RotateCcw size={11} color={COLORS.cardInkMuted} />
+                      <Text style={styles.cardUndoText}>Повернути</Text>
                     </TouchableOpacity>
                   ) : (
                     <View />
@@ -772,9 +762,9 @@ export default function TabooGameScreen() {
                 {/* Forbidden Words Zone */}
                 <View style={styles.tabooZone}>
                   <View style={styles.tabooZoneHeader}>
-                    <Ban size={12} color={COLORS.spy} />
+                    <Ban size={13} color={COLORS.cardTabooDangerInk} />
                     <Text style={styles.tabooZoneOverline}>
-                      ЗАБОРОНЕНІ СЛОВА (НЕ ВЖИВАТИ!)
+                      ЗАБОРОНЕНІ СЛОВА (НЕ ВЖИВАТИ)
                     </Text>
                   </View>
                   <View style={styles.tabooWordsGrid}>
@@ -926,7 +916,7 @@ export default function TabooGameScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.arenaTaboo,
   },
   readyBody: {
     flex: 1,
@@ -939,6 +929,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.25)',
+    borderTopWidth: 5,
+    borderTopColor: COLORS.taboo,
     padding: SPACING.xl,
     justifyContent: 'space-between',
     marginBottom: SPACING.lg,
@@ -1018,8 +1012,10 @@ const styles = StyleSheet.create({
   },
   launchButton: {
     backgroundColor: COLORS.taboo,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipTaboo,
     borderRadius: RADIUS.xl,
-    paddingVertical: 18,
+    paddingVertical: 17,
     alignItems: 'center',
     gap: 2,
   },
@@ -1043,23 +1039,27 @@ const styles = StyleSheet.create({
     gap: SPACING.xl,
   },
   countdownTeamLabel: {
-    color: COLORS.textSecondary,
+    color: COLORS.taboo,
     fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.8,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   countdownCircle: {
-    width: 210,
-    height: 210,
-    borderRadius: 105,
+    width: 230,
+    height: 230,
+    borderRadius: 115,
     backgroundColor: COLORS.surface,
+    borderWidth: 4,
+    borderColor: COLORS.taboo,
     alignItems: 'center',
     justifyContent: 'center',
   },
   countdownNumber: {
-    color: COLORS.taboo,
-    fontSize: 84,
+    color: COLORS.textPrimary,
+    fontSize: 102,
     fontWeight: '900',
+    letterSpacing: -3.5,
   },
   countdownGoText: {
     fontSize: 30,
@@ -1168,8 +1168,10 @@ const styles = StyleSheet.create({
   },
   wordSurface: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.cardPaper,
     borderRadius: RADIUS.xl,
+    borderBottomWidth: 6,
+    borderBottomColor: COLORS.lipPaper,
     padding: SPACING.xl,
     justifyContent: 'space-between',
     overflow: 'hidden',
@@ -1182,10 +1184,10 @@ const styles = StyleSheet.create({
     left: 0,
   },
   cardFlashSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    backgroundColor: 'rgba(16, 185, 129, 0.34)',
   },
   cardFlashSkip: {
-    backgroundColor: 'rgba(244, 63, 94, 0.22)',
+    backgroundColor: 'rgba(244, 63, 94, 0.3)',
   },
   cardTopEdge: {
     flexDirection: 'row',
@@ -1193,16 +1195,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardCounterPill: {
-    backgroundColor: COLORS.surfaceElevated,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(18, 18, 24, 0.07)',
+    paddingHorizontal: 11,
     paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
   cardCounterText: {
-    color: COLORS.textSecondary,
-    fontSize: 10,
+    color: COLORS.cardInkMuted,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
+  },
+  cardBonusPill: {
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+  },
+  cardBonusText: {
+    color: '#C2410C',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  cardUndoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  cardUndoText: {
+    color: COLORS.cardInkMuted,
+    fontSize: 11,
+    fontWeight: '800',
   },
   swipeDirectionHint: {
     flexDirection: 'row',
@@ -1220,17 +1241,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dominantWord: {
-    color: COLORS.textPrimary,
+    color: COLORS.cardInk,
     fontSize: 40,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: -1.1,
+    letterSpacing: -1.2,
   },
   tabooZone: {
-    backgroundColor: 'rgba(244, 63, 94, 0.1)',
+    backgroundColor: COLORS.cardTabooDangerBg,
+    borderWidth: 1,
+    borderColor: 'rgba(190, 18, 60, 0.16)',
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    gap: 8,
+    gap: 10,
   },
   tabooZoneHeader: {
     flexDirection: 'row',
@@ -1239,7 +1262,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabooZoneOverline: {
-    color: COLORS.spy,
+    color: COLORS.cardTabooDangerInk,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1.3,
@@ -1250,15 +1273,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tabooWordPill: {
-    width: '48%',
-    backgroundColor: COLORS.surfaceElevated,
+    width: '48.2%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(190, 18, 60, 0.14)',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
   tabooWordText: {
-    color: COLORS.textPrimary,
+    color: COLORS.cardTabooDangerInk,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -1272,12 +1297,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surfaceElevated,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipNeutral,
     paddingVertical: 16,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
   },
   skipBtnText: {
-    color: COLORS.textSecondary,
+    color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1287,12 +1314,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(244, 63, 94, 0.16)',
+    backgroundColor: COLORS.spy,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipSpy,
     paddingVertical: 16,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
   },
   tabooPenaltyBtnText: {
-    color: COLORS.spy,
+    color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: '900',
   },
@@ -1303,8 +1332,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: COLORS.crocodile,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipCrocodile,
     paddingVertical: 16,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
   },
   guessedBtnText: {
     color: COLORS.background,
@@ -1396,7 +1427,9 @@ const styles = StyleSheet.create({
   },
   confirmReviewBtn: {
     backgroundColor: COLORS.taboo,
-    paddingVertical: 18,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipTaboo,
+    paddingVertical: 17,
     borderRadius: RADIUS.xl,
     alignItems: 'center',
   },

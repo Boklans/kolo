@@ -163,6 +163,12 @@ export function HoldToRevealCard({
           style={[styles.coverLayer, coverStyle]}
           pointerEvents="none"
         >
+          {/* Classified Folder Corner Brackets */}
+          <View style={styles.cornerTL} />
+          <View style={styles.cornerTR} />
+          <View style={styles.cornerBL} />
+          <View style={styles.cornerBR} />
+
           <View
             style={[
               styles.targetRing,
@@ -172,22 +178,35 @@ export function HoldToRevealCard({
             {hasSeenRole ? (
               <CheckCircle2 size={36} color={COLORS.crocodile} />
             ) : (
-              <Fingerprint size={38} color={COLORS.spy} />
+              <Fingerprint size={40} color={COLORS.spy} />
             )}
           </View>
 
-          <Text style={styles.coverOverline}>
-            {hasSeenRole ? 'ДОСЬЄ ПЕРЕВІРЕНО' : 'СЕКРЕТНЕ ДОСЬЄ'}
-          </Text>
+          <View
+            style={[
+              styles.dossierTag,
+              hasSeenRole && styles.dossierTagSeen,
+            ]}
+          >
+            <Text
+              style={[
+                styles.coverOverline,
+                hasSeenRole && { color: COLORS.crocodile },
+              ]}
+            >
+              {hasSeenRole ? 'ДОСТУП ПІДТВЕРДЖЕНО' : 'ЦІЛКОМ ТАЄМНО'}
+            </Text>
+          </View>
+
           <Text style={styles.coverTitle}>
             {hasSeenRole
-              ? 'Роль відкрито — передай телефон'
-              : 'Утримуй палець на сканері'}
+              ? 'Передай телефон далі'
+              : 'Затисни сканер пальцем'}
           </Text>
           <Text style={styles.coverSub}>
             {hasSeenRole
-              ? 'Можеш утримати ще раз, якщо забув роль'
-              : 'Переконайся, що сусіди за столом не бачать екран'}
+              ? 'Утримуй ще раз, якщо хочеш перевірити роль'
+              : 'Тримай 0.6 сек · сусіди не повинні бачити'}
           </Text>
         </Animated.View>
       </View>
@@ -203,18 +222,22 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#1B1116',
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.24)',
     overflow: 'hidden',
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardContainerSpy: {
-    backgroundColor: '#261118',
+    backgroundColor: '#2D0F18',
+    borderColor: COLORS.spy,
   },
   cardContainerCitizen: {
-    backgroundColor: '#17222B',
+    backgroundColor: '#0E2420',
+    borderColor: COLORS.crocodile,
   },
   secretLayer: {
     position: 'absolute',
@@ -235,26 +258,82 @@ const styles = StyleSheet.create({
     padding: SPACING.xxl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#191015',
+  },
+  cornerTL: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 18,
+    height: 18,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: 'rgba(244, 63, 94, 0.45)',
+    borderTopLeftRadius: 4,
+  },
+  cornerTR: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 18,
+    height: 18,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderColor: 'rgba(244, 63, 94, 0.45)',
+    borderTopRightRadius: 4,
+  },
+  cornerBL: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    width: 18,
+    height: 18,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: 'rgba(244, 63, 94, 0.45)',
+    borderBottomLeftRadius: 4,
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 18,
+    height: 18,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: 'rgba(244, 63, 94, 0.45)',
+    borderBottomRightRadius: 4,
+  },
+  dossierTag: {
+    backgroundColor: 'rgba(244, 63, 94, 0.14)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    marginBottom: 10,
+  },
+  dossierTagSeen: {
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
   },
   targetRing: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: `${COLORS.spy}1C`,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(244, 63, 94, 0.14)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(244, 63, 94, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.lg,
   },
   targetRingSeen: {
-    backgroundColor: `${COLORS.crocodile}1E`,
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    borderColor: 'rgba(16, 185, 129, 0.45)',
   },
   coverOverline: {
     color: COLORS.spy,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.6,
-    marginBottom: 6,
   },
   coverTitle: {
     color: COLORS.textPrimary,

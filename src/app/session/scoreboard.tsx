@@ -297,54 +297,76 @@ export default function ScoreboardScreen() {
         {/* Standings List */}
         {hasTeamSteps ? (
           <View style={styles.leaderboardList}>
-            {rankedTeams.map((team, idx) => {
-              const isLeader = idx === 0 && team.totalScore > 0;
-              return (
-                <View
-                  key={team.id}
-                  style={[
-                    styles.teamCard,
-                    isLeader && styles.teamCardLeader,
-                  ]}
-                >
-                  {isLeader ? (
-                    <View
-                      style={[
-                        styles.leaderAccentStrip,
-                        { backgroundColor: COLORS.hot },
-                      ]}
-                    />
-                  ) : null}
-
-                  <Text
+            {(() => {
+              const maxScore = Math.max(
+                1,
+                ...rankedTeams.map((t) => Math.max(0, t.totalScore)),
+              );
+              return rankedTeams.map((team, idx) => {
+                const isLeader = idx === 0 && team.totalScore > 0;
+                const progressPct = Math.round(
+                  (Math.max(0, team.totalScore) / maxScore) * 100,
+                );
+                return (
+                  <View
+                    key={team.id}
                     style={[
-                      styles.rankText,
-                      isLeader && { color: COLORS.hot },
+                      styles.teamCard,
+                      isLeader && styles.teamCardLeader,
                     ]}
                   >
-                    0{idx + 1}
-                  </Text>
-
-                  <View style={styles.teamInfo}>
-                    <Text style={styles.teamName}>{team.name}</Text>
                     {isLeader ? (
-                      <Text style={styles.leaderSubLabel}>ЛІДЕР ВЕЧОРА</Text>
+                      <View
+                        style={[
+                          styles.leaderAccentStrip,
+                          { backgroundColor: COLORS.hot },
+                        ]}
+                      />
                     ) : null}
-                  </View>
 
-                  <View style={styles.scoreBox}>
                     <Text
                       style={[
-                        styles.scoreValue,
+                        styles.rankText,
                         isLeader && { color: COLORS.hot },
                       ]}
                     >
-                      {team.totalScore}
+                      0{idx + 1}
                     </Text>
+
+                    <View style={styles.teamInfo}>
+                      <Text style={styles.teamName}>{team.name}</Text>
+                      {isLeader ? (
+                        <Text style={styles.leaderSubLabel}>ЛІДЕР ВЕЧОРА</Text>
+                      ) : null}
+                      <View style={styles.teamProgressTrack}>
+                        <View
+                          style={[
+                            styles.teamProgressFill,
+                            {
+                              width: `${progressPct}%`,
+                              backgroundColor: isLeader
+                                ? COLORS.hot
+                                : COLORS.primary,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.scoreBox}>
+                      <Text
+                        style={[
+                          styles.scoreValue,
+                          isLeader && { color: COLORS.hot },
+                        ]}
+                      >
+                        {team.totalScore}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              );
-            })}
+                );
+              });
+            })()}
           </View>
         ) : null}
 
@@ -429,22 +451,8 @@ export default function ScoreboardScreen() {
 
               {/* Party Awards ("Оскари Вечірки") */}
               {(bestStreakCount >= 2 || bestTurnPoints > 0 || bonusWordsGuessed > 0 || spyStats.roundsPlayed > 0) ? (
-                <View
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                    borderRadius: RADIUS.lg,
-                    padding: SPACING.md,
-                    gap: 8,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: COLORS.hot,
-                      fontSize: 10,
-                      fontWeight: '900',
-                      letterSpacing: 1.4,
-                    }}
-                  >
+                <View style={styles.awardsCard}>
+                  <Text style={styles.awardsTitle}>
                     🏆 НОМІНАЦІЇ ТА ОСКАРИ ВЕЧІРКИ
                   </Text>
 
@@ -531,19 +539,19 @@ export default function ScoreboardScreen() {
       {/* Footer Button */}
       <View style={styles.footer}>
         {isCompleted ? (
-          <View style={{ gap: 8 }}>
+          <View style={styles.completedActions}>
             <TouchableOpacity
               activeOpacity={0.85}
-              style={[styles.homeButton, { backgroundColor: COLORS.hot }]}
+              style={[styles.homeButton, styles.rematchButton]}
               onPress={handleRematch}
             >
-              <Text style={[styles.homeButtonText, { color: COLORS.background }]}>
+              <Text style={[styles.homeButtonText, styles.rematchButtonText]}>
                 🔥 ЗІГРАТИ РЕВАНШ (ТІ САМІ КОМАНДИ)
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
-              style={[styles.homeButton, { backgroundColor: COLORS.surface }]}
+              style={[styles.homeButton, styles.exitHomeButton]}
               onPress={handleExitToHome}
             >
               <Text style={styles.homeButtonText}>ЗАВЕРШИТИ ТА НА ГОЛОВНУ</Text>
@@ -637,7 +645,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     paddingVertical: 16,
     paddingHorizontal: SPACING.lg,
     overflow: 'hidden',
@@ -645,6 +655,7 @@ const styles = StyleSheet.create({
   },
   teamCardLeader: {
     backgroundColor: COLORS.surfaceElevated,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
   },
   leaderAccentStrip: {
     position: 'absolute',
@@ -662,6 +673,18 @@ const styles = StyleSheet.create({
   },
   teamInfo: {
     flex: 1,
+    gap: 5,
+  },
+  teamProgressTrack: {
+    height: 4,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  teamProgressFill: {
+    height: '100%',
+    borderRadius: RADIUS.full,
   },
   teamName: {
     color: COLORS.textPrimary,
@@ -690,6 +713,10 @@ const styles = StyleSheet.create({
   handoffCalloutCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    borderBottomWidth: 4,
+    borderBottomColor: '#13131A',
     padding: SPACING.xl,
     gap: 8,
   },
@@ -737,6 +764,10 @@ const styles = StyleSheet.create({
   },
   posterCard: {
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
+    borderBottomWidth: 5,
+    borderBottomColor: '#111018',
     padding: SPACING.xl,
     gap: SPACING.xl,
   },
@@ -831,6 +862,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
+    borderBottomColor: COLORS.lipNeutral,
     height: 48,
     borderRadius: RADIUS.md,
   },
@@ -846,6 +881,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 7,
     backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
+    borderBottomColor: COLORS.lipNeutral,
     height: 48,
     borderRadius: RADIUS.md,
   },
@@ -872,15 +911,34 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     backgroundColor: COLORS.background,
   },
+  awardsCard: {
+    backgroundColor: 'rgba(11, 11, 16, 0.55)',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.28)',
+    padding: SPACING.md,
+    gap: 8,
+  },
+  awardsTitle: {
+    color: COLORS.hot,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  completedActions: {
+    gap: 10,
+  },
   continueButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     backgroundColor: COLORS.primary,
-    minHeight: 58,
+    minHeight: 60,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
+    borderBottomWidth: 5,
+    borderBottomColor: '#6D28D9',
   },
   continueButtonText: {
     color: COLORS.textPrimary,
@@ -896,7 +954,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     minHeight: 58,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.xl,
+    borderBottomWidth: 5,
+    borderBottomColor: '#6D28D9',
+  },
+  rematchButton: {
+    backgroundColor: COLORS.hot,
+    borderBottomColor: COLORS.lipHot,
+  },
+  rematchButtonText: {
+    color: COLORS.background,
+  },
+  exitHomeButton: {
+    backgroundColor: COLORS.surfaceElevated,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipNeutral,
   },
   homeButtonText: {
     color: COLORS.textPrimary,

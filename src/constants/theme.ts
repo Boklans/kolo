@@ -1,15 +1,39 @@
 export const COLORS = {
-  // Основні поверхні (теплий глибокий графіт без зайвих контурів)
-  background: '#101014',
-  surface: '#1B1A22',
-  surfaceElevated: '#25242F',
-  surfaceSubtle: '#15141B',
-  border: '#272633',
+  // Основні поверхні (глибока обсидіанова сцена арени)
+  background: '#0B0B10',
+  surface: '#16161F',
+  surfaceElevated: '#21212E',
+  surfaceSubtle: '#111118',
+  border: '#2A2A38',
+
+  // Сценічні фони для окремих ігор
+  arenaAlias: '#090E1A',
+  arenaCrocodile: '#081410',
+  arenaSpy: '#13090D',
+  arenaTaboo: '#10091A',
+
+  // Фізична паперова картка (Ivory Deck) та чорнило
+  cardPaper: '#F7F4EC',
+  cardPaperBack: '#DDD8CC',
+  cardPaperDeep: '#C4BEB0',
+  cardInk: '#121218',
+  cardInkMuted: '#63616E',
+  cardTabooDangerBg: '#FFE8EC',
+  cardTabooDangerInk: '#BE123C',
+
+  // Тактильні нижні бортики кнопок (Tactile Arcade Keycaps)
+  lipAlias: '#1D4ED8',
+  lipCrocodile: '#047857',
+  lipSpy: '#BE123C',
+  lipTaboo: '#7E22CE',
+  lipHot: '#C2410C',
+  lipNeutral: '#0C0C12',
+  lipPaper: '#C8C2B4',
 
   // Типографіка
   textPrimary: '#F5F5F7',
-  textSecondary: '#8E8C9E',
-  textMuted: '#7C7A8E',
+  textSecondary: '#9492A6',
+  textMuted: '#737185',
 
   // Фірмовий акцент та кольори ігор
   primary: '#8B5CF6', // Brand Purple

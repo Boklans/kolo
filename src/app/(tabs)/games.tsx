@@ -154,10 +154,7 @@ export default function GamesScreen() {
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => handleSelectGame('taboo')}
-            style={[
-              styles.gameWorldCard,
-              { backgroundColor: '#1B1429', borderColor: 'rgba(168, 85, 247, 0.25)' },
-            ]}
+            style={[styles.gameWorldCard, styles.tabooWorld]}
           >
             <View pointerEvents="none" style={styles.svgArtworkPos}>
               <GameWorldArtwork gameId="taboo" size={114} />
@@ -229,6 +226,8 @@ const styles = StyleSheet.create({
   },
   gameWorldCard: {
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderBottomWidth: 5,
     padding: SPACING.xl,
     minHeight: 205,
     justifyContent: 'space-between',
@@ -237,12 +236,23 @@ const styles = StyleSheet.create({
   },
   aliasWorld: {
     backgroundColor: '#131B2E',
+    borderColor: 'rgba(59, 130, 246, 0.28)',
+    borderBottomColor: '#0A1020',
   },
   crocodileWorld: {
     backgroundColor: '#11221C',
+    borderColor: 'rgba(16, 185, 129, 0.28)',
+    borderBottomColor: '#091410',
   },
   spyWorld: {
     backgroundColor: '#211117',
+    borderColor: 'rgba(244, 63, 94, 0.28)',
+    borderBottomColor: '#14090D',
+  },
+  tabooWorld: {
+    backgroundColor: '#1B1429',
+    borderColor: 'rgba(168, 85, 247, 0.28)',
+    borderBottomColor: '#0F0A1A',
   },
   svgArtworkPos: {
     position: 'absolute',
@@ -300,6 +310,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: RADIUS.full,
+    borderBottomWidth: 3,
+    borderBottomColor: 'rgba(0, 0, 0, 0.35)',
   },
   playPillText: {
     color: COLORS.textPrimary,

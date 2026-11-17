@@ -936,7 +936,8 @@ export default function AliasGameScreen() {
               </Animated.View>
             ) : null}
 
-            {/* Underlying Stacked Card for Physical Deck Feel */}
+            {/* Underlying Stacked Physical Deck Layers */}
+            <View pointerEvents="none" style={styles.deepDeckCard} />
             <Animated.View
               pointerEvents="none"
               style={[styles.backDeckCard, animatedBackCardStyle]}
@@ -995,16 +996,11 @@ export default function AliasGameScreen() {
                     <View
                       style={[
                         styles.cardCounterPill,
-                        { backgroundColor: 'rgba(249, 115, 22, 0.16)' },
+                        styles.cardBonusPill,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.cardCounterText,
-                          { color: COLORS.hot, fontWeight: '800' },
-                        ]}
-                      >
-                        🔥 БОНУС x2 · +2 БАЛИ
+                      <Text style={styles.cardBonusText}>
+                        🔥 БОНУС x2 · +2
                       </Text>
                     </View>
                   ) : (
@@ -1019,17 +1015,12 @@ export default function AliasGameScreen() {
                     <TouchableOpacity
                       activeOpacity={0.75}
                       onPress={handleUndoLastCard}
-                      style={[
-                        styles.cardCounterPill,
-                        {
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 5,
-                        },
-                      ]}
+                      style={[styles.cardCounterPill, styles.cardUndoPill]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Повернути попереднє слово"
                     >
-                      <RotateCcw size={11} color={COLORS.textSecondary} />
-                      <Text style={styles.cardCounterText}>Повернути</Text>
+                      <RotateCcw size={11} color={COLORS.cardInkMuted} />
+                      <Text style={styles.cardUndoText}>Повернути</Text>
                     </TouchableOpacity>
                   ) : (
                     <View />
@@ -1289,7 +1280,7 @@ export default function AliasGameScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.arenaAlias,
   },
 
   // PHASE 1: READY (TEAM CALLOUT)
@@ -1305,6 +1296,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.25)',
+    borderTopWidth: 5,
+    borderTopColor: COLORS.alias,
     padding: SPACING.xl,
     justifyContent: 'space-between',
   },
@@ -1317,7 +1312,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: `${COLORS.alias}20`,
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.full,
@@ -1331,7 +1326,7 @@ const styles = StyleSheet.create({
   teamCurrentScoreText: {
     color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   calloutHeroCenter: {
@@ -1346,10 +1341,10 @@ const styles = StyleSheet.create({
   },
   calloutTeamName: {
     color: COLORS.textPrimary,
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: -1.2,
-    lineHeight: 48,
+    fontSize: 44,
+    fontWeight: '900',
+    letterSpacing: -1.3,
+    lineHeight: 50,
   },
   calloutInstruction: {
     color: COLORS.textSecondary,
@@ -1360,7 +1355,7 @@ const styles = StyleSheet.create({
   calloutRulesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceElevated,
+    backgroundColor: COLORS.surfaceSubtle,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     gap: SPACING.md,
@@ -1388,14 +1383,16 @@ const styles = StyleSheet.create({
   launchButton: {
     width: '100%',
     backgroundColor: COLORS.alias,
-    paddingVertical: 18,
-    borderRadius: RADIUS.lg,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipAlias,
+    paddingVertical: 17,
+    borderRadius: RADIUS.xl,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   launchButtonSub: {
-    color: 'rgba(245, 245, 247, 0.72)',
+    color: 'rgba(245, 245, 247, 0.78)',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.8,
@@ -1403,7 +1400,7 @@ const styles = StyleSheet.create({
   launchButtonTitle: {
     color: COLORS.textPrimary,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.4,
   },
 
@@ -1418,28 +1415,30 @@ const styles = StyleSheet.create({
   countdownTeamLabel: {
     color: COLORS.alias,
     fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 2,
+    fontWeight: '900',
+    letterSpacing: 2.2,
     textAlign: 'center',
   },
   countdownCircle: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 232,
+    height: 232,
+    borderRadius: 116,
     backgroundColor: COLORS.surface,
+    borderWidth: 4,
+    borderColor: COLORS.alias,
     alignItems: 'center',
     justifyContent: 'center',
   },
   countdownNumber: {
     color: COLORS.textPrimary,
-    fontSize: 96,
+    fontSize: 106,
     fontWeight: '900',
-    letterSpacing: -3,
+    letterSpacing: -3.5,
     fontVariant: ['tabular-nums'],
   },
   countdownGoText: {
     color: COLORS.crocodile,
-    fontSize: 32,
+    fontSize: 34,
     letterSpacing: -0.8,
   },
   countdownSubHint: {
@@ -1562,26 +1561,42 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.5,
   },
+  deepDeckCard: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 6,
+    height: 310,
+    backgroundColor: COLORS.cardPaperDeep,
+    borderRadius: RADIUS.xl,
+    opacity: 0.45,
+  },
   backDeckCard: {
     position: 'absolute',
     left: 12,
     right: 12,
-    height: 330,
-    backgroundColor: COLORS.surfaceElevated,
+    height: 336,
+    backgroundColor: COLORS.cardPaperBack,
     borderRadius: RADIUS.xl,
   },
   wordSurface: {
     flex: 1,
-    maxHeight: 360,
-    backgroundColor: COLORS.surface,
+    maxHeight: 368,
+    backgroundColor: COLORS.cardPaper,
     borderRadius: RADIUS.xl,
+    borderBottomWidth: 6,
+    borderBottomColor: COLORS.lipPaper,
     padding: SPACING.xl,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
   },
   wordSurfaceOvertime: {
-    backgroundColor: '#21151D',
+    backgroundColor: '#FFF0E6',
+    borderWidth: 2,
+    borderColor: COLORS.hot,
+    borderBottomWidth: 6,
+    borderBottomColor: COLORS.lipHot,
   },
   cardFlashOverlay: {
     position: 'absolute',
@@ -1592,10 +1607,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
   },
   cardFlashSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.28)',
+    backgroundColor: 'rgba(16, 185, 129, 0.34)',
   },
   cardFlashSkip: {
-    backgroundColor: 'rgba(244, 63, 94, 0.25)',
+    backgroundColor: 'rgba(244, 63, 94, 0.3)',
   },
   cardTopEdge: {
     flexDirection: 'row',
@@ -1603,17 +1618,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardCounterPill: {
-    backgroundColor: COLORS.surfaceElevated,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(18, 18, 24, 0.07)',
+    paddingHorizontal: 11,
     paddingVertical: 5,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.full,
   },
   cardCounterText: {
-    color: COLORS.alias,
+    color: COLORS.cardInkMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.1,
     fontVariant: ['tabular-nums'],
+  },
+  cardBonusPill: {
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+  },
+  cardBonusText: {
+    color: '#C2410C',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  cardUndoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  cardUndoText: {
+    color: COLORS.cardInkMuted,
+    fontSize: 11,
+    fontWeight: '800',
   },
   swipeDirectionHint: {
     flexDirection: 'row',
@@ -1639,12 +1673,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   dominantWord: {
-    color: COLORS.textPrimary,
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: -1.2,
+    color: COLORS.cardInk,
+    fontSize: 44,
+    fontWeight: '900',
+    letterSpacing: -1.4,
     textAlign: 'center',
-    lineHeight: 48,
+    lineHeight: 50,
   },
   cardBottomEdge: {
     flexDirection: 'row',
@@ -1652,37 +1686,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardDeckWatermark: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    maxWidth: '55%',
+    color: COLORS.cardInkMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    opacity: 0.75,
   },
 
-  // BOTTOM CONTROLS
+  // BOTTOM CONTROLS (TACTILE 3D KEYCAPS)
   controlsRow: {
     flexDirection: 'row',
     gap: SPACING.md,
   },
   skipBtn: {
     flex: 1,
-    height: 60,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
+    height: 64,
+    backgroundColor: COLORS.surfaceElevated,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipNeutral,
+    borderRadius: RADIUS.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   skipBtnText: {
-    color: COLORS.textSecondary,
+    color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   guessedBtn: {
     flex: 1.45,
-    height: 60,
+    height: 64,
     backgroundColor: COLORS.crocodile,
-    borderRadius: RADIUS.lg,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipCrocodile,
+    borderRadius: RADIUS.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1833,21 +1873,24 @@ const styles = StyleSheet.create({
   confirmReviewBtn: {
     width: '100%',
     backgroundColor: COLORS.alias,
-    height: 58,
-    borderRadius: RADIUS.lg,
+    borderBottomWidth: 5,
+    borderBottomColor: COLORS.lipAlias,
+    height: 60,
+    borderRadius: RADIUS.xl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmReviewBtnText: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.6,
   },
   departingGhostCard: {
     position: 'absolute',
     width: '100%',
     height: '100%',
+    maxHeight: 368,
     borderRadius: RADIUS.xl,
     paddingHorizontal: SPACING.xl,
     alignItems: 'center',
@@ -1855,16 +1898,15 @@ const styles = StyleSheet.create({
     zIndex: 12,
   },
   departingGhostSuccess: {
-    backgroundColor: '#132B23',
+    backgroundColor: '#D1FAE5',
   },
   departingGhostSkip: {
-    backgroundColor: '#2B151D',
+    backgroundColor: '#FFE4E6',
   },
   departingGhostWord: {
-    color: COLORS.textPrimary,
-    fontSize: 34,
-    fontWeight: '800',
+    color: COLORS.cardInk,
+    fontSize: 36,
+    fontWeight: '900',
     textAlign: 'center',
-    opacity: 0.85,
   },
 });
