@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Alert,
   ScrollView,
@@ -11,6 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import {
@@ -18,10 +26,76 @@ import {
   Copy,
   Share2,
   Smartphone,
+  Sparkles,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
 import { usePartyStore } from '@/stores/usePartyStore';
+import { playVictoryFanfare } from '@/utils/sound';
+
+const CONFETTI_PIECES = [
+  { left: '8%', color: '#F97316', delay: 0 },
+  { left: '20%', color: '#10B981', delay: 140 },
+  { left: '34%', color: '#3B82F6', delay: 260 },
+  { left: '48%', color: '#A855F7', delay: 80 },
+  { left: '62%', color: '#F43F5E', delay: 200 },
+  { left: '76%', color: '#FACC15', delay: 120 },
+  { left: '90%', color: '#10B981', delay: 300 },
+];
+
+function ConfettiPiece({
+  left,
+  color,
+  delay,
+}: {
+  left: string;
+  color: string;
+  delay: number;
+}) {
+  const translateY = useSharedValue(-16);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    translateY.value = withDelay(
+      delay,
+      withRepeat(withTiming(110, { duration: 1900 }), 3, false)
+    );
+    opacity.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 300 }),
+          withTiming(0, { duration: 1600 })
+        ),
+        3,
+        false
+      )
+    );
+  }, [delay, opacity, translateY]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }, { rotateZ: '18deg' }],
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          top: 0,
+          left: left as any,
+          width: 8,
+          height: 16,
+          borderRadius: 4,
+          backgroundColor: color,
+        },
+        animStyle,
+      ]}
+    />
+  );
+}
 
 export default function ScoreboardScreen() {
   const router = useRouter();
@@ -35,6 +109,11 @@ export default function ScoreboardScreen() {
   const currentRoundInStep = usePartyStore((s) => s.currentRoundInStep);
   const totalGuessedWords = usePartyStore((s) => s.totalGuessedWords);
   const hardestUnansweredWord = usePartyStore((s) => s.hardestUnansweredWord);
+  const bestStreakCount = usePartyStore((s) => s.bestStreakCount);
+  const bestStreakTeamName = usePartyStore((s) => s.bestStreakTeamName);
+  const bestTurnPoints = usePartyStore((s) => s.bestTurnPoints);
+  const bestTurnTeamName = usePartyStore((s) => s.bestTurnTeamName);
+  const bonusWordsGuessed = usePartyStore((s) => s.bonusWordsGuessed);
   const lastTurnInfo = usePartyStore((s) => s.lastTurnInfo);
   const spyStats = usePartyStore((s) => s.spyStats);
   const restartRematch = usePartyStore((s) => s.restartRematch);
@@ -65,6 +144,12 @@ export default function ScoreboardScreen() {
 
   const currentStep = steps[currentStepIndex];
   const nextTeam = teams[currentTeamIndex];
+
+  useEffect(() => {
+    if (isCompleted) {
+      playVictoryFanfare();
+    }
+  }, [isCompleted]);
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -97,8 +182,17 @@ export default function ScoreboardScreen() {
     }
 
     lines.push(`Відгадано за вечір: ${totalGuessedWords}`);
+    if (bestStreakCount >= 2 && bestStreakTeamName) {
+      lines.push(`🔥 Серійна машина: ${bestStreakTeamName} (${bestStreakCount} слів підряд)`);
+    }
+    if (bestTurnPoints > 0 && bestTurnTeamName) {
+      lines.push(`⚡ Рекорд раунду: ${bestTurnTeamName} (+${bestTurnPoints} за хід)`);
+    }
+    if (bonusWordsGuessed > 0) {
+      lines.push(`💎 Розгадано хардкору (3★): ${bonusWordsGuessed}`);
+    }
     if (spyStats.roundsPlayed > 0) {
-      lines.push(`Шпигун: мирні викрили ${spyStats.citizensWins} з ${spyStats.roundsPlayed}`);
+      lines.push(`🕵️ Шпигун: мирні викрили ${spyStats.citizensWins} з ${spyStats.roundsPlayed}`);
     }
     lines.push(
       `Слово, яке зламало вечірку: «${hardestUnansweredWord ?? 'Усе розгадали без промахів'}»`
@@ -174,9 +268,34 @@ export default function ScoreboardScreen() {
 
         {/* Editorial Header */}
         <View style={styles.headerBlock}>
-          <Text style={styles.overline}>
-            {isCompleted ? 'ФІНАЛ ШОУ' : 'ТУРНІРНА ТАБЛИЦЯ'}
-          </Text>
+          {isCompleted ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute',
+                top: -8,
+                left: 0,
+                right: 0,
+                height: 120,
+                zIndex: 10,
+              }}
+            >
+              {CONFETTI_PIECES.map((p, idx) => (
+                <ConfettiPiece
+                  key={idx}
+                  left={p.left}
+                  color={p.color}
+                  delay={p.delay}
+                />
+              ))}
+            </View>
+          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isCompleted ? <Sparkles size={13} color={COLORS.hot} /> : null}
+            <Text style={[styles.overline, isCompleted && { color: COLORS.hot }]}>
+              {isCompleted ? 'ФІНАЛ ШОУ · ВІТАЄМО ЧЕМПІОНІВ!' : 'ТУРНІРНА ТАБЛИЦЯ'}
+            </Text>
+          </View>
           <Text style={styles.title}>
             {isCompleted ? presetTitle || 'Фінал гри' : 'Рахунок команд'}
           </Text>
@@ -314,6 +433,73 @@ export default function ScoreboardScreen() {
                   <Text style={styles.posterStatCaption}>Зіграно режимів</Text>
                 </View>
               </View>
+
+              {/* Party Awards ("Оскари Вечірки") */}
+              {(bestStreakCount >= 2 || bestTurnPoints > 0 || bonusWordsGuessed > 0 || spyStats.roundsPlayed > 0) ? (
+                <View
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                    borderRadius: RADIUS.lg,
+                    padding: SPACING.md,
+                    gap: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: COLORS.hot,
+                      fontSize: 10,
+                      fontWeight: '900',
+                      letterSpacing: 1.4,
+                    }}
+                  >
+                    🏆 НОМІНАЦІЇ ТА ОСКАРИ ВЕЧІРКИ
+                  </Text>
+
+                  {bestStreakCount >= 2 && bestStreakTeamName ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                        🔥 Серійна машина
+                      </Text>
+                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                        {bestStreakTeamName} ({bestStreakCount} підряд)
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {bestTurnPoints > 0 && bestTurnTeamName ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                        ⚡ Рекорд одного раунду
+                      </Text>
+                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                        {bestTurnTeamName} (+{bestTurnPoints})
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {bonusWordsGuessed > 0 ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                        💎 Мисливці за хардкором (3★)
+                      </Text>
+                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                        {bonusWordsGuessed} слів
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {spyStats.roundsPlayed > 0 ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                        🕵️ Протокол «Шпигун»
+                      </Text>
+                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                        Мирні {spyStats.citizensWins} : {spyStats.spyWins} Шпигун
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
 
               {/* Word that broke the party */}
               <View style={styles.brokenWordCard}>

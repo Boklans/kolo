@@ -160,6 +160,27 @@ export function GameWorldArtwork({
   gameId: GameType;
   size?: number;
 }) {
+  if (gameId === 'taboo') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 110 110" fill="none">
+        <Rect
+          x="26"
+          y="18"
+          width="58"
+          height="74"
+          rx="12"
+          fill="rgba(168, 85, 247, 0.16)"
+          stroke={COLORS.taboo}
+          strokeWidth="2.2"
+        />
+        <Line x1="38" y1="36" x2="72" y2="36" stroke="#D8B4FE" strokeWidth="3.5" strokeLinecap="round" />
+        <Line x1="40" y1="54" x2="70" y2="54" stroke="rgba(244, 63, 94, 0.7)" strokeWidth="2.5" strokeLinecap="round" />
+        <Line x1="40" y1="66" x2="70" y2="66" stroke="rgba(244, 63, 94, 0.7)" strokeWidth="2.5" strokeLinecap="round" />
+        <Circle cx="76" cy="74" r="18" fill="#1E142B" stroke={COLORS.taboo} strokeWidth="2.5" />
+        <Line x1="65" y1="63" x2="87" y2="85" stroke="#F43F5E" strokeWidth="3" strokeLinecap="round" />
+      </Svg>
+    );
+  }
   if (gameId === 'alias') {
     // Еліас: Картки в польоті + стрілки швидкості
     return (

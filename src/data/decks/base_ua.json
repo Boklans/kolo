@@ -1,215 +1,215 @@
 {
   "id": "base_ua",
   "title": "База на вечір",
-  "description": "Універсальна українська колода для будь-якої тусовки: колоритні реалії, гострий гумор та впізнавані життєві ситуації.",
-  "emoji": "🍻",
+  "description": "Універсальна колода живого українського гумору, побуту та вечірок для будь-якої компанії.",
+  "emoji": "🇺🇦",
   "isCustom": false,
   "isPremium": false,
   "items": {
     "alias": [
       {
         "id": "base_al_1",
-        "word": "Шаурма",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_2",
         "word": "Павербанк",
         "difficulty": 1
       },
       {
-        "id": "base_al_3",
+        "id": "base_al_2",
         "word": "Маршрутка",
         "difficulty": 1
       },
       {
+        "id": "base_al_3",
+        "word": "Шаурма",
+        "difficulty": 1
+      },
+      {
         "id": "base_al_4",
-        "word": "Сирники",
+        "word": "Перфоратор",
         "difficulty": 1
       },
       {
         "id": "base_al_5",
-        "word": "Плацкарт",
+        "word": "Борщ",
         "difficulty": 1
       },
       {
         "id": "base_al_6",
-        "word": "Пакет з пакетами",
+        "word": "Вареники",
         "difficulty": 1
       },
       {
         "id": "base_al_7",
-        "word": "Кефір",
+        "word": "Сирники",
         "difficulty": 1
       },
       {
         "id": "base_al_8",
-        "word": "Черешня",
+        "word": "Пампушки",
         "difficulty": 1
       },
       {
         "id": "base_al_9",
-        "word": "Борщ зі сметаною",
+        "word": "Трембіта",
         "difficulty": 1
       },
       {
         "id": "base_al_10",
-        "word": "Вареники з вишнями",
+        "word": "Вишиванка",
         "difficulty": 1
       },
       {
         "id": "base_al_11",
-        "word": "Поштомат",
+        "word": "Плацкарт",
         "difficulty": 1
       },
       {
         "id": "base_al_12",
-        "word": "Нова Пошта",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_13",
-        "word": "Сємки",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_14",
-        "word": "Тапочки для гостей",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_15",
-        "word": "Консєржка",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_16",
-        "word": "Балкон із консервацією",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_17",
-        "word": "Київський торт",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_18",
-        "word": "Перепічка",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_19",
-        "word": "Глінтвейн",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_20",
-        "word": "Шашлик",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_21",
-        "word": "Мангал",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_22",
-        "word": "Термос",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_23",
-        "word": "Каремат",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_24",
-        "word": "Ліхтарик",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_25",
-        "word": "Турнік у дворі",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_26",
-        "word": "Домофон",
-        "difficulty": 1
-      },
-      {
-        "id": "base_al_27",
         "word": "Провідниця",
         "difficulty": 1
       },
       {
+        "id": "base_al_13",
+        "word": "Валіза",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_14",
+        "word": "Магнітик",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_15",
+        "word": "Черешня",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_16",
+        "word": "Кавун",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_17",
+        "word": "Мангал",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_18",
+        "word": "Шашлик",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_19",
+        "word": "Холодець",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_20",
+        "word": "Шкварки",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_21",
+        "word": "Сметана",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_22",
+        "word": "Консервація",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_23",
+        "word": "Балкон",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_24",
+        "word": "Тапочки",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_25",
+        "word": "Ліхтарик",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_26",
+        "word": "Термос",
+        "difficulty": 1
+      },
+      {
+        "id": "base_al_27",
+        "word": "Парасоля",
+        "difficulty": 1
+      },
+      {
         "id": "base_al_28",
-        "word": "Підсклянник",
+        "word": "Будильник",
         "difficulty": 1
       },
       {
         "id": "base_al_29",
-        "word": "Валіза на коліщатках",
+        "word": "Холодильник",
         "difficulty": 1
       },
       {
         "id": "base_al_30",
-        "word": "Duty Free",
+        "word": "Мікрохвильовка",
         "difficulty": 1
       },
       {
         "id": "base_al_31",
-        "word": "Магнітик на холодильник",
+        "word": "Пилосос",
         "difficulty": 1
       },
       {
         "id": "base_al_32",
-        "word": "Шезлонг",
+        "word": "Праска",
         "difficulty": 1
       },
       {
         "id": "base_al_33",
-        "word": "Надувний матрац",
+        "word": "Подовжувач",
         "difficulty": 1
       },
       {
         "id": "base_al_34",
-        "word": "Кукурудза на пляжі",
+        "word": "Килим",
         "difficulty": 1
       },
       {
         "id": "base_al_35",
-        "word": "Пахлава медова",
+        "word": "Табуретка",
         "difficulty": 1
       },
       {
         "id": "base_al_36",
-        "word": "Бринза",
+        "word": "Під’їзд",
         "difficulty": 1
       },
       {
         "id": "base_al_37",
-        "word": "Банош",
+        "word": "Домофон",
         "difficulty": 1
       },
       {
         "id": "base_al_38",
-        "word": "Бограч",
+        "word": "Ліфт",
         "difficulty": 1
       },
       {
         "id": "base_al_39",
-        "word": "Узвар",
+        "word": "Квитанція",
         "difficulty": 1
       },
       {
         "id": "base_al_40",
-        "word": "Пампушки з часником",
+        "word": "Черга",
         "difficulty": 1
       },
       {
         "id": "base_al_41",
-        "word": "Генератор під вікном",
+        "word": "Заначка",
         "difficulty": 2
       },
       {
@@ -219,1058 +219,1417 @@
       },
       {
         "id": "base_al_43",
-        "word": "Дистанційка",
+        "word": "Відпустка",
         "difficulty": 2
       },
       {
         "id": "base_al_44",
-        "word": "Сусід із перфоратором",
+        "word": "Зарплата",
         "difficulty": 2
       },
       {
         "id": "base_al_45",
-        "word": "Кешбек на карту",
+        "word": "Аванс",
         "difficulty": 2
       },
       {
         "id": "base_al_46",
-        "word": "Комуналка взимку",
+        "word": "Кешбек",
         "difficulty": 2
       },
       {
         "id": "base_al_47",
-        "word": "Сімейний чат у Вайбері",
+        "word": "Розпродаж",
         "difficulty": 2
       },
       {
         "id": "base_al_48",
-        "word": "Голосове на 5 хвилин",
+        "word": "Примірочна",
         "difficulty": 2
       },
       {
         "id": "base_al_49",
-        "word": "Черга в ЦНАП",
+        "word": "Пакет пакетів",
         "difficulty": 2
       },
       {
         "id": "base_al_50",
-        "word": "Орендодавець",
+        "word": "Сімейний чат",
         "difficulty": 2
       },
       {
         "id": "base_al_51",
-        "word": "Заначка в книжці",
+        "word": "Нічний дожор",
         "difficulty": 2
       },
       {
         "id": "base_al_52",
-        "word": "Барахолка на Почайній",
+        "word": "Верхня полиця",
         "difficulty": 2
       },
       {
         "id": "base_al_53",
-        "word": "Кондиціонер у спеку",
+        "word": "Гаряча кукурудза",
         "difficulty": 2
       },
       {
         "id": "base_al_54",
-        "word": "Абонемент у спортзал із понеділка",
+        "word": "Солодка вата",
         "difficulty": 2
       },
       {
         "id": "base_al_55",
-        "word": "Дегустація наливок",
+        "word": "Чан",
         "difficulty": 2
       },
       {
         "id": "base_al_56",
-        "word": "Таємний Санта",
+        "word": "Полонина",
         "difficulty": 2
       },
       {
         "id": "base_al_57",
-        "word": "Курорт у Карпатах",
+        "word": "Бринза",
         "difficulty": 2
       },
       {
         "id": "base_al_58",
-        "word": "Чан на дровах",
+        "word": "Банош",
         "difficulty": 2
       },
       {
         "id": "base_al_59",
-        "word": "Карпатський чай",
+        "word": "Бограч",
         "difficulty": 2
       },
       {
         "id": "base_al_60",
-        "word": "Потяг Інтерсіті",
+        "word": "Узвар",
         "difficulty": 2
       },
       {
         "id": "base_al_61",
-        "word": "Верхня полиця в купе",
+        "word": "Наливка",
         "difficulty": 2
       },
       {
         "id": "base_al_62",
-        "word": "Нічний жор біля холодильника",
+        "word": "Корпоратив",
         "difficulty": 2
       },
       {
         "id": "base_al_63",
-        "word": "Доставка суші по акції",
+        "word": "Застілля",
         "difficulty": 2
       },
       {
         "id": "base_al_64",
-        "word": "Промокод на знижку",
+        "word": "Тамада",
         "difficulty": 2
       },
       {
         "id": "base_al_65",
-        "word": "Караоке о другій ночі",
+        "word": "Караоке",
         "difficulty": 2
       },
       {
         "id": "base_al_66",
-        "word": "Пошук парковки в центрі",
+        "word": "Хрестини",
         "difficulty": 2
       },
       {
         "id": "base_al_67",
-        "word": "Час пік у метро",
+        "word": "Кума",
         "difficulty": 2
       },
       {
         "id": "base_al_68",
-        "word": "Збір коштів у батьківському чаті",
+        "word": "Сусід",
         "difficulty": 2
       },
       {
         "id": "base_al_69",
-        "word": "Ремонт у новобудові",
+        "word": "Орендодавець",
         "difficulty": 2
       },
       {
         "id": "base_al_70",
-        "word": "Вимкнення гарячої води",
+        "word": "Комуналка",
         "difficulty": 2
       },
       {
         "id": "base_al_71",
-        "word": "Бойлер",
+        "word": "Субсидія",
         "difficulty": 2
       },
       {
         "id": "base_al_72",
-        "word": "Лічильник",
+        "word": "Барахолка",
         "difficulty": 2
       },
       {
         "id": "base_al_73",
-        "word": "Таксист-філософ",
+        "word": "Секонд-хенд",
         "difficulty": 2
       },
       {
         "id": "base_al_74",
-        "word": "Націнка за терміновість",
+        "word": "Торг",
         "difficulty": 2
       },
       {
         "id": "base_al_75",
-        "word": "Гаряча путівка",
+        "word": "Переоблік",
         "difficulty": 2
       },
       {
         "id": "base_al_76",
-        "word": "Все включено (All Inclusive)",
+        "word": "Подорожник",
         "difficulty": 2
       },
       {
         "id": "base_al_77",
-        "word": "Шведський стіл",
+        "word": "Протяг",
         "difficulty": 2
       },
       {
         "id": "base_al_78",
-        "word": "Останній вагон метро",
+        "word": "Гикавка",
         "difficulty": 2
       },
       {
         "id": "base_al_79",
-        "word": "Загублений другий носок",
+        "word": "Насіння",
         "difficulty": 2
       },
       {
         "id": "base_al_80",
-        "word": "Святий Миколай",
+        "word": "Чорнобривці",
         "difficulty": 2
       },
       {
         "id": "base_al_81",
+        "word": "Калина",
+        "difficulty": 2
+      },
+      {
+        "id": "base_al_82",
+        "word": "Лелека",
+        "difficulty": 2
+      },
+      {
+        "id": "base_al_83",
+        "word": "Говерла",
+        "difficulty": 2
+      },
+      {
+        "id": "base_al_84",
+        "word": "Дніпро",
+        "difficulty": 2
+      },
+      {
+        "id": "base_al_85",
+        "word": "Бруківка",
+        "difficulty": 2
+      },
+      {
+        "id": "base_al_86",
+        "word": "Каштан",
+        "difficulty": 2
+      },
+      {
+        "id": "base_al_87",
         "word": "Прокрастинація",
         "difficulty": 3
       },
       {
-        "id": "base_al_82",
-        "word": "Панічна атака",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_83",
-        "word": "Критичне мислення",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_84",
-        "word": "Емоційний інтелект",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_85",
-        "word": "Вихід із зони комфорту",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_86",
-        "word": "Жіноча інтуїція",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_87",
-        "word": "Ностальгія за нульовими",
-        "difficulty": 3
-      },
-      {
         "id": "base_al_88",
-        "word": "Імпровізація на ходу",
+        "word": "Ностальгія",
         "difficulty": 3
       },
       {
         "id": "base_al_89",
-        "word": "Бюрократія",
+        "word": "Інтуїція",
         "difficulty": 3
       },
       {
         "id": "base_al_90",
-        "word": "Перфекціонізм",
+        "word": "Компроміс",
         "difficulty": 3
       },
       {
         "id": "base_al_91",
-        "word": "Харизма",
+        "word": "Імпровізація",
         "difficulty": 3
       },
       {
         "id": "base_al_92",
-        "word": "Авантюра",
+        "word": "Дипломатія",
         "difficulty": 3
       },
       {
         "id": "base_al_93",
-        "word": "Пасивна агресія",
+        "word": "Бюрократія",
         "difficulty": 3
       },
       {
         "id": "base_al_94",
-        "word": "Теорія змови",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_95",
-        "word": "Фінансова подушка",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_96",
-        "word": "Криза середнього віку",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_97",
-        "word": "Ефект метелика",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_98",
-        "word": "Дежавю",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_99",
-        "word": "Закон підлості (Бутерброд маслом вниз)",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_100",
-        "word": "Синдром відкладеного життя",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_101",
-        "word": "Іспанський сором",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_102",
-        "word": "Біла заздрість",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_103",
-        "word": "Друге дихання",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_104",
-        "word": "Внутрішній голос",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_105",
-        "word": "Сліпа зона",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_106",
-        "word": "Точка неповернення",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_107",
-        "word": "Подвійні стандарти",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_108",
-        "word": "Культ споживання",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_109",
-        "word": "Емоційна гойдалка",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_110",
-        "word": "Психосоматика",
-        "difficulty": 3
-      },
-      {
-        "id": "base_al_111",
         "word": "Самоіронія",
         "difficulty": 3
       },
       {
+        "id": "base_al_95",
+        "word": "Сарказм",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_96",
+        "word": "Хазяйновитість",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_97",
+        "word": "Гостинність",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_98",
+        "word": "Меншовартість",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_99",
+        "word": "Незламність",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_100",
+        "word": "Толока",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_101",
+        "word": "Вечорниці",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_102",
+        "word": "Купала",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_103",
+        "word": "Маланка",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_104",
+        "word": "Коляда",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_105",
+        "word": "Щедрівка",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_106",
+        "word": "Вертеп",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_107",
+        "word": "Кобзар",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_108",
+        "word": "Характерник",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_109",
+        "word": "Гетьман",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_110",
+        "word": "Булава",
+        "difficulty": 3
+      },
+      {
+        "id": "base_al_111",
+        "word": "Козацтво",
+        "difficulty": 3
+      },
+      {
         "id": "base_al_112",
-        "word": "Колективне несвідоме",
+        "word": "Чумак",
         "difficulty": 3
       },
       {
         "id": "base_al_113",
-        "word": "Екзистенційна криза",
+        "word": "Скарбниця",
         "difficulty": 3
       },
       {
         "id": "base_al_114",
-        "word": "Синдром вахтера",
+        "word": "Літопис",
         "difficulty": 3
       },
       {
         "id": "base_al_115",
-        "word": "Сарафанне радіо",
+        "word": "Оберіг",
         "difficulty": 3
       },
       {
         "id": "base_al_116",
-        "word": "Кумізм",
+        "word": "Витинанка",
         "difficulty": 3
       },
       {
         "id": "base_al_117",
-        "word": "Гостинність на максималках",
+        "word": "Писанка",
         "difficulty": 3
       },
       {
         "id": "base_al_118",
-        "word": "Спонтанна покупка вночі",
+        "word": "Гончарство",
         "difficulty": 3
       },
       {
         "id": "base_al_119",
-        "word": "Дипломатична відмова",
+        "word": "Світанок",
         "difficulty": 3
       },
       {
         "id": "base_al_120",
-        "word": "Залізна логіка",
+        "word": "Сутінки",
         "difficulty": 3
       }
     ],
     "crocodile": [
       {
         "id": "base_cr_1",
-        "phrase": "Кіт, який ганяється за лазерною цяткою по стіні",
+        "phrase": "Перфоратор",
         "difficulty": 1
       },
       {
         "id": "base_cr_2",
-        "phrase": "Босоніж наступити на деталь Лего в темряві",
+        "phrase": "Провідниця",
         "difficulty": 1
       },
       {
         "id": "base_cr_3",
-        "phrase": "Тихо відкривати пачку чипсів о третій ночі",
+        "phrase": "Маршрутка",
         "difficulty": 1
       },
       {
         "id": "base_cr_4",
-        "phrase": "Передавати гроші за проїзд із кінця маршрутки",
+        "phrase": "Шашлик",
         "difficulty": 1
       },
       {
         "id": "base_cr_5",
-        "phrase": "Нести по пляжу гарячу кукурудзу та пахлаву",
+        "phrase": "Комар",
         "difficulty": 1
       },
       {
         "id": "base_cr_6",
-        "phrase": "Струшувати градусник під пахвою",
+        "phrase": "Муха",
         "difficulty": 1
       },
       {
         "id": "base_cr_7",
-        "phrase": "Намагатися вдягнути нитку в голку без окулярів",
+        "phrase": "Кіт",
         "difficulty": 1
       },
       {
         "id": "base_cr_8",
-        "phrase": "Ловити комара в темній спальні над вухом",
+        "phrase": "Півень",
         "difficulty": 1
       },
       {
         "id": "base_cr_9",
-        "phrase": "Відкривати тугу банку з бабусиними огірками",
+        "phrase": "Рибалка",
         "difficulty": 1
       },
       {
         "id": "base_cr_10",
-        "phrase": "Переходити калюжу по слизьких цеглинах",
+        "phrase": "Грибник",
         "difficulty": 1
       },
       {
         "id": "base_cr_11",
-        "phrase": "Чистити пекучу цибулю і плакати",
+        "phrase": "Воротар",
         "difficulty": 1
       },
       {
         "id": "base_cr_12",
-        "phrase": "Збирати розсипані по підлозі дрібні монети",
+        "phrase": "Боксер",
         "difficulty": 1
       },
       {
         "id": "base_cr_13",
-        "phrase": "Намагатися скласти велику парасольку проти вітру",
+        "phrase": "Штангіст",
         "difficulty": 1
       },
       {
         "id": "base_cr_14",
-        "phrase": "Запихати зимову ковдру в нову підковдру",
+        "phrase": "Балерина",
         "difficulty": 1
       },
       {
         "id": "base_cr_15",
-        "phrase": "Обирати найстигліший кавун на ринку за звуком",
+        "phrase": "Диригент",
         "difficulty": 1
       },
       {
         "id": "base_cr_16",
-        "phrase": "Танцювати повільний танець на шкільній дискотеці",
+        "phrase": "Клоун",
         "difficulty": 1
       },
       {
         "id": "base_cr_17",
-        "phrase": "Шукати ключі у бездонному рюкзаку біля дверей",
+        "phrase": "Фотограф",
         "difficulty": 1
       },
       {
         "id": "base_cr_18",
-        "phrase": "Нюхати молоко з холодильника, чи не скисло",
+        "phrase": "Перукар",
         "difficulty": 1
       },
       {
         "id": "base_cr_19",
-        "phrase": "Збивати високу температуру чаєм із малиною",
+        "phrase": "Стоматолог",
         "difficulty": 1
       },
       {
         "id": "base_cr_20",
-        "phrase": "Вибивати килим у дворі перед святами",
+        "phrase": "Офіціант",
         "difficulty": 1
       },
       {
         "id": "base_cr_21",
-        "phrase": "Ліпити сніговика з мокрого снігу",
+        "phrase": "Кухар",
         "difficulty": 1
       },
       {
         "id": "base_cr_22",
-        "phrase": "Задувати свічки на торті, які не гаснуть",
+        "phrase": "Двірник",
         "difficulty": 1
       },
       {
         "id": "base_cr_23",
-        "phrase": "Сусід із перфоратором у суботу о восьмій ранку",
+        "phrase": "Похмілля",
         "difficulty": 2
       },
       {
         "id": "base_cr_24",
-        "phrase": "Консєржка, яка підозріло оглядає незнайомця в під’їзді",
+        "phrase": "Гикавка",
         "difficulty": 2
       },
       {
         "id": "base_cr_25",
-        "phrase": "Провідниця Укрзалізниці несе склянки чаю у вагоні, що хитається",
+        "phrase": "Ожеледиця",
         "difficulty": 2
       },
       {
         "id": "base_cr_26",
-        "phrase": "Турист із величезними пакетами в зоні Duty Free",
+        "phrase": "Протяг",
         "difficulty": 2
       },
       {
         "id": "base_cr_27",
-        "phrase": "Водій, який об’їжджає ями на дорозі як слаломіст",
+        "phrase": "Безсоння",
         "difficulty": 2
       },
       {
         "id": "base_cr_28",
-        "phrase": "Бабуся на лавці, яка обговорює всіх сусідів двору",
+        "phrase": "Нічний дожор",
         "difficulty": 2
       },
       {
         "id": "base_cr_29",
-        "phrase": "Офіціант, який несе тацю з десятьма келихами на банкеті",
+        "phrase": "Гаряча картопля",
         "difficulty": 2
       },
       {
         "id": "base_cr_30",
-        "phrase": "Митник, який перевіряє підозріло важку валізу",
+        "phrase": "Сліпий масаж",
         "difficulty": 2
       },
       {
         "id": "base_cr_31",
-        "phrase": "Людина в черзі до каси, коли відкрили сусідню вільну касу",
+        "phrase": "Мокра парасоля",
         "difficulty": 2
       },
       {
         "id": "base_cr_32",
-        "phrase": "Гість, який наступив на кота в темному коридорі",
+        "phrase": "Важка валіза",
         "difficulty": 2
       },
       {
         "id": "base_cr_33",
-        "phrase": "Спроба залізти на верхню полицю плацкарта з чаєм у руці",
+        "phrase": "Зла собака",
         "difficulty": 2
       },
       {
         "id": "base_cr_34",
-        "phrase": "Людина, яка випадково лайкнула фото п’ятирічної давнини",
+        "phrase": "Впертий осел",
         "difficulty": 2
       },
       {
         "id": "base_cr_35",
-        "phrase": "Заводити генератор на морозі з десятої спроби",
+        "phrase": "Сонний кіт",
         "difficulty": 2
       },
       {
         "id": "base_cr_36",
-        "phrase": "Ховати пакет із покупками від мами чи партнера",
+        "phrase": "Хитрий лис",
         "difficulty": 2
       },
       {
         "id": "base_cr_37",
-        "phrase": "Намагатися зробити серйозне обличчя для фото на паспорт",
+        "phrase": "Повітряна кулька",
         "difficulty": 2
       },
       {
         "id": "base_cr_38",
-        "phrase": "Пояснювати таксисту, біля якого під’їзду треба зупинитися",
+        "phrase": "Мильна бульбашка",
         "difficulty": 2
       },
       {
         "id": "base_cr_39",
-        "phrase": "Спроба вийти з переповненого вагона метро на своїй станції",
+        "phrase": "Жуйка",
         "difficulty": 2
       },
       {
         "id": "base_cr_40",
-        "phrase": "Куштувати кислий лимон і вдавати, що він дуже солодкий",
+        "phrase": "Насіння",
         "difficulty": 2
       },
       {
         "id": "base_cr_41",
-        "phrase": "Збирати валізу у відпустку, сідаючи на неї зверху",
+        "phrase": "Кавун",
         "difficulty": 2
       },
       {
         "id": "base_cr_42",
-        "phrase": "Шукати мережу мобільного зв’язку високо в горах",
+        "phrase": "Холодець",
         "difficulty": 2
       },
       {
         "id": "base_cr_43",
-        "phrase": "Намагатися не чхнути під час важливої хвилини мовчання",
+        "phrase": "Консервація",
         "difficulty": 2
       },
       {
         "id": "base_cr_44",
-        "phrase": "Розплутувати дротові навушники з кишені куртки",
+        "phrase": "Примірочна",
         "difficulty": 2
       },
       {
         "id": "base_cr_45",
-        "phrase": "Орендодавець, який прийшов перевіряти квартиру, а там живе таємний кіт",
-        "difficulty": 3
+        "phrase": "Аплодисменти",
+        "difficulty": 2
       },
       {
         "id": "base_cr_46",
-        "phrase": "Спроба згадати слово, яке крутиться на кінчику язика",
-        "difficulty": 3
+        "phrase": "Караоке",
+        "difficulty": 2
       },
       {
         "id": "base_cr_47",
-        "phrase": "Внутрішня боротьба між дієтою та нічним походом до холодильника",
-        "difficulty": 3
+        "phrase": "Тамада",
+        "difficulty": 2
       },
       {
         "id": "base_cr_48",
-        "phrase": "Людина, яка вдає, що уважно слухає тост, але дивиться лише на шашлик",
+        "phrase": "Сомнамбула",
         "difficulty": 3
       },
       {
         "id": "base_cr_49",
-        "phrase": "Перша спроба стати на лижі на чорній трасі в Буковелі",
+        "phrase": "Черевомовник",
         "difficulty": 3
       },
       {
         "id": "base_cr_50",
-        "phrase": "Емоційні гойдалки під час перегляду фіналу футбольного матчу",
+        "phrase": "Канатоходець",
         "difficulty": 3
       },
       {
         "id": "base_cr_51",
-        "phrase": "Раптове усвідомлення, що забув вимкнути праску вдома",
+        "phrase": "Гімнаст",
         "difficulty": 3
       },
       {
         "id": "base_cr_52",
-        "phrase": "Дипломатична спроба натякнути гостям, що вечірка вже закінчилася",
+        "phrase": "Пантоміма",
         "difficulty": 3
       },
       {
         "id": "base_cr_53",
-        "phrase": "Людина, яка вперше за рік прийшла в спортзал і взяла заважку штангу",
+        "phrase": "Гіпнотизер",
         "difficulty": 3
       },
       {
         "id": "base_cr_54",
-        "phrase": "Покупець на барахолці, який торгується за кожну гривню з продавцем",
+        "phrase": "Екстрасенс",
         "difficulty": 3
       },
       {
         "id": "base_cr_55",
-        "phrase": "Спроба непомітно витягнути застряглу їжу із зубів за столом",
+        "phrase": "Археолог",
         "difficulty": 3
       },
       {
         "id": "base_cr_56",
-        "phrase": "Паніка, коли телефон падає екраном донизу на асфальт",
+        "phrase": "Водолаз",
         "difficulty": 3
       },
       {
         "id": "base_cr_57",
-        "phrase": "Людина, яка попалася на гарячому, коли їла чужий десерт із холодильника",
+        "phrase": "Парашутист",
         "difficulty": 3
       },
       {
         "id": "base_cr_58",
-        "phrase": "Ведучий прогнозу погоди, у якого зламався телесуфлер у прямому ефірі",
+        "phrase": "Альпініст",
         "difficulty": 3
       },
       {
         "id": "base_cr_59",
-        "phrase": "Спроба приховати гикавку під час серйозної розмови",
+        "phrase": "Серфінгіст",
         "difficulty": 3
       },
       {
         "id": "base_cr_60",
-        "phrase": "Турист, який пояснює дорогу іноземцю жестами без знання мови",
+        "phrase": "Сноубордист",
         "difficulty": 3
       },
       {
         "id": "base_cr_61",
-        "phrase": "Людина, яка намагається не заснути на нудній лекції в першому ряду",
+        "phrase": "Фігурист",
         "difficulty": 3
       },
       {
         "id": "base_cr_62",
-        "phrase": "Момент, коли увімкнули світло після довгого відключення",
+        "phrase": "Сумоїст",
         "difficulty": 3
       },
       {
         "id": "base_cr_63",
-        "phrase": "Спроба пройти повз сплячу дитину по скрипучій підлозі",
+        "phrase": "Фехтувальник",
         "difficulty": 3
       },
       {
         "id": "base_cr_64",
-        "phrase": "Людина, яка вдає, що їй дуже подобається дивний подарунок на свято",
+        "phrase": "Лучник",
         "difficulty": 3
       },
       {
         "id": "base_cr_65",
-        "phrase": "Кухар, який упустив стейк на підлогу і швидко поклав назад на тарілку",
+        "phrase": "Коваль",
         "difficulty": 3
       }
     ],
-    "taboo": [],
+    "taboo": [
+      {
+        "id": "base_tb_1",
+        "word": "Борщ",
+        "forbiddenWords": [
+          "Буряк",
+          "Сметана",
+          "Капуста",
+          "Червоний"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_2",
+        "word": "Вареники",
+        "forbiddenWords": [
+          "Тісто",
+          "Вишня",
+          "Картопля",
+          "Ліпити"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_3",
+        "word": "Шаурма",
+        "forbiddenWords": [
+          "Лаваш",
+          "М’ясо",
+          "Кіоск",
+          "Соус"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_4",
+        "word": "Маршрутка",
+        "forbiddenWords": [
+          "Водій",
+          "Проїзд",
+          "Зупинка",
+          "Пасажир"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_5",
+        "word": "Павербанк",
+        "forbiddenWords": [
+          "Зарядка",
+          "Батарея",
+          "Телефон",
+          "Кабель"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_6",
+        "word": "Перфоратор",
+        "forbiddenWords": [
+          "Сусід",
+          "Ремонт",
+          "Стіна",
+          "Свердлити"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_7",
+        "word": "Плацкарт",
+        "forbiddenWords": [
+          "Поїзд",
+          "Провідниця",
+          "Полиця",
+          "Чай"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_8",
+        "word": "Заначка",
+        "forbiddenWords": [
+          "Гроші",
+          "Ховати",
+          "Купюри",
+          "Секрет"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_9",
+        "word": "Холодець",
+        "forbiddenWords": [
+          "М’ясо",
+          "Хрін",
+          "Новий рік",
+          "Желе"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_10",
+        "word": "Вишиванка",
+        "forbiddenWords": [
+          "Сорочка",
+          "Узор",
+          "Нитки",
+          "Свято"
+        ],
+        "difficulty": 1
+      },
+      {
+        "id": "base_tb_11",
+        "word": "Шашлик",
+        "forbiddenWords": [
+          "Мангал",
+          "Дим",
+          "Вугілля",
+          "Шампур"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_12",
+        "word": "Похмілля",
+        "forbiddenWords": [
+          "Ранок",
+          "Голова",
+          "Вода",
+          "Алкоголь"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_13",
+        "word": "Буковель",
+        "forbiddenWords": [
+          "Лижі",
+          "Гори",
+          "Карпати",
+          "Сніг"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_14",
+        "word": "Кавун",
+        "forbiddenWords": [
+          "Ягода",
+          "Смугастий",
+          "Кісточки",
+          "Літо"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_15",
+        "word": "Холодильник",
+        "forbiddenWords": [
+          "Їжа",
+          "Мороз",
+          "Кухня",
+          "Полиця"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_16",
+        "word": "Караоке",
+        "forbiddenWords": [
+          "Мікрофон",
+          "Пісня",
+          "Співати",
+          "Екран"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_17",
+        "word": "Консервація",
+        "forbiddenWords": [
+          "Банка",
+          "Огірки",
+          "Кришка",
+          "Погріб"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_18",
+        "word": "Тамада",
+        "forbiddenWords": [
+          "Весілля",
+          "Конкурс",
+          "Тост",
+          "Мікрофон"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_19",
+        "word": "Примірочна",
+        "forbiddenWords": [
+          "Одяг",
+          "Магазин",
+          "Дзеркало",
+          "Штора"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_20",
+        "word": "Барахолка",
+        "forbiddenWords": [
+          "Ринок",
+          "Старовина",
+          "Торг",
+          "Речі"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_21",
+        "word": "Подорожник",
+        "forbiddenWords": [
+          "Трава",
+          "Рана",
+          "Листок",
+          "Коліно"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_22",
+        "word": "Чан",
+        "forbiddenWords": [
+          "Вода",
+          "Вогонь",
+          "Карпати",
+          "Купатися"
+        ],
+        "difficulty": 2
+      },
+      {
+        "id": "base_tb_23",
+        "word": "Говерла",
+        "forbiddenWords": [
+          "Вершина",
+          "Гора",
+          "Підйом",
+          "Карпати"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_24",
+        "word": "Сирники",
+        "forbiddenWords": [
+          "Сніданок",
+          "Творог",
+          "Сковорода",
+          "Сметана"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_25",
+        "word": "Домофон",
+        "forbiddenWords": [
+          "Двері",
+          "Під’їзд",
+          "Код",
+          "Дзвінок"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_26",
+        "word": "Парасоля",
+        "forbiddenWords": [
+          "Дощ",
+          "Злива",
+          "Спиці",
+          "Мокрий"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_27",
+        "word": "Будильник",
+        "forbiddenWords": [
+          "Ранок",
+          "Сон",
+          "Годинник",
+          "Дзвонити"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_28",
+        "word": "Валіза",
+        "forbiddenWords": [
+          "Подорож",
+          "Коліщатка",
+          "Речі",
+          "Аеропорт"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_29",
+        "word": "Комуналка",
+        "forbiddenWords": [
+          "Квитанція",
+          "Світло",
+          "Вода",
+          "Оплата"
+        ],
+        "difficulty": 3
+      },
+      {
+        "id": "base_tb_30",
+        "word": "Субсидія",
+        "forbiddenWords": [
+          "Держава",
+          "Допомога",
+          "Комуналка",
+          "Знижка"
+        ],
+        "difficulty": 3
+      }
+    ],
     "spyLocations": [
       {
-        "id": "base_sp_1",
-        "name": "Плацкартний вагон Київ–Рахів",
+        "id": "base_spy_1",
+        "name": "Плацкарт",
         "roles": [
           "Провідниця",
-          "Пасажир із верхньої полиці",
-          "Любитель варених яєць і курки",
-          "Турист із гітарою",
-          "Військовий у відпустці",
-          "Студент без квитка"
+          "Пасажир",
+          "Дембель",
+          "Студент",
+          "Турист",
+          "Машиніст",
+          "Ревізор"
         ]
       },
       {
-        "id": "base_sp_2",
-        "name": "Черга в ЦНАП",
+        "id": "base_spy_2",
+        "name": "ЦНАП",
         "roles": [
-          "Адміністратор на рецепції",
-          "Жінка «мені тільки спитати»",
-          "Дідусь із папкою документів",
-          "Охоронець біля термінала",
-          "Молода пара після РАЦСу",
-          "Підприємець, який поспішає"
+          "Адміністратор",
+          "Пенсіонерка",
+          "Охоронець",
+          "Стажер",
+          "Директор",
+          "Кур’єр",
+          "Відвідувач"
         ]
       },
       {
-        "id": "base_sp_3",
-        "name": "Відділення Нової Пошти",
+        "id": "base_spy_3",
+        "name": "Нова Пошта",
         "roles": [
-          "Оператор за комп’ютером",
-          "Вантажник із коробками",
-          "Клієнт, який міряє кросівки",
-          "Кур’єр із накладними",
-          "Продавчиня з десятком посилок",
-          "Покупець, який оглядає телевізор"
+          "Оператор",
+          "Кур’єр",
+          "Вантажник",
+          "Інтернет-шопер",
+          "Касир",
+          "Керівник",
+          "Водій"
         ]
       },
       {
-        "id": "base_sp_4",
-        "name": "Весілля в Карпатах",
+        "id": "base_spy_4",
+        "name": "Буковель",
         "roles": [
-          "Тамада з мікрофоном",
-          "Наречений у вишиванці",
-          "Дружка нареченої",
-          "Музикант із трембітою",
-          "Дядько, який каже довгий тост",
-          "Весільний відеограф"
+          "Лижник",
+          "Сноубордист",
+          "Інструктор",
+          "Рятувальник",
+          "Бармен",
+          "Фотограф",
+          "Турист"
         ]
       },
       {
-        "id": "base_sp_5",
-        "name": "Гірськолижний курорт у Буковелі",
+        "id": "base_spy_5",
+        "name": "Супермаркет",
         "roles": [
-          "Інструктор із лиж",
-          "Сноубордист-екстремал",
-          "Лижник-новачок у плузі",
-          "Продавець глінтвейну",
-          "Працівник підйомника",
-          "Турист у карпатському чані"
+          "Касир",
+          "Охоронець",
+          "Пекар",
+          "Мерчендайзер",
+          "Покупець",
+          "Прибиральниця",
+          "Адміністратор"
         ]
       },
       {
-        "id": "base_sp_6",
-        "name": "Супермаркет перед Новим роком",
+        "id": "base_spy_6",
+        "name": "Кав’ярня",
         "roles": [
-          "Касир на експрес-касі",
-          "Охоронець біля рамок",
-          "Покупець із двома візками мандаринів",
-          "Працівник відділу кулінарії",
-          "Людина, яка шукає зелений горошок",
-          "Мерчендайзер із ящиками шампанського"
+          "Бариста",
+          "Кондитер",
+          "Фрілансер",
+          "Кавоман",
+          "Кур’єр",
+          "Власник",
+          "Студентка"
         ]
       },
       {
-        "id": "base_sp_7",
-        "name": "Кав’ярня третьої хвилі",
+        "id": "base_spy_7",
+        "name": "Спортзал",
         "roles": [
-          "Бариста з татуюваннями",
-          "Фрілансер із Макбуком",
-          "Любитель фільтр-кави",
-          "Кондитер із круасанами",
-          "Дівчина, яка фоткає лате-арт",
-          "Власник кав’ярні"
+          "Тренер",
+          "Бодібілдер",
+          "Новачок",
+          "Адміністратор",
+          "Масажист",
+          "Блогерка",
+          "Боксер"
         ]
       },
       {
-        "id": "base_sp_8",
-        "name": "Спортзал у понеділок ввечері",
+        "id": "base_spy_8",
+        "name": "Кемпінг",
         "roles": [
-          "Персональний тренер",
-          "Бодібілдер біля дзеркала",
-          "Новачок на біговій доріжці",
-          "Адміністратор із рушниками",
-          "Дівчина, яка робить селфі в залі",
-          "Черговий інструктор"
+          "Гітарист",
+          "Лісник",
+          "Рибалка",
+          "Кухар",
+          "Турист",
+          "Фотограф",
+          "Скаут"
         ]
       },
       {
-        "id": "base_sp_9",
-        "name": "Кемпінг у лісі з наметами",
+        "id": "base_spy_9",
+        "name": "Базар",
         "roles": [
-          "Головний по шашликах",
-          "Гітарист біля багаття",
-          "Людина, яка забула засіб від комарів",
-          "Лісник на обході",
-          "Дослідник із компасом",
-          "Кухар польового казанка"
+          "Продавчиня",
+          "М’ясник",
+          "Міняйло",
+          "Вантажник",
+          "Покупець",
+          "Контролер",
+          "Фермер"
         ]
       },
       {
-        "id": "base_sp_10",
-        "name": "Тату-салон",
+        "id": "base_spy_10",
+        "name": "Кінотеатр",
         "roles": [
-          "Тату-майстер у рукавичках",
-          "Клієнт на першому татуюванні",
-          "Адміністратор студії",
-          "Майстер пірсингу",
-          "Художник ескізів",
-          "Людина, яка перекриває старе тату"
-        ]
-      },
-      {
-        "id": "base_sp_11",
-        "name": "Нічний оптовий ринок",
-        "roles": [
-          "Продавець мандаринів ящиками",
-          "Вантажник із візком",
-          "Власник кав’ярні на закупці",
-          "Нічний охоронець",
-          "Водій фури",
-          "Покупець, який торгується"
-        ]
-      },
-      {
-        "id": "base_sp_12",
-        "name": "Кінотеатр на прем’єрі блокбастера",
-        "roles": [
-          "Продавець попкорну",
-          "Контролер квитків",
-          "Глядач в останньому ряду",
-          "Людина, яка коментує фільм уголос",
           "Кіномеханік",
-          "Фанат у костюмі героя"
+          "Білетер",
+          "Касир попкорну",
+          "Глядач",
+          "Кінокритик",
+          "Охоронець",
+          "Прибиральник"
         ]
       },
       {
-        "id": "base_sp_13",
-        "name": "Автомийка самообслуговування",
+        "id": "base_spy_11",
+        "name": "Метрополітен",
         "roles": [
-          "Водій із пінним пістолетом",
-          "Власник позашляховика після бездоріжжя",
-          "Таксист на перезмінці",
-          "Адміністратор розміну жетонів",
-          "Людина, яка пилососить килимки",
-          "Мотоцикліст"
+          "Машиніст",
+          "Чергова станції",
+          "Поліцейський",
+          "Музикант",
+          "Пасажир",
+          "Касир",
+          "Електрик"
         ]
       },
       {
-        "id": "base_sp_14",
-        "name": "Ветеринарна клініка",
+        "id": "base_spy_12",
+        "name": "Аквапарк",
         "roles": [
-          "Лікар-ветеринар",
-          "Власник переляканого кота",
-          "Господар величезного лабрадора",
-          "Асистент на прийомі",
-          "Продавець ветаптеки",
-          "Грумер із ножицями"
+          "Рятувальник",
+          "Інструктор",
+          "Бармен",
+          "Дитина",
+          "Аніматор",
+          "Медсестра",
+          "Відпочивальник"
         ]
       },
       {
-        "id": "base_sp_15",
-        "name": "Станція метро під час тривоги",
+        "id": "base_spy_13",
+        "name": "Знімальний майданчик",
         "roles": [
-          "Чергова по станції",
-          "Поліцейський на платформі",
-          "Студент зі складним стільчиком",
-          "Власник песика в переносці",
-          "Машиніст поїзда",
-          "Музикант у переході"
-        ]
-      },
-      {
-        "id": "base_sp_16",
-        "name": "Барбершоп",
-        "roles": [
-          "Топ-барбер із бритвою",
-          "Клієнт на стрижці бороди",
-          "Адміністратор, який пропонує віскі",
-          "Стажер, який підмітає волосся",
-          "Хлопець у черзі з приставкою",
-          "Постачальник косметики"
-        ]
-      },
-      {
-        "id": "base_sp_17",
-        "name": "Аквапарк у вихідний день",
-        "roles": [
-          "Рятувальник зі свистком",
-          "Інструктор на високій гірці",
-          "Дитина в надувному колі",
-          "Бармен у басейні",
-          "Відвідувач у джакузі",
-          "Фотограф аквапарку"
-        ]
-      },
-      {
-        "id": "base_sp_18",
-        "name": "Знімальний майданчик серіалу",
-        "roles": [
-          "Режисер із гучномовцем",
-          "Головний актор у гримі",
-          "Оператор із камерою",
-          "Дівчина з хлопавкою",
+          "Режисер",
+          "Оператор",
+          "Актор",
+          "Гример",
           "Каскадер",
-          "Адміністратор буфету"
+          "Звукорежисер",
+          "Продюсер"
         ]
       },
       {
-        "id": "base_sp_19",
-        "name": "Боулінг-клуб",
+        "id": "base_spy_14",
+        "name": "Музей",
         "roles": [
-          "Гравець, який вибив страйк",
-          "Адміністратор видачі взуття",
-          "Новачок, який кинув кулю в жолоб",
-          "Офіціант із піцою",
-          "Механік доріжок",
-          "Іменинник за сусіднім столиком"
-        ]
-      },
-      {
-        "id": "base_sp_20",
-        "name": "Музей сучасного мистецтва",
-        "roles": [
-          "Куратор виставки",
+          "Екскурсовод",
+          "Реставратор",
+          "Доглядач",
           "Мистецтвознавець",
-          "Відвідувач, який не розуміє картину",
-          "Охоронець залу",
-          "Художник-авангардист",
-          "Екскурсовод"
+          "Школяр",
+          "Охоронець",
+          "Колекціонер"
         ]
       },
       {
-        "id": "base_sp_21",
-        "name": "Барахолка на Почайній",
+        "id": "base_spy_15",
+        "name": "Барахолка",
         "roles": [
-          "Колекціонер вінілових платівок",
-          "Продавець раритетних фотоапаратів",
-          "Шукач антикваріату",
-          "Букініст зі старими книгами",
-          "Майстер ремонту годинників",
-          "Турист-мисливець за скарбами"
+          "Антиквар",
+          "Колекціонер",
+          "Нумізмат",
+          "Старожил",
+          "Турист",
+          "Музикант",
+          "Торговець"
         ]
       },
       {
-        "id": "base_sp_22",
-        "name": "Дачний кооператив навесні",
+        "id": "base_spy_16",
+        "name": "Дача",
         "roles": [
-          "Голова кооперативу",
-          "Сусід із газонокосаркою",
-          "Майстер мангалу та шашликів",
-          "Агроном-аматор із розсадою",
-          "Дачник у гамаку",
-          "Водій вантажівки з чорноземом"
+          "Садівник",
+          "Сусід",
+          "Шашличник",
+          "Агроном",
+          "Онук",
+          "Дачник",
+          "Голова кооперативу"
         ]
       },
       {
-        "id": "base_sp_23",
-        "name": "Пляж Аркадія в Одесі",
+        "id": "base_spy_17",
+        "name": "Пляж",
         "roles": [
-          "Продавець медової пахлави",
-          "Рятувальник на вишці",
-          "Діджей пляжного комплексу",
-          "Відпочивальник, який обгорів на сонці",
-          "Орендар скутерів та банана",
-          "Офіціант біля шезлонгів"
+          "Рятувальник",
+          "Серфер",
+          "Торговець кукурудзою",
+          "Масажист",
+          "Волейболіст",
+          "Турист",
+          "Діджей"
         ]
       },
       {
-        "id": "base_sp_24",
-        "name": "Ярмарок у Сорочинцях",
+        "id": "base_spy_18",
+        "name": "Ярмарок",
         "roles": [
-          "Гончар із глечиками",
-          "Кухар величезного казана кулешу",
-          "Майстриня вишиванок",
-          "Музикант троїстих музик",
-          "Продавець медовухи",
-          "Турист із фотоапаратом"
+          "Коваль",
+          "Гончар",
+          "Пасічник",
+          "Музикант",
+          "Козак",
+          "Кухар",
+          "Покупець"
         ]
       },
       {
-        "id": "base_sp_25",
-        "name": "Автошкола на майданчику",
+        "id": "base_spy_19",
+        "name": "Автошкола",
         "roles": [
-          "Сивий інструктор із водіння",
-          "Учень на першому занятті",
-          "Екзаменатор сервісного центру",
-          "Механік навчального авто",
-          "Кандидат, який паркується заднім ходом",
-          "Директор автошколи"
+          "Інструктор",
+          "Екзаменатор",
+          "Учень",
+          "Механік",
+          "Директор",
+          "Водій",
+          "Методист"
         ]
       },
       {
-        "id": "base_sp_26",
-        "name": "Нічний пором через річку",
+        "id": "base_spy_20",
+        "name": "Пором",
         "roles": [
-          "Капітан порома",
-          "Матрос біля трапа",
-          "Далекобійник біля фури",
-          "Велосипедист із рюкзаком",
-          "Рибалка зі спінінгом",
-          "Мандрівник із термосом"
+          "Капітан",
+          "Боцман",
+          "Матрос",
+          "Дальнобійник",
+          "Чайка",
+          "Турист",
+          "Механік"
         ]
       },
       {
-        "id": "base_sp_27",
-        "name": "Етно-ресторан української кухні",
+        "id": "base_spy_21",
+        "name": "Варенична",
         "roles": [
-          "Шеф-кухар борщу",
-          "Офіціант у строї",
-          "Сомельє крафтових наливок",
-          "Іноземний гість у захваті",
-          "Бандурист у залі",
-          "Адміністратор банкету"
+          "Шеф-кухар",
+          "Офіціант",
+          "Ліпильниця",
+          "Сомельє",
+          "Гурман",
+          "Музикант",
+          "Адміністратор"
         ]
       },
       {
-        "id": "base_sp_28",
-        "name": "Квітковий павільйон 8 березня",
+        "id": "base_spy_22",
+        "name": "Оранжерея",
         "roles": [
-          "Флорист, який крутить букети",
-          "Хлопець у довгій черзі за тюльпанами",
-          "Кур’єр доставки квітів",
-          "Постачальник троянд",
-          "Касир із терміналом",
-          "Покупець, який обирає орхідею"
+          "Флорист",
+          "Ботанік",
+          "Садівник",
+          "Наречений",
+          "Кур’єр",
+          "Фотограф",
+          "Відвідувач"
+        ]
+      },
+      {
+        "id": "base_spy_23",
+        "name": "Вокзал",
+        "roles": [
+          "Диспетчер",
+          "Носій",
+          "Касир",
+          "Провідник",
+          "Таксист",
+          "Поліцейський",
+          "Мандрівник"
+        ]
+      },
+      {
+        "id": "base_spy_24",
+        "name": "Перукарня",
+        "roles": [
+          "Стиліст",
+          "Колорист",
+          "Майстер манікюру",
+          "Адміністратор",
+          "Клієнтка",
+          "Стажер",
+          "Візажист"
+        ]
+      },
+      {
+        "id": "base_spy_25",
+        "name": "Стоматологія",
+        "roles": [
+          "Хірург",
+          "Ортодонт",
+          "Асистент",
+          "Медсестра",
+          "Пацієнт",
+          "Рентгенолог",
+          "Адміністратор"
+        ]
+      },
+      {
+        "id": "base_spy_26",
+        "name": "Автосервіс",
+        "roles": [
+          "Автомеханік",
+          "Електрик",
+          "Шиномонтажник",
+          "Майстер приймальник",
+          "Водій",
+          "Маляр",
+          "Учень"
+        ]
+      },
+      {
+        "id": "base_spy_27",
+        "name": "Карпатський чан",
+        "roles": [
+          "Банщик",
+          "Травник",
+          "Турист",
+          "Кухар",
+          "Господар садиби",
+          "Масажист",
+          "Гість"
+        ]
+      },
+      {
+        "id": "base_spy_28",
+        "name": "Весілля",
+        "roles": [
+          "Наречений",
+          "Наречена",
+          "Тамада",
+          "Свідок",
+          "Фотограф",
+          "Музикант",
+          "Свекруха"
         ]
       }
     ]

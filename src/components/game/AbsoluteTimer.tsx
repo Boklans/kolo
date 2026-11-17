@@ -134,7 +134,7 @@ export function AbsoluteTimer({
 
       const intervalId = setInterval(() => {
         syncRemainingTime();
-      }, 100);
+      }, 50);
 
       return () => clearInterval(intervalId);
     } else {
@@ -232,7 +232,7 @@ export function AbsoluteTimer({
             style={[
               styles.progressFill,
               {
-                width: `${Math.round(progressFraction * 100)}%`,
+                width: `${(progressFraction * 100).toFixed(1)}%` as any,
                 backgroundColor: activeColor,
               },
               animatedBarStyle,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   progressTrackHero: {
     width: '100%',
-    height: 6,
+    height: 9,
     backgroundColor: COLORS.surfaceElevated,
     borderRadius: RADIUS.full,
     overflow: 'hidden',

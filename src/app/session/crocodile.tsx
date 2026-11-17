@@ -9,13 +9,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Eye, RefreshCw, Sparkles } from 'lucide-react-native';
+import { Dices, Eye, RefreshCw, Sparkles } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -31,6 +32,33 @@ import {
 } from '@/utils/sound';
 
 type CrocodilePhase = 'READY' | 'PREPARATION' | 'COUNTDOWN' | 'ACTING' | 'RESULT';
+
+const CROCODILE_MODIFIERS = [
+  {
+    id: 'slowmo',
+    emoji: '🐢',
+    title: 'Матриця (Slow-Mo)',
+    desc: 'Показуй завдання у максимально сповільненій зйомці (+1 бонусний бал)',
+  },
+  {
+    id: 'sitting',
+    emoji: '🪑',
+    title: 'Сидячий Оскар',
+    desc: 'Покажи завдання, не встаючи зі стільця (+1 бонусний бал)',
+  },
+  {
+    id: 'mime_only',
+    emoji: '😐',
+    title: 'Тільки мімікою',
+    desc: 'Руки за спиною — показуй тільки обличчям і головою (+1 бонусний бал)',
+  },
+  {
+    id: 'dance',
+    emoji: '🕺',
+    title: 'Танцювальна пантоміма',
+    desc: 'Показуй завдання, постійно пританцьовуючи (+1 бонусний бал)',
+  },
+];
 
 export default function CrocodileGameScreen() {
   const router = useRouter();
@@ -91,6 +119,22 @@ export default function CrocodileGameScreen() {
   const [isPeekingSpoiler, setIsPeekingSpoiler] = useState<boolean>(false);
   const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
   const [turnGuessed, setTurnGuessed] = useState<boolean>(false);
+  const [activeModifierIdx, setActiveModifierIdx] = useState<number | null>(null);
+
+  const activeModifier =
+    activeModifierIdx !== null ? CROCODILE_MODIFIERS[activeModifierIdx] : null;
+
+  const handleCycleModifier = () => {
+    Haptics.selectionAsync();
+    setActiveModifierIdx((prev) => {
+      if (prev === null) {
+        return Math.floor(Math.random() * CROCODILE_MODIFIERS.length);
+      }
+      const next = prev + 1;
+      if (next >= CROCODILE_MODIFIERS.length) return null;
+      return next;
+    });
+  };
 
   const turnExcludeIdsRef = useRef<string[]>([]);
 
@@ -187,13 +231,17 @@ export default function CrocodileGameScreen() {
     setPhase('RESULT');
   };
 
+  const isBonusPhrase = currentPhrase?.difficulty === 3;
+  const targetPoints = (isBonusPhrase ? 3 : 2) + (activeModifier ? 1 : 0);
+
   const handleConfirmAndNextTeam = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const points = turnGuessed ? 2 : 0;
+    const points = turnGuessed ? targetPoints : 0;
     const phraseText = currentPhrase?.phrase;
 
     submitTeamTurnResult(points, {
       guessedCount: turnGuessed ? 1 : 0,
+      bonusGuessedCount: turnGuessed && isBonusPhrase ? 1 : 0,
       skippedWords: !turnGuessed && phraseText ? [phraseText] : [],
     });
 
@@ -237,20 +285,83 @@ export default function CrocodileGameScreen() {
               </Text>
             </View>
 
-            <View style={styles.calloutRulesRow}>
-              <View style={styles.ruleMiniBlock}>
-                <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
-                <Text style={styles.ruleMiniValue} numberOfLines={1}>
-                  {deck.title}
-                </Text>
+            <View style={{ gap: 8 }}>
+              <View style={styles.calloutRulesRow}>
+                <View style={styles.ruleMiniBlock}>
+                  <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
+                  <Text style={styles.ruleMiniValue} numberOfLines={1}>
+                    {deck.title}
+                  </Text>
+                </View>
+                <View style={styles.ruleMiniDivider} />
+                <View style={styles.ruleMiniBlock}>
+                  <Text style={styles.ruleMiniLabel}>НАГОРОДА</Text>
+                  <Text style={[styles.ruleMiniValue, { color: COLORS.crocodile }]}>
+                    +2–3 бали за слово
+                  </Text>
+                </View>
               </View>
-              <View style={styles.ruleMiniDivider} />
-              <View style={styles.ruleMiniBlock}>
-                <Text style={styles.ruleMiniLabel}>НАГОРОДА</Text>
-                <Text style={[styles.ruleMiniValue, { color: COLORS.crocodile }]}>
-                  +2 бали за фразу
-                </Text>
-              </View>
+
+              {/* Compact Inline Round Modifier Pill */}
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={handleCycleModifier}
+                style={{
+                  backgroundColor: activeModifier
+                    ? 'rgba(16, 185, 129, 0.14)'
+                    : COLORS.surfaceSubtle,
+                  borderRadius: RADIUS.md,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  gap: 3,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Dices
+                      size={13}
+                      color={activeModifier ? COLORS.crocodile : COLORS.textMuted}
+                    />
+                    <Text
+                      style={{
+                        color: activeModifier ? COLORS.crocodile : COLORS.textSecondary,
+                        fontSize: 11,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {activeModifier
+                        ? `${activeModifier.emoji} ${activeModifier.title} (+1 бал)`
+                        : 'Додати умову раунду (+1 бал)'}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: COLORS.textMuted,
+                      fontSize: 11,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {activeModifier ? 'Змінити' : 'Вимк'}
+                  </Text>
+                </View>
+                {activeModifier ? (
+                  <Text
+                    style={{
+                      color: COLORS.textSecondary,
+                      fontSize: 12,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {activeModifier.desc}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -274,7 +385,11 @@ export default function CrocodileGameScreen() {
           </View>
 
           <View style={styles.prepCardSurface}>
-            <Text style={styles.prepHint}>ПОКАЖИ БЕЗ СЛІВ І ЗВУКІВ</Text>
+            <Text style={styles.prepHint}>
+              {isBonusPhrase
+                ? '🔥 ХАРДКОР 3★ (+3 БАЛИ) · ПОКАЖИ БЕЗ СЛІВ'
+                : 'ПОКАЖИ БЕЗ СЛІВ І ЗВУКІВ (+2 БАЛИ)'}
+            </Text>
             <Text
               style={styles.prepPhraseHero}
               adjustsFontSizeToFit
@@ -342,7 +457,9 @@ export default function CrocodileGameScreen() {
               {isTimeExpired ? (
                 <Text style={styles.expiredStatus}>ЧАС ВИЙШОВ!</Text>
               ) : (
-                <Text style={styles.prepDeckLabel}>Триває показ (+2 бали)</Text>
+                <Text style={styles.prepDeckLabel}>
+                  Триває показ (+{targetPoints} бали)
+                </Text>
               )}
             </View>
 
@@ -389,7 +506,9 @@ export default function CrocodileGameScreen() {
               style={styles.dominantBtn}
               onPress={() => handleFinishTurn(true)}
             >
-              <Text style={styles.dominantBtnText}>КОМАНДА ВГАДАЛА!  +2</Text>
+              <Text style={styles.dominantBtnText}>
+                КОМАНДА ВГАДАЛА!  +{targetPoints}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -405,7 +524,7 @@ export default function CrocodileGameScreen() {
 
       {/* PHASE 5: ROUND RESULT SPLASH */}
       {phase === 'RESULT' ? (
-        <View style={styles.screenBody}>
+        <Animated.View entering={FadeIn.duration(180)} style={styles.screenBody}>
           <View
             style={[
               styles.resultHeroCard,
@@ -422,13 +541,13 @@ export default function CrocodileGameScreen() {
             </Text>
 
             <Text style={styles.resultPointsGiant}>
-              {turnGuessed ? '+2 БАЛИ' : '0 БАЛІВ'}
+              {turnGuessed ? `+${targetPoints} БАЛИ` : '0 БАЛІВ'}
             </Text>
 
             <Text style={styles.resultTeamName}>{currentTeam.name}</Text>
 
             <View style={styles.resultPhraseBox}>
-              <Text style={styles.resultPhraseLabel}>ЗАГАДАНА ФРАЗА</Text>
+              <Text style={styles.resultPhraseLabel}>СЛОВО РАУНДУ</Text>
               <Text style={styles.resultPhraseValue}>
                 «{currentPhrase?.phrase}»
               </Text>
@@ -441,10 +560,10 @@ export default function CrocodileGameScreen() {
             onPress={handleConfirmAndNextTeam}
           >
             <Text style={styles.dominantBtnText}>
-              ДАЛІ · ПЕРЕДАТИ ХІД НАСТУПНІЙ КОМАНДІ →
+              ДАЛІ · НАСТУПНА КОМАНДА →
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       ) : null}
     </SafeAreaView>
   );
@@ -733,7 +852,7 @@ const styles = StyleSheet.create({
   resultPhraseBox: {
     marginTop: SPACING.lg,
     width: '100%',
-    backgroundColor: COLORS.surfaceElevated,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     alignItems: 'center',
@@ -757,6 +876,7 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: COLORS.crocodile,
     paddingVertical: 18,
+    paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -767,12 +887,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.6,
+    textAlign: 'center',
   },
   dominantBtnText: {
     color: COLORS.background,
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.4,
+    textAlign: 'center',
   },
   secondaryBtn: {
     width: '100%',

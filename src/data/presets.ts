@@ -43,7 +43,7 @@ export const PARTY_PRESETS: PartyPreset[] = [
         gameType: 'crocodile',
         roundTimeSec: 90,
         roundsPerTeam: 1,
-        scoring: { type: 'none' },
+        scoring: { type: 'team', groupId: 'main' },
       },
       {
         id: 'strangers_spy',
@@ -85,7 +85,7 @@ export const PARTY_PRESETS: PartyPreset[] = [
   {
     id: 'battle',
     title: 'Битва команд',
-    subtitle: 'Повноцінний турнір на три раунди: класичний Еліас, пантоміма та фінальний Бліц-Еліас на 30 секунд.',
+    subtitle: 'Повноцінний турнір на три раунди: класичний Еліас, пантоміма у Крокодилі та фінальне Табу з забороненими словами.',
     durationLabel: '30 хв',
     emoji: '🏆',
     accentColor: COLORS.alias,
@@ -108,11 +108,11 @@ export const PARTY_PRESETS: PartyPreset[] = [
         scoring: { type: 'team', groupId: 'main' },
       },
       {
-        id: 'battle_alias_blitz',
+        id: 'battle_taboo_finale',
         deckId: 'base_ua',
-        gameType: 'alias',
-        roundTimeSec: 30,
-        penaltyForSkip: true,
+        gameType: 'taboo',
+        roundTimeSec: 60,
+        penaltyForTaboo: true,
         roundsPerTeam: 1,
         scoring: { type: 'team', groupId: 'main' },
       },

@@ -109,7 +109,7 @@ export default function DecksScreen() {
   const [rawText, setRawText] = useState('');
 
   const [previewDeck, setPreviewDeck] = useState<Deck | null>(null);
-  const [previewTab, setPreviewTab] = useState<'alias' | 'crocodile' | 'spy'>('alias');
+  const [previewTab, setPreviewTab] = useState<'alias' | 'crocodile' | 'taboo' | 'spy'>('alias');
 
   const parsedPreviewItems = useMemo(() => parseRawDeckText(rawText), [rawText]);
 
@@ -272,6 +272,7 @@ export default function DecksScreen() {
     const totalCards =
       deck.items.alias.length +
       deck.items.crocodile.length +
+      (deck.items.taboo?.length ?? 0) +
       deck.items.spyLocations.length;
 
     const sampleWord =
@@ -640,8 +641,13 @@ export default function DecksScreen() {
                     },
                     {
                       id: 'crocodile' as const,
-                      label: `Крокодил (${previewDeck.items.crocodile.length})`,
+                      label: `Кроко (${previewDeck.items.crocodile.length})`,
                       color: COLORS.crocodile,
+                    },
+                    {
+                      id: 'taboo' as const,
+                      label: `Табу (${previewDeck.items.taboo?.length ?? 0})`,
+                      color: COLORS.taboo,
                     },
                     {
                       id: 'spy' as const,
@@ -694,6 +700,43 @@ export default function DecksScreen() {
                             #{String(idx + 1).padStart(2, '0')}
                           </Text>
                           <Text style={styles.sampleCardWord}>{item.word}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )
+                ) : null}
+
+                {previewTab === 'taboo' ? (
+                  (previewDeck.items.taboo?.length ?? 0) === 0 ? (
+                    <Text style={styles.previewEmptyText}>
+                      У цьому паку немає карток для Табу.
+                    </Text>
+                  ) : (
+                    <View style={styles.previewLinesList}>
+                      {(previewDeck.items.taboo ?? []).map((item, idx) => (
+                        <View
+                          key={item.id}
+                          style={[
+                            styles.previewLineCard,
+                            { flexDirection: 'column', alignItems: 'flex-start', gap: 6 },
+                          ]}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text
+                              style={[
+                                styles.previewLineIndex,
+                                { color: COLORS.taboo },
+                              ]}
+                            >
+                              {String(idx + 1).padStart(2, '0')}
+                            </Text>
+                            <Text style={styles.previewLineText}>
+                              {item.word}
+                            </Text>
+                          </View>
+                          <Text style={{ color: COLORS.textMuted, fontSize: 12, fontWeight: '600' }}>
+                            🚫 {item.forbiddenWords.join(' · ')}
+                          </Text>
                         </View>
                       ))}
                     </View>

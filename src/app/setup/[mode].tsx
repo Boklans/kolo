@@ -30,6 +30,7 @@ import {
   GameType,
   PresetStep,
   SpyStep,
+  TabooStep,
 } from '@/types';
 
 const FUNNY_TEAM_NAMES = [
@@ -66,6 +67,11 @@ const GAME_META: Record<
     accentColor: COLORS.spy,
     subtitle: 'Усі знають локацію, крім одного. Знайдіть шпигуна за столом.',
   },
+  taboo: {
+    title: 'Табу',
+    accentColor: COLORS.taboo,
+    subtitle: 'Поясни слово команді, не називаючи 4 заборонені слова під ним!',
+  },
 };
 
 export default function SetupScreen() {
@@ -90,13 +96,19 @@ export default function SetupScreen() {
   );
 
   const selectedGameType: GameType = useMemo(() => {
-    if (targetId === 'alias' || targetId === 'crocodile' || targetId === 'spy') {
+    if (
+      targetId === 'alias' ||
+      targetId === 'crocodile' ||
+      targetId === 'spy' ||
+      targetId === 'taboo'
+    ) {
       return targetId;
     }
     return 'alias';
   }, [targetId]);
 
   const savedTeamNames = usePartyStore((s) => s.savedTeamNames);
+  const savedPlayerNames = usePartyStore((s) => s.savedPlayerNames);
   const defaultPresetDeckIds = useMemo(() => {
     if (isPresetMode && selectedPreset) {
       const uniqueIds = Array.from(new Set(selectedPreset.steps.map((s) => s.deckId)));
@@ -124,6 +136,12 @@ export default function SetupScreen() {
     return baseNames.map((name, idx) => ({ id: `team_${idx + 1}`, name }));
   });
   const [playerCount, setPlayerCount] = useState<number>(5);
+  const [playerNames, setPlayerNames] = useState<string[]>(() => {
+    const base = savedPlayerNames && savedPlayerNames.length > 0
+      ? savedPlayerNames
+      : ['Ігор', 'Аня', 'Макс', 'Оля', 'Діма'];
+    return Array.from({ length: 12 }, (_, idx) => base[idx] ?? `Гравець ${idx + 1}`);
+  });
 
   const hasSpyMode = useMemo(() => {
     if (isPresetMode && selectedPreset) {
@@ -136,7 +154,11 @@ export default function SetupScreen() {
     if (isPresetMode && selectedPreset) {
       return selectedPreset.steps.some((s) => s.scoring.type === 'team');
     }
-    return selectedGameType === 'alias' || selectedGameType === 'crocodile';
+    return (
+      selectedGameType === 'alias' ||
+      selectedGameType === 'crocodile' ||
+      selectedGameType === 'taboo'
+    );
   }, [isPresetMode, selectedPreset, selectedGameType]);
 
   const accentColor =
@@ -157,6 +179,7 @@ export default function SetupScreen() {
   const getDeckCountForGame = (deck: Deck, gameType: GameType): number => {
     if (gameType === 'alias') return deck.items.alias.length;
     if (gameType === 'crocodile') return deck.items.crocodile.length;
+    if (gameType === 'taboo') return deck.items.taboo?.length ?? 0;
     return deck.items.spyLocations.length;
   };
 
@@ -294,12 +317,16 @@ export default function SetupScreen() {
           return {
             ...step,
             deckId: resolvedDeckId,
+            deckIds: hasOwnCards ? selectedDeckIds : undefined,
+            minDifficulty,
             spyCount: playerCount >= 5 ? spyCount : 1,
           };
         }
         return {
           ...step,
           deckId: resolvedDeckId,
+          deckIds: hasOwnCards ? selectedDeckIds : undefined,
+          minDifficulty,
         };
       });
     } else {
@@ -317,6 +344,8 @@ export default function SetupScreen() {
         const aliasStep: AliasStep = {
           id: `single_alias_${Date.now()}`,
           deckId: chosenDeck.id,
+          deckIds: selectedDeckIds,
+          minDifficulty,
           gameType: 'alias',
           roundTimeSec: aliasTimeSec,
           penaltyForSkip: aliasPenalty,
@@ -328,16 +357,33 @@ export default function SetupScreen() {
         const crocStep: CrocodileStep = {
           id: `single_crocodile_${Date.now()}`,
           deckId: chosenDeck.id,
+          deckIds: selectedDeckIds,
+          minDifficulty,
           gameType: 'crocodile',
           roundTimeSec: crocodileTimeSec,
           roundsPerTeam,
           scoring: { type: 'team', groupId: 'main' },
         };
         stepsToRun = [crocStep];
+      } else if (selectedGameType === 'taboo') {
+        const tabooStep: TabooStep = {
+          id: `single_taboo_${Date.now()}`,
+          deckId: chosenDeck.id,
+          deckIds: selectedDeckIds,
+          minDifficulty,
+          gameType: 'taboo',
+          roundTimeSec: aliasTimeSec,
+          penaltyForTaboo: true,
+          roundsPerTeam,
+          scoring: { type: 'team', groupId: 'main' },
+        };
+        stepsToRun = [tabooStep];
       } else {
         const spyStep: SpyStep = {
           id: `single_spy_${Date.now()}`,
           deckId: chosenDeck.id,
+          deckIds: selectedDeckIds,
+          minDifficulty,
           gameType: 'spy',
           spyCount: playerCount >= 5 ? spyCount : 1,
           discussionTimeSec: spyTimeSec,
@@ -354,6 +400,7 @@ export default function SetupScreen() {
       steps: stepsToRun,
       teamNames: teams.map((t, idx) => t.name.trim() || `Команда ${idx + 1}`),
       playerCount,
+      playerNames: playerNames.slice(0, playerCount),
     });
 
     router.replace('/session/orchestrator');
@@ -393,8 +440,13 @@ export default function SetupScreen() {
             {isPresetMode && selectedPreset ? (
               <View style={styles.presetStepsWrap}>
                 {selectedPreset.steps.map((step, idx) => {
-                  const chosenDeck =
-                    allDecks.find((d) => d.id === selectedDeckId) ?? OFFICIAL_DECKS[0];
+                  const chosenDeck = useDeckStore
+                    .getState()
+                    .resolveStepDeck(
+                      selectedDeckIds[0] ?? 'base_ua',
+                      selectedDeckIds,
+                      minDifficulty
+                    );
                   const hasOwnCards = getDeckCountForGame(chosenDeck, step.gameType) > 0;
                   const displayDeck = hasOwnCards ? chosenDeck : OFFICIAL_DECKS[0];
                   return (
@@ -431,7 +483,7 @@ export default function SetupScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionOverline}>ПАРАМЕТРИ РАУНДУ</Text>
 
-            {selectedGameType === 'alias' ? (
+            {selectedGameType === 'alias' || selectedGameType === 'taboo' ? (
               <View style={styles.configBlock}>
                 <Text style={styles.configLabel}>Час одного ходу</Text>
                 <View style={styles.chipsRow}>
@@ -636,6 +688,40 @@ export default function SetupScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>ОБЕРІТЬ КОЛОДИ (МОЖНА КІЛЬКА ДЛЯ МІКСУ · {selectedDeckIds.length})</Text>
 
+          {(isPresetMode || selectedGameType !== 'spy') ? (
+            <View style={styles.chipsRow}>
+              {([
+                { value: 1 as const, label: 'Усі рівні (1–3★)' },
+                { value: 2 as const, label: 'Хардкор (2–3★)' },
+              ]).map((opt) => {
+                const active = minDifficulty === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.optionChip,
+                      active && { backgroundColor: accentColor },
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setMinDifficulty(opt.value);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.optionChipText,
+                        active && styles.optionChipTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+
           <View style={styles.decksSelectList}>
             {allDecks.map((deck) => {
               const suitability = getDeckSuitability(deck);
@@ -823,6 +909,52 @@ export default function SetupScreen() {
                       </TouchableOpacity>
                     );
                   })}
+                </View>
+              </View>
+
+              {/* Compact 2-Column Player Names Editor for Spy */}
+              <View style={{ gap: 8, marginTop: 4 }}>
+                <Text style={styles.configLabel}>
+                  Імена гравців по колу ({playerCount})
+                </Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                  }}
+                >
+                  {Array.from({ length: playerCount }).map((_, idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.teamRow,
+                        {
+                          width: '48.5%',
+                          paddingVertical: 10,
+                          paddingHorizontal: 12,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.teamIndexText}>
+                        {String(idx + 1).padStart(2, '0')}
+                      </Text>
+                      <TextInput
+                        style={[styles.teamInput, { fontSize: 14 }]}
+                        value={playerNames[idx] ?? ''}
+                        onChangeText={(val) => {
+                          setPlayerNames((prev) => {
+                            const next = [...prev];
+                            next[idx] = val;
+                            return next;
+                          });
+                        }}
+                        placeholder={`Гравець ${idx + 1}`}
+                        placeholderTextColor={COLORS.textMuted}
+                        maxLength={18}
+                      />
+                    </View>
+                  ))}
                 </View>
               </View>
             </View>

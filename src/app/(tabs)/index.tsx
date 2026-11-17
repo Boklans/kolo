@@ -21,6 +21,7 @@ const GAME_NAMES: Record<GameType, string> = {
   alias: 'Еліас',
   crocodile: 'Крокодил',
   spy: 'Шпигун',
+  taboo: 'Табу',
 };
 
 function formatPresetFlow(preset: PartyPreset): string {

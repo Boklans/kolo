@@ -30,7 +30,7 @@ export default function GamesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.overline}>ТРИ ІГРОВІ СВІТИ</Text>
+          <Text style={styles.overline}>ЧОТИРИ ІГРОВІ СВІТИ</Text>
           <Text style={styles.headline}>Ігри</Text>
         </View>
 
@@ -140,6 +140,46 @@ export default function GamesScreen() {
             <View style={styles.worldFooter}>
               <Text style={styles.worldMeta}>3–12 гравців · 3–7 хв</Text>
               <View style={[styles.playPill, { backgroundColor: COLORS.spy }]}>
+                <Text style={styles.playPillText}>ГРАТИ</Text>
+                <ArrowRight
+                  size={14}
+                  color={COLORS.textPrimary}
+                  strokeWidth={2.6}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* 04 / TABOO — VIOLET / FORBIDDEN */}
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => handleSelectGame('taboo')}
+            style={[
+              styles.gameWorldCard,
+              { backgroundColor: '#1B1429', borderColor: 'rgba(168, 85, 247, 0.25)' },
+            ]}
+          >
+            <View pointerEvents="none" style={styles.svgArtworkPos}>
+              <GameWorldArtwork gameId="taboo" size={114} />
+            </View>
+
+            <View style={styles.worldTopRow}>
+              <Text style={[styles.worldCode, { color: COLORS.taboo }]}>
+                VIOLET / TABOO
+              </Text>
+              <Text style={styles.worldNumber}>04</Text>
+            </View>
+
+            <View style={styles.worldBody}>
+              <Text style={styles.worldTitle}>ТАБУ</Text>
+              <Text style={styles.worldTagline}>
+                Поясни головне слово, не вживаючи 4 найочевидніші заборонені слова!
+              </Text>
+            </View>
+
+            <View style={styles.worldFooter}>
+              <Text style={styles.worldMeta}>4–16 гравців · 30–90 сек</Text>
+              <View style={[styles.playPill, { backgroundColor: COLORS.taboo }]}>
                 <Text style={styles.playPillText}>ГРАТИ</Text>
                 <ArrowRight
                   size={14}

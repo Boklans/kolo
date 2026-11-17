@@ -60,10 +60,14 @@ export default function SpyGameScreen() {
   const steps = usePartyStore((s) => s.steps);
   const currentStepIndex = usePartyStore((s) => s.currentStepIndex);
   const playerCount = usePartyStore((s) => s.playerCount);
-  const spyDraft = usePartyStore((s) => s.spyDraft);
-  const setSpyDraft = usePartyStore((s) => s.setSpyDraft);
+  const playerNames = usePartyStore((s) => s.playerNames);
   const recordSpyOutcome = usePartyStore((s) => s.recordSpyOutcome);
   const advanceToNextStep = usePartyStore((s) => s.advanceToNextStep);
+
+  const getPlayerLabel = (idx: number) => {
+    const custom = playerNames?.[idx]?.trim();
+    return custom || `Гравець №${idx + 1}`;
+  };
 
   const resolveStepDeck = useDeckStore((s) => s.resolveStepDeck);
   const drawNextItem = useUsedContentStore((s) => s.drawNextItem);
@@ -101,10 +105,15 @@ export default function SpyGameScreen() {
   // Discussion helpers
   const [questionIndex, setQuestionIndex] = useState<number>(0);
   const [crossedLocationIds, setCrossedLocationIds] = useState<string[]>([]);
+  const [firstAskerIndex, setFirstAskerIndex] = useState<number>(0);
+  const [firstTargetIndex, setFirstTargetIndex] = useState<number>(1);
+  const [roundNonce, setRoundNonce] = useState<number>(0);
 
   // Resolution Drumroll Unmasking state
   const [isUnmaskingHold, setIsUnmaskingHold] = useState<boolean>(false);
   const [isTruthRevealed, setIsTruthRevealed] = useState<boolean>(false);
+  const [isLocationRevealed, setIsLocationRevealed] = useState<boolean>(false);
+  const [spyGuessedLocId, setSpyGuessedLocId] = useState<string | null>(null);
   const [winnerSide, setWinnerSide] = useState<'citizens' | 'spy' | null>(null);
 
   const unmaskIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -137,15 +146,40 @@ export default function SpyGameScreen() {
       indicesPool[j] = temp;
     }
 
+    const asker = Math.floor(Math.random() * safePlayerCount);
+    const target = (asker + 1 + Math.floor(Math.random() * (safePlayerCount - 1))) % safePlayerCount;
+    setFirstAskerIndex(asker);
+    setFirstTargetIndex(target);
+
     setSpyIndices(indicesPool.slice(0, actualSpyCount).sort((a, b) => a - b));
     setCurrentPlayerIndex(0);
     setHasSeenRole(false);
     setCrossedLocationIds([]);
     setQuestionIndex(Math.floor(Math.random() * INTERROGATION_QUESTIONS.length));
     setIsTruthRevealed(false);
+    setIsLocationRevealed(false);
+    setSpyGuessedLocId(null);
     setWinnerSide(null);
     setPhase('ROLE_DISTRIBUTION');
-  }, [activeDeck, currentStep.id, currentStep.spyCount, playerCount, drawNextItem]);
+  }, [activeDeck, currentStep.id, currentStep.spyCount, playerCount, drawNextItem, roundNonce]);
+
+  const roundLocations = useMemo(() => {
+    const all = activeDeck.items.spyLocations;
+    if (all.length <= 28) return all;
+    const others = all.filter((l) => l.id !== secretLocation?.id);
+    const shuffled = [...others].sort(() => Math.random() - 0.5).slice(0, 27);
+    const combined = secretLocation ? [secretLocation, ...shuffled] : shuffled;
+    return combined.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  }, [activeDeck.items.spyLocations, secretLocation]);
+
+  const spyGuessCandidates = useMemo(() => {
+    if (!secretLocation) return [];
+    const others = roundLocations.filter((l) => l.id !== secretLocation.id);
+    const decoys = [...others].sort(() => Math.random() - 0.5).slice(0, 5);
+    return [secretLocation, ...decoys].sort((a, b) =>
+      a.name.localeCompare(b.name, 'uk')
+    );
+  }, [roundLocations, secretLocation]);
 
   useEffect(() => {
     return () => {
@@ -194,9 +228,20 @@ export default function SpyGameScreen() {
   const handleGoToResolution = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setIsTruthRevealed(false);
+    setIsLocationRevealed(false);
+    setSpyGuessedLocId(null);
     setWinnerSide(null);
     unmaskProgress.value = 0;
     setPhase('RESOLUTION');
+  };
+
+  const handleSpyLastChanceGuess = (loc: SpyLocation) => {
+    if (!secretLocation) return;
+    setSpyGuessedLocId(loc.id);
+    setIsLocationRevealed(true);
+    const isCorrect = loc.id === secretLocation.id;
+    setWinnerSide(isCorrect ? 'spy' : 'citizens');
+    playVictoryFanfare();
   };
 
   // Dramatic 1.4s Drumroll Hold-to-Unmask
@@ -247,6 +292,12 @@ export default function SpyGameScreen() {
   const handleSelectWinnerSide = (side: 'citizens' | 'spy') => {
     setWinnerSide(side);
     playVictoryFanfare();
+  };
+
+  const handlePlayAnotherSpyRound = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    recordSpyOutcome(winnerSide);
+    setRoundNonce((n) => n + 1);
   };
 
   const handleFinishSpyStep = () => {
@@ -320,7 +371,7 @@ export default function SpyGameScreen() {
             </View>
 
             <Text style={styles.passHeadline}>
-              Гравець №{currentPlayerIndex + 1}
+              {getPlayerLabel(currentPlayerIndex)}
             </Text>
           </View>
 
@@ -351,7 +402,7 @@ export default function SpyGameScreen() {
               {hasSeenRole
                 ? isLastPlayer
                   ? 'ПОЧАТИ ДОПИТ ЗА СТОЛОМ →'
-                  : `ПЕРЕДАТИ ТЕЛЕФОН ГРАВЦЮ №${currentPlayerIndex + 2} →`
+                  : `ПЕРЕДАТИ ТЕЛЕФОН: ${getPlayerLabel(currentPlayerIndex + 1).toUpperCase()} →`
                 : 'УТРИМУЙ СКАНЕР 1 СЕК ДЛЯ ПЕРЕВІРКИ РОЛІ'}
             </Text>
           </TouchableOpacity>
@@ -388,7 +439,8 @@ export default function SpyGameScreen() {
               <View style={styles.questionTitleGroup}>
                 <HelpCircle size={13} color={COLORS.spy} />
                 <Text style={styles.questionOverline}>
-                  ІДЕЯ ЗАПИТАННЯ ДЛЯ ДОПИТУ
+                  {getPlayerLabel(firstAskerIndex).toUpperCase()} ЗАПИТУЄ →{' '}
+                  {getPlayerLabel(firstTargetIndex).toUpperCase()}
                 </Text>
               </View>
               <View style={styles.questionNextChip}>
@@ -405,7 +457,7 @@ export default function SpyGameScreen() {
           <View style={styles.locationsSection}>
             <View style={styles.locationsHeaderRow}>
               <Text style={styles.locationsHeaderLabel}>
-                МОЖЛИВІ ЛОКАЦІЇ ({activeDeck.items.spyLocations.length})
+                МОЖЛИВІ ЛОКАЦІЇ ({roundLocations.length})
               </Text>
               <Text style={styles.locationsSubHint}>
                 Натисни, щоб викреслити
@@ -417,7 +469,7 @@ export default function SpyGameScreen() {
               contentContainerStyle={styles.locationsGrid}
               showsVerticalScrollIndicator={false}
             >
-              {activeDeck.items.spyLocations.map((loc) => {
+              {roundLocations.map((loc) => {
                 const isCrossed = crossedLocationIds.includes(loc.id);
                 return (
                   <TouchableOpacity
@@ -524,16 +576,93 @@ export default function SpyGameScreen() {
                       : 'СПРАВЖНІ ШПИГУНИ'}
                   </Text>
                   <Text style={styles.truthSpyHero}>
-                    {spyIndices.map((idx) => `Гравець №${idx + 1}`).join(', ')}
+                    {spyIndices.map((idx) => getPlayerLabel(idx)).join(', ')}
                   </Text>
                 </View>
 
-                <View style={styles.truthLocationBox}>
-                  <Text style={styles.truthCaption}>СЕКРЕТНА ЛОКАЦІЯ</Text>
-                  <Text style={styles.truthLocationHero}>
-                    {secretLocation?.name}
-                  </Text>
-                </View>
+                {!isLocationRevealed ? (
+                  <View style={styles.truthLocationBox}>
+                    <Text
+                      style={[
+                        styles.truthCaption,
+                        { color: COLORS.hot, textAlign: 'center' },
+                      ]}
+                    >
+                      🎯 ОСТАННІЙ ШАНС ШПИГУНА · ВГАДАЙ ЛОКАЦІЮ
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginTop: 6,
+                        width: '100%',
+                      }}
+                    >
+                      {spyGuessCandidates.map((loc) => (
+                        <TouchableOpacity
+                          key={loc.id}
+                          activeOpacity={0.8}
+                          onPress={() => handleSpyLastChanceGuess(loc)}
+                          style={{
+                            width: '48.2%',
+                            backgroundColor: COLORS.surface,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255, 255, 255, 0.08)',
+                            paddingVertical: 11,
+                            paddingHorizontal: 8,
+                            borderRadius: RADIUS.sm,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: COLORS.textPrimary,
+                              fontSize: 12,
+                              fontWeight: '700',
+                              textAlign: 'center',
+                            }}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.8}
+                            numberOfLines={1}
+                          >
+                            {loc.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => setIsLocationRevealed(true)}
+                      style={{ marginTop: 8, paddingVertical: 4 }}
+                    >
+                      <Text
+                        style={{
+                          color: COLORS.textMuted,
+                          fontSize: 11,
+                          fontWeight: '700',
+                          textAlign: 'center',
+                        }}
+                      >
+                        Пропустити і показати локацію →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.truthLocationBox}>
+                    <Text style={styles.truthCaption}>
+                      {spyGuessedLocId
+                        ? spyGuessedLocId === secretLocation?.id
+                          ? '🎯 ШПИГУН ВГАДАВ ЛОКАЦІЮ І ВКРАВ ПЕРЕМОГУ!'
+                          : '❌ ШПИГУН ПРОМАХНУВСЯ! СЕКРЕТНА ЛОКАЦІЯ:'
+                        : 'СЕКРЕТНА ЛОКАЦІЯ'}
+                    </Text>
+                    <Text style={styles.truthLocationHero}>
+                      {secretLocation?.name}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Outcome Selector for Game Show closure */}
                 <View style={styles.outcomeSection}>
@@ -597,17 +726,29 @@ export default function SpyGameScreen() {
                 </View>
               </Animated.View>
 
-              <TouchableOpacity
-                activeOpacity={0.88}
-                style={styles.primaryBtn}
-                onPress={handleFinishSpyStep}
-              >
-                <Text style={styles.primaryBtnText}>
-                  {currentStepIndex + 1 < steps.length
-                    ? 'НАСТУПНИЙ ЕТАП ВЕЧІРКИ →'
-                    : 'ДО ПІДСУМКІВ ВЕЧІРКИ →'}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  style={[styles.primaryBtn, { backgroundColor: COLORS.surfaceElevated }]}
+                  onPress={handlePlayAnotherSpyRound}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    🔄 ЩЕ РАУНД · НОВА ЛОКАЦІЯ
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  style={styles.primaryBtn}
+                  onPress={handleFinishSpyStep}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {currentStepIndex + 1 < steps.length
+                      ? 'НАСТУПНИЙ ЕТАП ВЕЧІРКИ →'
+                      : 'ДО ПІДСУМКІВ ВЕЧІРКИ →'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
         </View>
@@ -670,7 +811,9 @@ const styles = StyleSheet.create({
   primaryBtn: {
     width: '100%',
     backgroundColor: COLORS.spy,
-    height: 58,
+    minHeight: 56,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -683,6 +826,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   primaryBtnTextDisabled: {
     color: COLORS.textMuted,
@@ -894,8 +1038,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
+    padding: SPACING.lg,
     justifyContent: 'space-between',
+    gap: SPACING.md,
   },
   truthSpyBanner: {
     backgroundColor: '#29121A',

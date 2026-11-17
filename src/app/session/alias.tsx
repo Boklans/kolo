@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Extrapolation,
+  FadeIn,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -20,7 +21,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { ArrowDown, ArrowUp, Flame, Zap } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Dices, Flame, RotateCcw, Zap } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -46,6 +47,53 @@ interface RoundWordRecord {
 }
 
 const SWIPE_THRESHOLD = 70;
+
+function getWordFontSize(text: string): number {
+  const longest = Math.max(
+    ...text
+      .trim()
+      .split(/\s+/)
+      .map((w) => w.length),
+    1
+  );
+  if (longest >= 15) return 27;
+  if (longest >= 12) return 33;
+  if (longest >= 9) return 38;
+  return 44;
+}
+
+const ALIAS_MODIFIERS = [
+  {
+    id: 'whisper',
+    emoji: '🤫',
+    title: 'Секретний агент',
+    desc: 'Пояснюй усі слова цього раунду пошепки (+1 бонусний бал)',
+  },
+  {
+    id: 'commentator',
+    emoji: '⚽',
+    title: 'Футбольний коментатор',
+    desc: 'Коментуй слова на шаленій швидкості, ніби це фінал Ліги Чемпіонів (+1 бал)',
+  },
+  {
+    id: 'no_hands',
+    emoji: '🗿',
+    title: 'Руки в кишенях',
+    desc: 'Тримай руки за спиною — жодних жестів під час пояснення (+1 бал)',
+  },
+  {
+    id: 'questions',
+    emoji: '❓',
+    title: 'Тільки питаннями',
+    desc: 'Пояснюй слова виключно питальними реченнями (+1 бал)',
+  },
+  {
+    id: 'trailer',
+    emoji: '🎭',
+    title: 'Кінотрейлер',
+    desc: 'Пояснюй слова максимально епічним драматичним голосом (+1 бал)',
+  },
+];
 
 export default function AliasGameScreen() {
   const router = useRouter();
@@ -103,9 +151,17 @@ export default function AliasGameScreen() {
   const [countdownLabel, setCountdownLabel] = useState<string>('3');
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [currentCard, setCurrentCard] = useState<AliasItem | null>(null);
+  const [lastSwipedCard, setLastSwipedCard] = useState<AliasItem | null>(null);
   const [roundHistory, setRoundHistory] = useState<RoundWordRecord[]>([]);
   const [currentStreak, setCurrentStreak] = useState<number>(0);
   const [bestStreak, setBestStreak] = useState<number>(0);
+  const [activeModifierIdx, setActiveModifierIdx] = useState<number | null>(null);
+  const [stolenInfo, setStolenInfo] = useState<{
+    teamId: string;
+    teamName: string;
+    word: string;
+    points: number;
+  } | null>(null);
   const [feedbackBurst, setFeedbackBurst] = useState<{
     text: string;
     type: 'success' | 'skip';
@@ -167,8 +223,14 @@ export default function AliasGameScreen() {
   }, [deck, drawNextItem, animateCardEntrance]);
 
   const triggerFeedbackBurst = useCallback(
-    (guessed: boolean, penaltyForSkip: boolean) => {
-      const text = guessed ? '+1' : penaltyForSkip ? '−1' : 'ПРОПУСК';
+    (guessed: boolean, penaltyForSkip: boolean, isBonusWord?: boolean) => {
+      const text = guessed
+        ? isBonusWord
+          ? '+2 🔥'
+          : '+1'
+        : penaltyForSkip
+          ? '−1'
+          : 'ПРОПУСК';
       setFeedbackBurst({
         text,
         type: guessed ? 'success' : 'skip',
@@ -191,16 +253,42 @@ export default function AliasGameScreen() {
     [burstOpacity, burstScale, burstTranslateY]
   );
 
+  const activeModifier =
+    activeModifierIdx !== null ? ALIAS_MODIFIERS[activeModifierIdx] : null;
+
+  const handleCycleModifier = () => {
+    Haptics.selectionAsync();
+    setActiveModifierIdx((prev) => {
+      if (prev === null) {
+        return Math.floor(Math.random() * ALIAS_MODIFIERS.length);
+      }
+      const next = prev + 1;
+      if (next >= ALIAS_MODIFIERS.length) return null;
+      return next;
+    });
+  };
+
   // 3 - 2 - 1 - ПОГНАЛИ! Countdown sequence
   const handleStartCountdown = () => {
     roundWordIdsRef.current = [];
     streakRef.current = 0;
     setRoundHistory([]);
+    setLastSwipedCard(null);
     setCurrentStreak(0);
     setBestStreak(0);
+    setStolenInfo(null);
     setFeedbackBurst(null);
     setCountdownLabel('3');
     setPhase('COUNTDOWN');
+  };
+
+  const handleUndoLastCard = () => {
+    if (!lastSwipedCard || roundHistory.length === 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRoundHistory((prev) => prev.slice(0, -1));
+    setCurrentCard(lastSwipedCard);
+    setLastSwipedCard(null);
+    animateCardEntrance();
   };
 
   useEffect(() => {
@@ -262,6 +350,7 @@ export default function AliasGameScreen() {
         isBonus,
       };
 
+      setLastSwipedCard(currentCard);
       setRoundHistory((prev) => [...prev, record]);
 
       if (guessed) {
@@ -313,7 +402,11 @@ export default function AliasGameScreen() {
         flashSkipOpacity.value = withTiming(1, { duration: 70 });
       }
 
-      triggerFeedbackBurst(guessed, currentStep.penaltyForSkip);
+      triggerFeedbackBurst(
+        guessed,
+        currentStep.penaltyForSkip,
+        currentCard.difficulty === 3
+      );
 
       const targetY = guessed ? -320 : 320;
       cardOpacity.value = withTiming(0, { duration: 130 });
@@ -438,6 +531,20 @@ export default function AliasGameScreen() {
     transform: [{ scale: countdownScale.value }],
   }));
 
+  const handleStealOvertimeWord = (opponentTeam: { id: string; name: string }) => {
+    if (!currentCard || isAnimatingDecisionRef.current) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const pts = currentCard.difficulty === 3 ? 2 : 1;
+    setStolenInfo({
+      teamId: opponentTeam.id,
+      teamName: opponentTeam.name,
+      word: currentCard.word,
+      points: pts,
+    });
+    playVictoryFanfare();
+    setPhase('REVIEW');
+  };
+
   const handleToggleReviewPoints = (recordId: string, nextPoints: -1 | 0 | 1 | 2) => {
     Haptics.selectionAsync();
     setRoundHistory((prev) =>
@@ -447,13 +554,53 @@ export default function AliasGameScreen() {
     );
   };
 
+  const modifierBonusPoints = activeModifier ? 1 : 0;
+
   const totalRoundPoints = useMemo(
-    () => roundHistory.reduce((acc, item) => acc + item.points, 0),
-    [roundHistory]
+    () =>
+      roundHistory.reduce((acc, item) => acc + item.points, 0) +
+      modifierBonusPoints,
+    [roundHistory, modifierBonusPoints]
   );
+
+  const liveChaseStatus = useMemo(() => {
+    if (teams.length < 2) return null;
+    const otherScores = teams
+      .filter((_, idx) => idx !== currentTeamIndex)
+      .map((t) =>
+        Object.values(t.scoresByGroup).reduce((acc, val) => acc + val, 0)
+      );
+    const maxOpponent = Math.max(0, ...otherScores);
+    const liveTotal = currentTeamTotalScore + totalRoundPoints;
+
+    if (liveTotal > maxOpponent && liveTotal > 0) {
+      return {
+        label: `👑 ЛІДЕР (+${liveTotal - maxOpponent})`,
+        color: COLORS.hot,
+      };
+    }
+    if (liveTotal === maxOpponent && maxOpponent > 0) {
+      return {
+        label: '⚡ НІЧИЯ ЗАРАЗ',
+        color: COLORS.alias,
+      };
+    }
+    if (maxOpponent > liveTotal) {
+      return {
+        label: `До лідера: ${maxOpponent - liveTotal}`,
+        color: COLORS.textSecondary,
+      };
+    }
+    return null;
+  }, [teams, currentTeamIndex, currentTeamTotalScore, totalRoundPoints]);
 
   const guessedWordsCount = useMemo(
     () => roundHistory.filter((r) => r.points > 0).length,
+    [roundHistory]
+  );
+
+  const bonusWordsCount = useMemo(
+    () => roundHistory.filter((r) => r.points > 0 && r.isBonus).length,
     [roundHistory]
   );
 
@@ -467,6 +614,10 @@ export default function AliasGameScreen() {
     submitTeamTurnResult(totalRoundPoints, {
       guessedCount: guessedWordsCount,
       skippedWords,
+      bestStreak,
+      bonusGuessedCount: bonusWordsCount,
+      stolenByTeamId: stolenInfo?.teamId,
+      stolenPoints: stolenInfo?.points,
     });
 
     router.replace('/session/scoreboard');
@@ -493,7 +644,7 @@ export default function AliasGameScreen() {
 
       {/* PHASE 1: READY (TEAM CALLOUT STAGE) */}
       {phase === 'READY' ? (
-        <View style={styles.readyBody}>
+        <Animated.View entering={FadeIn.duration(180)} style={styles.readyBody}>
           <View style={styles.calloutStageCard}>
             <View style={styles.calloutTopRow}>
               <View style={styles.roundBadge}>
@@ -516,25 +667,88 @@ export default function AliasGameScreen() {
               </Text>
             </View>
 
-            <View style={styles.calloutRulesRow}>
-              <View style={styles.ruleMiniBlock}>
-                <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
-                <Text style={styles.ruleMiniValue} numberOfLines={1}>
-                  {deck.title}
-                </Text>
+            <View style={{ gap: 8 }}>
+              <View style={styles.calloutRulesRow}>
+                <View style={styles.ruleMiniBlock}>
+                  <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
+                  <Text style={styles.ruleMiniValue} numberOfLines={1}>
+                    {deck.title}
+                  </Text>
+                </View>
+                <View style={styles.ruleMiniDivider} />
+                <View style={styles.ruleMiniBlock}>
+                  <Text style={styles.ruleMiniLabel}>ПРОПУСК СЛОВА</Text>
+                  <Text
+                    style={[
+                      styles.ruleMiniValue,
+                      currentStep.penaltyForSkip && { color: COLORS.spy },
+                    ]}
+                  >
+                    {currentStep.penaltyForSkip ? 'Штраф −1 бал' : 'Без штрафу'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.ruleMiniDivider} />
-              <View style={styles.ruleMiniBlock}>
-                <Text style={styles.ruleMiniLabel}>ПРОПУСК СЛОВА</Text>
-                <Text
-                  style={[
-                    styles.ruleMiniValue,
-                    currentStep.penaltyForSkip && { color: COLORS.spy },
-                  ]}
+
+              {/* Compact Inline Round Modifier Pill */}
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={handleCycleModifier}
+                style={{
+                  backgroundColor: activeModifier
+                    ? 'rgba(249, 115, 22, 0.14)'
+                    : COLORS.surfaceSubtle,
+                  borderRadius: RADIUS.md,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  gap: 3,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
                 >
-                  {currentStep.penaltyForSkip ? 'Штраф −1 бал' : 'Без штрафу'}
-                </Text>
-              </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Dices
+                      size={13}
+                      color={activeModifier ? COLORS.hot : COLORS.textMuted}
+                    />
+                    <Text
+                      style={{
+                        color: activeModifier ? COLORS.hot : COLORS.textSecondary,
+                        fontSize: 11,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {activeModifier
+                        ? `${activeModifier.emoji} ${activeModifier.title} (+1 бал)`
+                        : 'Додати умову раунду (+1 бал)'}
+                    </Text>
+                  </View>
+                  <Text
+                    style={{
+                      color: COLORS.textMuted,
+                      fontSize: 11,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {activeModifier ? 'Змінити' : 'Вимк'}
+                  </Text>
+                </View>
+                {activeModifier ? (
+                  <Text
+                    style={{
+                      color: COLORS.textSecondary,
+                      fontSize: 12,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {activeModifier.desc}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -546,7 +760,7 @@ export default function AliasGameScreen() {
             <Text style={styles.launchButtonSub}>ГОТОВІ?</Text>
             <Text style={styles.launchButtonTitle}>ПОЧАТИ ВІДЛІК 3 · 2 · 1</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       ) : null}
 
       {/* PHASE 2: COUNTDOWN (3 - 2 - 1 - ПОГНАЛИ!) */}
@@ -590,6 +804,22 @@ export default function AliasGameScreen() {
                       {currentStreak} ПІДРЯД!
                     </Text>
                   </View>
+                ) : liveChaseStatus ? (
+                  <View
+                    style={[
+                      styles.streakBadge,
+                      { backgroundColor: COLORS.surface },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.streakBadgeText,
+                        { color: liveChaseStatus.color },
+                      ]}
+                    >
+                      {liveChaseStatus.label}
+                    </Text>
+                  </View>
                 ) : null}
               </View>
 
@@ -611,9 +841,11 @@ export default function AliasGameScreen() {
 
             {phase === 'OVERTIME' ? (
               <View style={styles.overtimeBanner}>
-                <Text style={styles.overtimeOverline}>ЧАС ВИЙШОВ!</Text>
+                <Text style={styles.overtimeOverline}>
+                  ⚡ ВІДКРИТИЙ МІКРОФОН · ЧАС ВИЙШОВ!
+                </Text>
                 <Text style={styles.overtimeTitle}>
-                  Останнє слово — відповідають усі команди
+                  Останнє слово можуть перехопити УСІ команди!
                 </Text>
               </View>
             ) : (
@@ -680,75 +912,173 @@ export default function AliasGameScreen() {
                   ]}
                 />
 
-                {/* Top Edge: Swipe Up Indicator & Card Number */}
+                {/* Top Edge: Minimal Card Badge & Undo */}
                 <View style={styles.cardTopEdge}>
-                  <View style={styles.cardCounterPill}>
-                    <Text style={styles.cardCounterText}>
-                      КАРТКА #{String(roundHistory.length + 1).padStart(2, '0')}
-                    </Text>
-                  </View>
+                  {currentCard?.difficulty === 3 ? (
+                    <View
+                      style={[
+                        styles.cardCounterPill,
+                        { backgroundColor: 'rgba(249, 115, 22, 0.16)' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.cardCounterText,
+                          { color: COLORS.hot, fontWeight: '800' },
+                        ]}
+                      >
+                        🔥 БОНУС x2 · +2 БАЛИ
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.cardCounterPill}>
+                      <Text style={styles.cardCounterText}>
+                        #{String(roundHistory.length + 1).padStart(2, '0')}
+                      </Text>
+                    </View>
+                  )}
 
-                  <View style={styles.swipeDirectionHint}>
-                    <ArrowUp size={13} color={COLORS.crocodile} />
-                    <Text style={styles.swipeUpHintText}>ВГАДАЛИ +{currentCard?.difficulty === 3 ? '2' : '1'}</Text>
-                  </View>
+                  {lastSwipedCard && phase === 'PLAYING' ? (
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={handleUndoLastCard}
+                      style={[
+                        styles.cardCounterPill,
+                        {
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                        },
+                      ]}
+                    >
+                      <RotateCcw size={11} color={COLORS.textSecondary} />
+                      <Text style={styles.cardCounterText}>Повернути</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View />
+                  )}
                 </View>
 
-                {/* Dominant Center Word */}
+                {/* Dominant Center Word (Smart Typography + Pause Mask) */}
                 <View style={styles.wordCenterWrap}>
                   <Text
-                    style={styles.dominantWord}
-                    adjustsFontSizeToFit
-                    numberOfLines={3}
+                    style={[
+                      styles.dominantWord,
+                      {
+                        fontSize: getWordFontSize(
+                          isPaused ? 'ПАУЗА' : currentCard?.word ?? 'Готово'
+                        ),
+                      },
+                    ]}
+                    numberOfLines={2}
                   >
-                    {currentCard?.word ?? 'Готово'}
+                    {isPaused
+                      ? '⏸ ПАУЗА'
+                      : currentCard?.word ?? 'Готово'}
                   </Text>
                 </View>
 
-                {/* Bottom Edge: Swipe Down Indicator & Deck Name */}
-                <View style={styles.cardBottomEdge}>
+                {/* Bottom Edge: Subtle Deck Watermark */}
+                <View style={[styles.cardBottomEdge, { justifyContent: 'center' }]}>
                   <Text style={styles.cardDeckWatermark} numberOfLines={1}>
                     {deck.title}
                   </Text>
-                  <View style={styles.swipeDirectionHint}>
-                    <ArrowDown size={13} color={COLORS.textMuted} />
-                    <Text style={styles.swipeDownHintText}>
-                      ПРОПУСК{currentStep.penaltyForSkip ? ' −1' : ''}
-                    </Text>
-                  </View>
                 </View>
               </Animated.View>
             </GestureDetector>
           </View>
 
-          {/* Bottom Tactile Action Buttons */}
-          <View style={styles.controlsRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.skipBtn}
-              onPress={() => triggerCardDecisionWithAnimation(false)}
-            >
-              <ArrowDown size={18} color={COLORS.textSecondary} />
-              <Text style={styles.skipBtnText}>
-                Пропуск{currentStep.penaltyForSkip ? ' −1' : ''}
-              </Text>
-            </TouchableOpacity>
+          {/* Bottom Tactile Action Buttons (or Overtime Steal Panel) */}
+          {phase === 'OVERTIME' && teams.length > 1 ? (
+            <View style={{ gap: 8 }}>
+              <View style={styles.controlsRow}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  style={styles.skipBtn}
+                  onPress={() => triggerCardDecisionWithAnimation(false)}
+                >
+                  <ArrowDown size={18} color={COLORS.textSecondary} />
+                  <Text style={styles.skipBtnText}>Ніхто не вгадав</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.guessedBtn}
-              onPress={() => triggerCardDecisionWithAnimation(true)}
-            >
-              <ArrowUp size={20} color={COLORS.background} strokeWidth={2.8} />
-              <Text style={styles.guessedBtnText}>ВГАДАЛИ +1</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.guessedBtn}
+                  onPress={() => triggerCardDecisionWithAnimation(true)}
+                >
+                  <ArrowUp size={18} color={COLORS.background} strokeWidth={2.8} />
+                  <Text style={styles.guessedBtnText} numberOfLines={1}>
+                    {currentTeam.name} +{currentCard?.difficulty === 3 ? '2' : '1'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {teams
+                  .filter((_, idx) => idx !== currentTeamIndex)
+                  .map((oppTeam) => (
+                    <TouchableOpacity
+                      key={oppTeam.id}
+                      activeOpacity={0.85}
+                      onPress={() => handleStealOvertimeWord(oppTeam)}
+                      style={{
+                        flex: 1,
+                        minWidth: '45%',
+                        backgroundColor: 'rgba(249, 115, 22, 0.18)',
+                        paddingVertical: 12,
+                        paddingHorizontal: 14,
+                        borderRadius: RADIUS.md,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: COLORS.hot,
+                          fontSize: 12,
+                          fontWeight: '900',
+                          letterSpacing: 0.4,
+                        }}
+                        numberOfLines={1}
+                      >
+                        ⚡ ПЕРЕХОПИЛИ: {oppTeam.name.toUpperCase()} +
+                        {currentCard?.difficulty === 3 ? '2' : '1'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.controlsRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.skipBtn}
+                onPress={() => triggerCardDecisionWithAnimation(false)}
+              >
+                <ArrowDown size={18} color={COLORS.textSecondary} />
+                <Text style={styles.skipBtnText}>
+                  Пропуск{currentStep.penaltyForSkip ? ' −1' : ''}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.guessedBtn}
+                onPress={() => triggerCardDecisionWithAnimation(true)}
+              >
+                <ArrowUp size={20} color={COLORS.background} strokeWidth={2.8} />
+                <Text style={styles.guessedBtnText}>
+                  ВГАДАЛИ +{currentCard?.difficulty === 3 ? '2' : '1'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       ) : null}
 
       {/* PHASE 5: ROUND RESULT SPLASH + WORD REVIEW */}
       {phase === 'REVIEW' ? (
-        <View style={styles.reviewBody}>
+        <Animated.View entering={FadeIn.duration(180)} style={styles.reviewBody}>
           {/* Dramatic Round Result Hero Card */}
           <View style={styles.roundResultHero}>
             <View style={styles.roundResultTopRow}>
@@ -818,7 +1148,7 @@ export default function AliasGameScreen() {
                   {([-1, 0, (item.isBonus ? 2 : 1)] as (-1 | 0 | 1 | 2)[]).map((pts) => {
                     const active = item.points === pts;
                     const activeBg =
-                      pts === 1
+                      pts > 0
                         ? COLORS.crocodile
                         : pts === -1
                           ? COLORS.spy
@@ -839,7 +1169,7 @@ export default function AliasGameScreen() {
                             styles.segmentOptionText,
                             active && {
                               color:
-                                pts === 1
+                                pts > 0
                                   ? COLORS.background
                                   : COLORS.textPrimary,
                               fontWeight: '800',
@@ -867,7 +1197,7 @@ export default function AliasGameScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       ) : null}
     </SafeAreaView>
   );

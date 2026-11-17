@@ -1,8 +1,8 @@
-export type GameType = 'alias' | 'crocodile' | 'spy';
+export type GameType = 'alias' | 'crocodile' | 'spy' | 'taboo';
 
 export type AliasItem = { id: string; word: string; difficulty: 1 | 2 | 3 };
 export type CrocodileItem = { id: string; phrase: string; difficulty: 1 | 2 | 3 };
-export type TabooItem = { id: string; word: string; forbiddenWords: string[] };
+export type TabooItem = { id: string; word: string; forbiddenWords: string[]; difficulty?: 1 | 2 | 3 };
 export type SpyLocation = { id: string; name: string; roles?: string[] };
 
 export type Deck = {
@@ -62,7 +62,15 @@ export type SpyStep = BaseStep & {
   scoring: NoScoringPolicy;
 };
 
-export type PresetStep = AliasStep | CrocodileStep | SpyStep;
+export type TabooStep = BaseStep & {
+  gameType: 'taboo';
+  roundTimeSec: 30 | 60 | 90;
+  penaltyForTaboo: boolean;
+  roundsPerTeam: number;
+  scoring: TeamScoringPolicy | NoScoringPolicy;
+};
+
+export type PresetStep = AliasStep | CrocodileStep | SpyStep | TabooStep;
 
 export type PartyPreset = {
   id: string;

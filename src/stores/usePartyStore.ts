@@ -12,6 +12,10 @@ export interface PartyTeam {
 export interface TurnStatsPayload {
   guessedCount?: number;
   skippedWords?: string[];
+  bestStreak?: number;
+  bonusGuessedCount?: number;
+  stolenByTeamId?: string;
+  stolenPoints?: number;
 }
 
 export interface LastTurnInfo {
@@ -43,6 +47,7 @@ export interface StartSessionConfig {
   steps: PresetStep[];
   teamNames: string[];
   playerCount: number;
+  playerNames?: string[];
 }
 
 interface PartyStoreState {
@@ -56,9 +61,16 @@ interface PartyStoreState {
   currentTeamIndex: number;
   currentRoundInStep: number;
   playerCount: number;
+  playerNames: string[];
+  savedPlayerNames: string[];
 
   totalGuessedWords: number;
   hardestUnansweredWord: string | null;
+  bestStreakCount: number;
+  bestStreakTeamName: string | null;
+  bestTurnPoints: number;
+  bestTurnTeamName: string | null;
+  bonusWordsGuessed: number;
   lastTurnInfo: LastTurnInfo | null;
   spyDraft: SpyTurnDraft | null;
   spyStats: SpyPartyStats;
@@ -66,7 +78,7 @@ interface PartyStoreState {
   startSession: (config: StartSessionConfig) => void;
   restartRematch: () => void;
   submitTeamTurnResult: (pointsDelta: number, stats?: TurnStatsPayload) => void;
-  recordPartyStats: (stats: TurnStatsPayload) => void;
+  recordPartyStats: (stats: TurnStatsPayload, teamName?: string, turnPoints?: number) => void;
   setSpyDraft: (draft: SpyTurnDraft | null) => void;
   recordSpyOutcome: (winnerSide: 'citizens' | 'spy' | null) => void;
   advanceToNextStep: () => void;
@@ -77,6 +89,8 @@ const DEFAULT_TEAMS: PartyTeam[] = [
   { id: 'team_1', name: 'Бойові Гуси', scoresByGroup: { main: 0 } },
   { id: 'team_2', name: 'Хмільні Сови', scoresByGroup: { main: 0 } },
 ];
+
+const DEFAULT_PLAYER_NAMES = ['Ігор', 'Аня', 'Макс', 'Оля', 'Діма'];
 
 export const usePartyStore = create<PartyStoreState>()(
   persist(
@@ -91,17 +105,30 @@ export const usePartyStore = create<PartyStoreState>()(
       currentTeamIndex: 0,
       currentRoundInStep: 1,
       playerCount: 5,
+      playerNames: DEFAULT_PLAYER_NAMES,
+      savedPlayerNames: DEFAULT_PLAYER_NAMES,
       totalGuessedWords: 0,
       hardestUnansweredWord: null,
+      bestStreakCount: 0,
+      bestStreakTeamName: null,
+      bestTurnPoints: 0,
+      bestTurnTeamName: null,
+      bonusWordsGuessed: 0,
       lastTurnInfo: null,
       spyDraft: null,
       spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
 
-      startSession: ({ title, steps, teamNames, playerCount }) => {
+      startSession: ({ title, steps, teamNames, playerCount, playerNames }) => {
         const cleanTeamNames =
           teamNames.length >= 2
             ? teamNames.map((n, i) => n.trim() || `Команда ${i + 1}`)
             : ['Команда 1', 'Команда 2'];
+
+        const safeCount = Math.max(3, Math.min(16, playerCount));
+        const cleanPlayerNames = Array.from({ length: safeCount }, (_, idx) => {
+          const raw = playerNames?.[idx]?.trim();
+          return raw || `Гравець ${idx + 1}`;
+        });
 
         const initialTeams: PartyTeam[] = cleanTeamNames.map((name, idx) => ({
           id: `team_${idx + 1}_${Date.now()}`,
@@ -119,9 +146,16 @@ export const usePartyStore = create<PartyStoreState>()(
           savedTeamNames: cleanTeamNames,
           currentTeamIndex: 0,
           currentRoundInStep: 1,
-          playerCount: Math.max(3, Math.min(16, playerCount)),
+          playerCount: safeCount,
+          playerNames: cleanPlayerNames,
+          savedPlayerNames: cleanPlayerNames,
           totalGuessedWords: 0,
           hardestUnansweredWord: null,
+          bestStreakCount: 0,
+          bestStreakTeamName: null,
+          bestTurnPoints: 0,
+          bestTurnTeamName: null,
+          bonusWordsGuessed: 0,
           lastTurnInfo: null,
           spyDraft: null,
           spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
@@ -145,6 +179,11 @@ export const usePartyStore = create<PartyStoreState>()(
           currentRoundInStep: 1,
           totalGuessedWords: 0,
           hardestUnansweredWord: null,
+          bestStreakCount: 0,
+          bestStreakTeamName: null,
+          bestTurnPoints: 0,
+          bestTurnTeamName: null,
+          bonusWordsGuessed: 0,
           lastTurnInfo: null,
           spyDraft: null,
           spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
@@ -167,10 +206,11 @@ export const usePartyStore = create<PartyStoreState>()(
         }));
       },
 
-      recordPartyStats: (stats) => {
+      recordPartyStats: (stats, teamName, turnPoints) => {
         if (!stats) return;
         set((state) => {
           const addedGuessed = stats.guessedCount ?? 0;
+          const addedBonus = stats.bonusGuessedCount ?? 0;
           const skipped = stats.skippedWords ?? [];
           let nextHardest = state.hardestUnansweredWord;
 
@@ -184,9 +224,28 @@ export const usePartyStore = create<PartyStoreState>()(
             }
           }
 
+          let nextBestStreakCount = state.bestStreakCount;
+          let nextBestStreakTeam = state.bestStreakTeamName;
+          if ((stats.bestStreak ?? 0) > nextBestStreakCount && teamName) {
+            nextBestStreakCount = stats.bestStreak!;
+            nextBestStreakTeam = teamName;
+          }
+
+          let nextBestTurnPoints = state.bestTurnPoints;
+          let nextBestTurnTeam = state.bestTurnTeamName;
+          if ((turnPoints ?? 0) > nextBestTurnPoints && teamName) {
+            nextBestTurnPoints = turnPoints!;
+            nextBestTurnTeam = teamName;
+          }
+
           return {
             totalGuessedWords: state.totalGuessedWords + addedGuessed,
+            bonusWordsGuessed: state.bonusWordsGuessed + addedBonus,
             hardestUnansweredWord: nextHardest,
+            bestStreakCount: nextBestStreakCount,
+            bestStreakTeamName: nextBestStreakTeam,
+            bestTurnPoints: nextBestTurnPoints,
+            bestTurnTeamName: nextBestTurnTeam,
           };
         });
       },
@@ -199,22 +258,30 @@ export const usePartyStore = create<PartyStoreState>()(
           return;
         }
 
+        const currentTeam = state.teams[state.currentTeamIndex];
         if (stats) {
-          get().recordPartyStats(stats);
+          get().recordPartyStats(stats, currentTeam?.name, pointsDelta);
         }
 
-        const currentTeam = state.teams[state.currentTeamIndex];
         const updatedTeams = state.teams.map((team, idx) => {
-          if (idx !== state.currentTeamIndex) return team;
           if (currentStep.scoring.type !== 'team') return team;
-
           const groupId = currentStep.scoring.groupId || 'main';
           const prevScore = team.scoresByGroup[groupId] ?? 0;
+
+          let deltaForTeam = 0;
+          if (idx === state.currentTeamIndex) {
+            deltaForTeam += pointsDelta;
+          }
+          if (stats?.stolenByTeamId && team.id === stats.stolenByTeamId) {
+            deltaForTeam += stats.stolenPoints ?? 1;
+          }
+          if (deltaForTeam === 0) return team;
+
           return {
             ...team,
             scoresByGroup: {
               ...team.scoresByGroup,
-              [groupId]: prevScore + pointsDelta,
+              [groupId]: prevScore + deltaForTeam,
             },
           };
         });
@@ -228,7 +295,9 @@ export const usePartyStore = create<PartyStoreState>()(
           : null;
 
         const roundsPerTeam =
-          currentStep.gameType === 'alias' || currentStep.gameType === 'crocodile'
+          currentStep.gameType === 'alias' ||
+          currentStep.gameType === 'crocodile' ||
+          currentStep.gameType === 'taboo'
             ? currentStep.roundsPerTeam
             : 1;
 

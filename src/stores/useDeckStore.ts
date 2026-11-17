@@ -134,7 +134,11 @@ export const useDeckStore = create<DeckStoreState>()(
       resolveStepDeck: (deckId, deckIds, minDifficulty = 1) => {
         const allDecks = get().getAllDecks();
         const targetIds =
-          deckIds && deckIds.length > 0 ? deckIds : [deckId];
+          deckIds && deckIds.length > 0
+            ? deckIds
+            : deckId.includes('+')
+              ? deckId.split('+').filter(Boolean)
+              : [deckId];
         const matched = targetIds
           .map((id) => allDecks.find((d) => d.id === id))
           .filter((d): d is Deck => Boolean(d));
@@ -143,6 +147,7 @@ export const useDeckStore = create<DeckStoreState>()(
 
         const rawAlias = sourceDecks.flatMap((d) => d.items.alias);
         const rawCroc = sourceDecks.flatMap((d) => d.items.crocodile);
+        const rawTaboo = sourceDecks.flatMap((d) => d.items.taboo ?? []);
         const rawSpy = sourceDecks.flatMap((d) => d.items.spyLocations);
 
         const filteredAlias =
@@ -153,6 +158,10 @@ export const useDeckStore = create<DeckStoreState>()(
           minDifficulty > 1
             ? rawCroc.filter((item) => item.difficulty >= minDifficulty)
             : rawCroc;
+        const filteredTaboo =
+          minDifficulty > 1
+            ? rawTaboo.filter((item) => (item.difficulty ?? 2) >= minDifficulty)
+            : rawTaboo;
 
         if (sourceDecks.length === 1 && minDifficulty === 1) {
           return sourceDecks[0];
@@ -175,7 +184,12 @@ export const useDeckStore = create<DeckStoreState>()(
           items: {
             alias: filteredAlias.length > 0 ? filteredAlias : rawAlias,
             crocodile: filteredCroc.length > 0 ? filteredCroc : rawCroc,
-            taboo: [],
+            taboo:
+              filteredTaboo.length > 0
+                ? filteredTaboo
+                : rawTaboo.length > 0
+                  ? rawTaboo
+                  : baseUaDeck.items.taboo,
             spyLocations:
               rawSpy.length > 0 ? rawSpy : baseUaDeck.items.spyLocations,
           },

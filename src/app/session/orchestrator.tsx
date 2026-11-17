@@ -34,5 +34,9 @@ export default function SessionOrchestratorScreen() {
     return <Redirect href="/session/spy" />;
   }
 
+  if (currentStep.gameType === 'taboo') {
+    return <Redirect href="/session/taboo" />;
+  }
+
   return <Redirect href="/" />;
 }

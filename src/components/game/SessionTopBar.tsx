@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Volume2, VolumeX, X } from 'lucide-react-native';
+import { Pause, Volume2, VolumeX } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { useSoundStore } from '@/utils/sound';
@@ -22,6 +22,8 @@ export function SessionTopBar({
 }: SessionTopBarProps) {
   const router = useRouter();
   const endSession = usePartyStore((s) => s.endSession);
+  const advanceToNextStep = usePartyStore((s) => s.advanceToNextStep);
+  const steps = usePartyStore((s) => s.steps);
   const isSoundEnabled = useSoundStore((s) => s.isSoundEnabled);
   const toggleSound = useSoundStore((s) => s.toggleSound);
 
@@ -42,6 +44,14 @@ export function SessionTopBar({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setModalVisible(false);
     onPauseChange?.(false);
+  };
+
+  const handleSkipStepToScoreboard = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setModalVisible(false);
+    onPauseChange?.(false);
+    advanceToNextStep();
+    router.replace('/session/scoreboard');
   };
 
   const handleConfirmExit = () => {
@@ -86,7 +96,7 @@ export function SessionTopBar({
             onPress={handleOpenPauseModal}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
-            <X size={18} color={COLORS.textSecondary} />
+            <Pause size={15} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -113,6 +123,26 @@ export function SessionTopBar({
               >
                 <Text style={styles.resumeButtonText}>Продовжити гру</Text>
               </TouchableOpacity>
+
+              {steps.length > 0 ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={[
+                    styles.confirmExitButton,
+                    { backgroundColor: COLORS.surfaceElevated },
+                  ]}
+                  onPress={handleSkipStepToScoreboard}
+                >
+                  <Text
+                    style={[
+                      styles.confirmExitText,
+                      { color: COLORS.textPrimary },
+                    ]}
+                  >
+                    До таблиці рахунку / Наступний етап →
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
 
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -177,7 +207,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(16, 16, 20, 0.88)',
+    backgroundColor: 'rgba(16, 16, 20, 0.97)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
