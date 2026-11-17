@@ -5,15 +5,20 @@ import * as Haptics from 'expo-haptics';
 
 interface SoundState {
   isSoundEnabled: boolean;
+  isHapticsEnabled: boolean;
   toggleSound: () => void;
+  toggleHaptics: () => void;
 }
 
 export const useSoundStore = create<SoundState>()(
   persist(
     (set) => ({
       isSoundEnabled: true,
+      isHapticsEnabled: true,
       toggleSound: () =>
         set((state) => ({ isSoundEnabled: !state.isSoundEnabled })),
+      toggleHaptics: () =>
+        set((state) => ({ isHapticsEnabled: !state.isHapticsEnabled })),
     }),
     {
       name: 'kolo-sound-settings-v1',
@@ -21,6 +26,46 @@ export const useSoundStore = create<SoundState>()(
     }
   )
 );
+
+export type HapticKind =
+  | 'light'
+  | 'medium'
+  | 'heavy'
+  | 'selection'
+  | 'success'
+  | 'warning'
+  | 'error';
+
+export function triggerHaptic(kind: HapticKind) {
+  if (!useSoundStore.getState().isHapticsEnabled) return;
+  try {
+    switch (kind) {
+      case 'light':
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        break;
+      case 'medium':
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        break;
+      case 'heavy':
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        break;
+      case 'selection':
+        Haptics.selectionAsync();
+        break;
+      case 'success':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        break;
+      case 'warning':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        break;
+      case 'error':
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        break;
+    }
+  } catch {
+    // Ignore on platforms without haptics support
+  }
+}
 
 type NoteSpec = {
   freq: number;
@@ -97,7 +142,7 @@ function playSynthSequence(notes: NoteSpec[]) {
  * 1. Короткий пружний сигнал відліку 3 — 2 — 1
  */
 export function playCountdownBeep() {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  triggerHaptic('heavy');
   playSynthSequence([
     { freq: 587.33, durationMs: 110, type: 'triangle', gain: 0.18 },
     { freq: 1174.66, durationMs: 85, type: 'sine', gain: 0.08 },
@@ -108,7 +153,7 @@ export function playCountdownBeep() {
  * 2. Старт раунду «ПОГНАЛИ!» / «МОТОР!» (мажорний акорд-гонг)
  */
 export function playCountdownGo() {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  triggerHaptic('success');
   playSynthSequence([
     { freq: 587.33, durationMs: 220, delayMs: 0, type: 'triangle', gain: 0.18 },
     { freq: 739.99, durationMs: 220, delayMs: 45, type: 'triangle', gain: 0.16 },
@@ -121,7 +166,7 @@ export function playCountdownGo() {
  * 3. Вгадане слово (+1 або +2) з підвищенням тону при серії (streak)
  */
 export function playWordGuessed(streak = 1) {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  triggerHaptic('success');
   const clampedStreak = Math.min(8, Math.max(1, streak));
   const pitchMultiplier = Math.pow(1.059463, clampedStreak - 1); // +1 півтон за кожне слово в серії
 
@@ -154,7 +199,7 @@ export function playWordGuessed(streak = 1) {
  * 4. Пропуск слова (глухий низький спуск)
  */
 export function playWordSkipped() {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  triggerHaptic('medium');
   playSynthSequence([
     {
       freq: 260,
@@ -186,7 +231,7 @@ export function playTimerTick(urgency: 'warning' | 'critical') {
  * 6. Сирена / Гонг завершення часу раунду (00:00)
  */
 export function playRoundEndBuzzer() {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  triggerHaptic('warning');
   playSynthSequence([
     {
       freq: 440,
@@ -211,7 +256,7 @@ export function playRoundEndBuzzer() {
  * 7. Фіксація перегляду секретної ролі у Шпигуні (600 мс)
  */
 export function playRoleRevealLock(isSpy: boolean) {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  triggerHaptic('success');
   if (isSpy) {
     // Таємничий низький трилер-імпульс для Шпигуна
     playSynthSequence([
@@ -231,11 +276,7 @@ export function playRoleRevealLock(isSpy: boolean) {
  * 8. Барабанний дріб під час утримання кнопки «Розсекретити Шпигуна»
  */
 export function playSpyDrumrollTick(progress: number) {
-  Haptics.impactAsync(
-    progress > 0.65
-      ? Haptics.ImpactFeedbackStyle.Heavy
-      : Haptics.ImpactFeedbackStyle.Medium
-  );
+  triggerHaptic(progress > 0.65 ? 'heavy' : 'medium');
   const risingFreq = 190 + Math.round(progress * 480);
   playSynthSequence([
     {
@@ -252,7 +293,7 @@ export function playSpyDrumrollTick(progress: number) {
  * 9. Кульмінаційний акорд розкриття Шпигуна
  */
 export function playSpyUnmaskedSting() {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  triggerHaptic('success');
   playSynthSequence([
     { freq: 293.66, durationMs: 350, delayMs: 0, type: 'sawtooth', gain: 0.15 },
     { freq: 349.23, durationMs: 350, delayMs: 40, type: 'triangle', gain: 0.15 },
@@ -265,7 +306,7 @@ export function playSpyUnmaskedSting() {
  * 10. Фанфари перемоги у фіналі
  */
 export function playVictoryFanfare() {
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  triggerHaptic('success');
   playSynthSequence([
     { freq: 523.25, durationMs: 120, delayMs: 0, type: 'triangle', gain: 0.16 },
     { freq: 659.25, durationMs: 120, delayMs: 110, type: 'triangle', gain: 0.16 },

@@ -20,7 +20,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { ArrowDown, ArrowUp, Ban, Flame, RotateCcw, ShieldAlert } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
@@ -35,6 +34,7 @@ import {
   playVictoryFanfare,
   playWordGuessed,
   playWordSkipped,
+  triggerHaptic,
 } from '@/utils/sound';
 
 type TabooPhase = 'READY' | 'COUNTDOWN' | 'PLAYING' | 'OVERTIME' | 'REVIEW';
@@ -134,6 +134,7 @@ export default function TabooGameScreen() {
   const roundWordIdsRef = useRef<string[]>([]);
   const isAnimatingDecisionRef = useRef<boolean>(false);
   const streakRef = useRef<number>(0);
+  const isSubmittingRef = useRef<boolean>(false);
 
   const translateY = useSharedValue(0);
   const translateX = useSharedValue(0);
@@ -225,6 +226,7 @@ export default function TabooGameScreen() {
   const handleStartCountdown = () => {
     roundWordIdsRef.current = [];
     streakRef.current = 0;
+    isSubmittingRef.current = false;
     setRoundHistory([]);
     setLastSwipedCard(null);
     setCurrentStreak(0);
@@ -235,9 +237,25 @@ export default function TabooGameScreen() {
   };
 
   const handleUndoLastCard = () => {
-    if (!lastSwipedCard || roundHistory.length === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setRoundHistory((prev) => prev.slice(0, -1));
+    if (!lastSwipedCard || roundHistory.length === 0 || isPaused) return;
+    triggerHaptic('light');
+
+    const nextHistory = roundHistory.slice(0, -1);
+    let maxStreak = 0;
+    let running = 0;
+    for (const entry of nextHistory) {
+      if (entry.points > 0) {
+        running += 1;
+        if (running > maxStreak) maxStreak = running;
+      } else {
+        running = 0;
+      }
+    }
+    streakRef.current = running;
+    setCurrentStreak(running);
+    setBestStreak(maxStreak);
+
+    setRoundHistory(nextHistory);
     setCurrentCard(lastSwipedCard);
     setLastSwipedCard(null);
     animateCardEntrance();
@@ -472,7 +490,7 @@ export default function TabooGameScreen() {
     recordId: string,
     nextPoints: -1 | 0 | 1 | 2
   ) => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     setRoundHistory((prev) =>
       prev.map((item) =>
         item.id === recordId ? { ...item, points: nextPoints } : item
@@ -496,7 +514,9 @@ export default function TabooGameScreen() {
   );
 
   const handleConfirmReview = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    triggerHaptic('success');
 
     const skippedWords = roundHistory
       .filter((r) => r.points <= 0)

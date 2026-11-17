@@ -2,13 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { CheckCircle2, Fingerprint } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
-import { playRoleRevealLock } from '@/utils/sound';
+import { playRoleRevealLock, triggerHaptic } from '@/utils/sound';
 
 interface HoldToRevealCardProps {
   playerNumber: number;
@@ -33,20 +33,28 @@ export function HoldToRevealCard({
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealAnim = useSharedValue(0);
   const scanProgressAnim = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    setIsHolding(false);
+    revealAnim.value = 0;
     scanProgressAnim.value = 0;
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
     return () => {
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
       }
     };
-  }, [playerNumber, scanProgressAnim]);
+  }, [playerNumber, revealAnim, scanProgressAnim]);
 
   const handlePressIn = () => {
     setIsHolding(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    revealAnim.value = withTiming(1, { duration: 140 });
+    triggerHaptic('light');
+    revealAnim.value = reducedMotion ? 1 : withTiming(1, { duration: 140 });
     scanProgressAnim.value = 0;
     scanProgressAnim.value = withTiming(1, { duration: HOLD_THRESHOLD_MS });
 
@@ -62,9 +70,9 @@ export function HoldToRevealCard({
 
   const handlePressOut = () => {
     setIsHolding(false);
-    // Миттєве приховування за 100 мс
-    revealAnim.value = withTiming(0, { duration: 100 });
-    scanProgressAnim.value = withTiming(0, { duration: 120 });
+    // Миттєве приховування за 100 мс (або миттєво при Reduced Motion)
+    revealAnim.value = reducedMotion ? 0 : withTiming(0, { duration: 100 });
+    scanProgressAnim.value = reducedMotion ? 0 : withTiming(0, { duration: 120 });
 
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
@@ -74,7 +82,7 @@ export function HoldToRevealCard({
 
   const secretContentStyle = useAnimatedStyle(() => ({
     opacity: revealAnim.value,
-    transform: [{ scale: 0.96 + revealAnim.value * 0.04 }],
+    transform: [{ scale: reducedMotion ? 1 : 0.96 + revealAnim.value * 0.04 }],
   }));
 
   const coverStyle = useAnimatedStyle(() => ({
@@ -90,6 +98,8 @@ export function HoldToRevealCard({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       style={styles.pressableWrap}
+      accessibilityRole="button"
+      accessibilityLabel="Утримуй палець на сканері, щоб побачити свою роль"
     >
       <View
         style={[

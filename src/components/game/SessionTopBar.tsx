@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { Pause, Volume2, VolumeX } from 'lucide-react-native';
+import { Pause, Smartphone, Volume2, VolumeX } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { usePartyStore } from '@/stores/usePartyStore';
-import { useSoundStore } from '@/utils/sound';
+import { triggerHaptic, useSoundStore } from '@/utils/sound';
 
 interface SessionTopBarProps {
   stepBadgeText: string;
@@ -25,29 +24,39 @@ export function SessionTopBar({
   const advanceToNextStep = usePartyStore((s) => s.advanceToNextStep);
   const steps = usePartyStore((s) => s.steps);
   const isSoundEnabled = useSoundStore((s) => s.isSoundEnabled);
+  const isHapticsEnabled = useSoundStore((s) => s.isHapticsEnabled);
   const toggleSound = useSoundStore((s) => s.toggleSound);
+  const toggleHaptics = useSoundStore((s) => s.toggleHaptics);
 
   const [modalVisible, setModalVisible] = useState(false);
 
   const handleToggleSound = () => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     toggleSound();
   };
 
+  const handleToggleHaptics = () => {
+    toggleHaptics();
+    // Give feedback when turning haptics ON
+    if (!isHapticsEnabled) {
+      triggerHaptic('selection');
+    }
+  };
+
   const handleOpenPauseModal = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic('light');
     setModalVisible(true);
     onPauseChange?.(true);
   };
 
   const handleResume = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic('light');
     setModalVisible(false);
     onPauseChange?.(false);
   };
 
   const handleSkipStepToScoreboard = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic('medium');
     setModalVisible(false);
     onPauseChange?.(false);
     advanceToNextStep();
@@ -55,7 +64,7 @@ export function SessionTopBar({
   };
 
   const handleConfirmExit = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    triggerHaptic('warning');
     setModalVisible(false);
     onPauseChange?.(false);
     endSession();
@@ -82,6 +91,8 @@ export function SessionTopBar({
             style={styles.iconBtn}
             onPress={handleToggleSound}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel={isSoundEnabled ? 'Вимкнути звук' : 'Увімкнути звук'}
           >
             {isSoundEnabled ? (
               <Volume2 size={16} color={COLORS.textSecondary} />
@@ -95,6 +106,8 @@ export function SessionTopBar({
             style={styles.iconBtn}
             onPress={handleOpenPauseModal}
             hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Пауза"
           >
             <Pause size={15} color={COLORS.textSecondary} />
           </TouchableOpacity>
@@ -112,8 +125,55 @@ export function SessionTopBar({
             <Text style={styles.modalOverline}>ПАУЗА</Text>
             <Text style={styles.modalTitle}>Перервати вечірку?</Text>
             <Text style={styles.modalSubtitle}>
-              Таймер зупинено. Ви можете продовжити поточний раунд або вийти на головний екран.
+              Таймер зупинено. Можете змінити налаштування або вийти на головну.
             </Text>
+
+            <View style={styles.togglesRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.togglePill, isSoundEnabled && styles.togglePillActive]}
+                onPress={handleToggleSound}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: isSoundEnabled }}
+                accessibilityLabel="Звук"
+              >
+                {isSoundEnabled ? (
+                  <Volume2 size={15} color={COLORS.textPrimary} />
+                ) : (
+                  <VolumeX size={15} color={COLORS.textMuted} />
+                )}
+                <Text
+                  style={[
+                    styles.togglePillText,
+                    isSoundEnabled && styles.togglePillTextActive,
+                  ]}
+                >
+                  Звук: {isSoundEnabled ? 'УВІМК' : 'ВИМК'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[styles.togglePill, isHapticsEnabled && styles.togglePillActive]}
+                onPress={handleToggleHaptics}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: isHapticsEnabled }}
+                accessibilityLabel="Вібрація"
+              >
+                <Smartphone
+                  size={15}
+                  color={isHapticsEnabled ? COLORS.textPrimary : COLORS.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.togglePillText,
+                    isHapticsEnabled && styles.togglePillTextActive,
+                  ]}
+                >
+                  Вібро: {isHapticsEnabled ? 'УВІМК' : 'ВИМК'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -236,7 +296,34 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 15,
     lineHeight: 22,
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.lg,
+  },
+  togglesRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  togglePill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.surfaceSubtle,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.md,
+  },
+  togglePillActive: {
+    backgroundColor: COLORS.surfaceElevated,
+  },
+  togglePillText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  togglePillTextActive: {
+    color: COLORS.textPrimary,
   },
   modalActions: {
     gap: SPACING.sm,

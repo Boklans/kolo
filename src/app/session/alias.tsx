@@ -15,12 +15,12 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { ArrowDown, ArrowUp, Dices, Flame, RotateCcw, Zap } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
@@ -35,6 +35,7 @@ import {
   playVictoryFanfare,
   playWordGuessed,
   playWordSkipped,
+  triggerHaptic,
 } from '@/utils/sound';
 
 type AliasPhase = 'READY' | 'COUNTDOWN' | 'PLAYING' | 'OVERTIME' | 'REVIEW';
@@ -162,14 +163,21 @@ export default function AliasGameScreen() {
     word: string;
     points: number;
   } | null>(null);
+  const [departingCard, setDepartingCard] = useState<{
+    word: string;
+    guessed: boolean;
+  } | null>(null);
   const [feedbackBurst, setFeedbackBurst] = useState<{
     text: string;
     type: 'success' | 'skip';
   } | null>(null);
 
+  const reducedMotion = useReducedMotion();
   const roundWordIdsRef = useRef<string[]>([]);
-  const isAnimatingDecisionRef = useRef<boolean>(false);
+  const cardSeqRef = useRef<number>(0);
+  const processedSeqRef = useRef<number>(-1);
   const streakRef = useRef<number>(0);
+  const isSubmittingRef = useRef<boolean>(false);
 
   // Card physics shared values
   const translateY = useSharedValue(0);
@@ -178,6 +186,10 @@ export default function AliasGameScreen() {
   const cardOpacity = useSharedValue(1);
   const flashSuccessOpacity = useSharedValue(0);
   const flashSkipOpacity = useSharedValue(0);
+
+  // Departing ghost card shared values (non-blocking visual exit)
+  const ghostTranslateY = useSharedValue(0);
+  const ghostOpacity = useSharedValue(0);
 
   // Countdown animation values
   const countdownScale = useSharedValue(0.6);
@@ -189,17 +201,26 @@ export default function AliasGameScreen() {
   const burstScale = useSharedValue(0.7);
 
   const animateCardEntrance = useCallback(() => {
-    translateY.value = 22;
     translateX.value = 0;
-    cardScale.value = 0.93;
-    cardOpacity.value = 0;
     flashSuccessOpacity.value = 0;
     flashSkipOpacity.value = 0;
 
-    translateY.value = withSpring(0, { damping: 18, stiffness: 260 });
-    cardScale.value = withSpring(1, { damping: 16, stiffness: 240 });
-    cardOpacity.value = withTiming(1, { duration: 120 });
+    if (reducedMotion) {
+      translateY.value = 0;
+      cardScale.value = 1;
+      cardOpacity.value = 1;
+      return;
+    }
+
+    translateY.value = 18;
+    cardScale.value = 0.94;
+    cardOpacity.value = 0.2;
+
+    translateY.value = withSpring(0, { damping: 20, stiffness: 320 });
+    cardScale.value = withSpring(1, { damping: 18, stiffness: 300 });
+    cardOpacity.value = withTiming(1, { duration: 90 });
   }, [
+    reducedMotion,
     translateY,
     translateX,
     cardScale,
@@ -216,6 +237,7 @@ export default function AliasGameScreen() {
       roundWordIdsRef.current
     );
     if (next) {
+      cardSeqRef.current += 1;
       roundWordIdsRef.current = [...roundWordIdsRef.current, next.id];
       setCurrentCard(next);
       animateCardEntrance();
@@ -236,6 +258,16 @@ export default function AliasGameScreen() {
         type: guessed ? 'success' : 'skip',
       });
 
+      if (reducedMotion) {
+        burstTranslateY.value = 0;
+        burstScale.value = 1;
+        burstOpacity.value = withSequence(
+          withTiming(1, { duration: 40 }),
+          withTiming(0, { duration: 280 })
+        );
+        return;
+      }
+
       burstTranslateY.value = 0;
       burstScale.value = 0.65;
       burstOpacity.value = 1;
@@ -250,14 +282,14 @@ export default function AliasGameScreen() {
         withTiming(0, { duration: 340 })
       );
     },
-    [burstOpacity, burstScale, burstTranslateY]
+    [reducedMotion, burstOpacity, burstScale, burstTranslateY]
   );
 
   const activeModifier =
     activeModifierIdx !== null ? ALIAS_MODIFIERS[activeModifierIdx] : null;
 
   const handleCycleModifier = () => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     setActiveModifierIdx((prev) => {
       if (prev === null) {
         return Math.floor(Math.random() * ALIAS_MODIFIERS.length);
@@ -271,9 +303,13 @@ export default function AliasGameScreen() {
   // 3 - 2 - 1 - ПОГНАЛИ! Countdown sequence
   const handleStartCountdown = () => {
     roundWordIdsRef.current = [];
+    cardSeqRef.current = 0;
+    processedSeqRef.current = -1;
     streakRef.current = 0;
+    isSubmittingRef.current = false;
     setRoundHistory([]);
     setLastSwipedCard(null);
+    setDepartingCard(null);
     setCurrentStreak(0);
     setBestStreak(0);
     setStolenInfo(null);
@@ -283,9 +319,28 @@ export default function AliasGameScreen() {
   };
 
   const handleUndoLastCard = () => {
-    if (!lastSwipedCard || roundHistory.length === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setRoundHistory((prev) => prev.slice(0, -1));
+    if (!lastSwipedCard || roundHistory.length === 0 || isPaused) return;
+    triggerHaptic('light');
+    cardSeqRef.current += 1;
+
+    const nextHistory = roundHistory.slice(0, -1);
+    let trailingStreak = 0;
+    let maxStreak = 0;
+    let running = 0;
+    for (const entry of nextHistory) {
+      if (entry.points > 0) {
+        running += 1;
+        if (running > maxStreak) maxStreak = running;
+      } else {
+        running = 0;
+      }
+    }
+    trailingStreak = running;
+    streakRef.current = trailingStreak;
+    setCurrentStreak(trailingStreak);
+    setBestStreak(maxStreak);
+
+    setRoundHistory(nextHistory);
     setCurrentCard(lastSwipedCard);
     setLastSwipedCard(null);
     animateCardEntrance();
@@ -299,13 +354,18 @@ export default function AliasGameScreen() {
 
     const animateBeat = (label: string, isFinal: boolean) => {
       setCountdownLabel(label);
-      countdownScale.value = 0.55;
-      countdownOpacity.value = 0;
-      countdownScale.value = withSpring(isFinal ? 1.1 : 1, {
-        damping: 12,
-        stiffness: 240,
-      });
-      countdownOpacity.value = withTiming(1, { duration: 110 });
+      if (reducedMotion) {
+        countdownScale.value = 1;
+        countdownOpacity.value = 1;
+      } else {
+        countdownScale.value = 0.55;
+        countdownOpacity.value = 0;
+        countdownScale.value = withSpring(isFinal ? 1.1 : 1, {
+          damping: 12,
+          stiffness: 240,
+        });
+        countdownOpacity.value = withTiming(1, { duration: 110 });
+      }
 
       if (isFinal) {
         playCountdownGo();
@@ -328,20 +388,36 @@ export default function AliasGameScreen() {
     }, 650);
 
     return () => clearInterval(interval);
-  }, [phase, countdownScale, countdownOpacity, pullNextCard]);
+  }, [phase, reducedMotion, countdownScale, countdownOpacity, pullNextCard]);
 
   const handleTimerExpire = useCallback(() => {
     setPhase((prev) => (prev === 'PLAYING' ? 'OVERTIME' : prev));
   }, []);
 
-  const commitCardDecision = useCallback(
+  const triggerCardDecisionWithAnimation = useCallback(
     (guessed: boolean) => {
-      isAnimatingDecisionRef.current = false;
-      if (!currentCard) return;
+      if (
+        isPaused ||
+        !currentCard ||
+        processedSeqRef.current === cardSeqRef.current
+      ) {
+        return;
+      }
+      processedSeqRef.current = cardSeqRef.current;
+
+      if (guessed) {
+        streakRef.current += 1;
+        playWordGuessed(streakRef.current);
+      } else {
+        streakRef.current = 0;
+        playWordSkipped();
+      }
 
       const isBonus = currentCard.difficulty === 3;
       const defaultSkipScore: -1 | 0 = currentStep.penaltyForSkip ? -1 : 0;
       const points: -1 | 0 | 1 | 2 = guessed ? (isBonus ? 2 : 1) : defaultSkipScore;
+
+      triggerFeedbackBurst(guessed, currentStep.penaltyForSkip, isBonus);
 
       const record: RoundWordRecord = {
         id: `${currentCard.id}_${Date.now()}`,
@@ -368,70 +444,44 @@ export default function AliasGameScreen() {
         translateX.value = 0;
         cardScale.value = 1;
         cardOpacity.value = 1;
+        setDepartingCard(null);
         playVictoryFanfare();
         setPhase('REVIEW');
         return;
       }
 
+      // Non-blocking departing ghost animation so next card is interactive immediately
+      if (!reducedMotion) {
+        setDepartingCard({ word: currentCard.word, guessed });
+        ghostTranslateY.value = translateY.value;
+        ghostOpacity.value = 1;
+        ghostTranslateY.value = withTiming(guessed ? -260 : 260, { duration: 170 });
+        ghostOpacity.value = withTiming(0, { duration: 170 });
+      }
+
       pullNextCard();
     },
     [
+      isPaused,
       currentCard,
       currentStep.penaltyForSkip,
       phase,
+      reducedMotion,
+      triggerFeedbackBurst,
       pullNextCard,
       translateY,
       translateX,
       cardScale,
       cardOpacity,
-    ]
-  );
-
-  const triggerCardDecisionWithAnimation = useCallback(
-    (guessed: boolean) => {
-      if (!currentCard || isAnimatingDecisionRef.current) return;
-      isAnimatingDecisionRef.current = true;
-
-      if (guessed) {
-        streakRef.current += 1;
-        playWordGuessed(streakRef.current);
-        flashSuccessOpacity.value = withTiming(1, { duration: 70 });
-      } else {
-        streakRef.current = 0;
-        playWordSkipped();
-        flashSkipOpacity.value = withTiming(1, { duration: 70 });
-      }
-
-      triggerFeedbackBurst(
-        guessed,
-        currentStep.penaltyForSkip,
-        currentCard.difficulty === 3
-      );
-
-      const targetY = guessed ? -320 : 320;
-      cardOpacity.value = withTiming(0, { duration: 130 });
-      cardScale.value = withTiming(0.92, { duration: 130 });
-      translateY.value = withTiming(targetY, { duration: 140 }, () => {
-        runOnJS(commitCardDecision)(guessed);
-      });
-    },
-    [
-      currentCard,
-      currentStep.penaltyForSkip,
-      flashSuccessOpacity,
-      flashSkipOpacity,
-      triggerFeedbackBurst,
-      cardOpacity,
-      cardScale,
-      translateY,
-      commitCardDecision,
+      ghostTranslateY,
+      ghostOpacity,
     ]
   );
 
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(phase === 'PLAYING' || phase === 'OVERTIME')
+        .enabled((phase === 'PLAYING' || phase === 'OVERTIME') && !isPaused)
         .onUpdate((event) => {
           translateY.value = event.translationY;
           translateX.value = event.translationX * 0.25;
@@ -467,6 +517,7 @@ export default function AliasGameScreen() {
         }),
     [
       phase,
+      isPaused,
       triggerCardDecisionWithAnimation,
       translateY,
       translateX,
@@ -526,14 +577,20 @@ export default function AliasGameScreen() {
     ],
   }));
 
+  const animatedGhostCardStyle = useAnimatedStyle(() => ({
+    opacity: ghostOpacity.value,
+    transform: [{ translateY: ghostTranslateY.value }],
+  }));
+
   const animatedCountdownStyle = useAnimatedStyle(() => ({
     opacity: countdownOpacity.value,
     transform: [{ scale: countdownScale.value }],
   }));
 
   const handleStealOvertimeWord = (opponentTeam: { id: string; name: string }) => {
-    if (!currentCard || isAnimatingDecisionRef.current) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!currentCard || processedSeqRef.current === cardSeqRef.current) return;
+    processedSeqRef.current = cardSeqRef.current;
+    triggerHaptic('success');
     const pts = currentCard.difficulty === 3 ? 2 : 1;
     setStolenInfo({
       teamId: opponentTeam.id,
@@ -546,7 +603,7 @@ export default function AliasGameScreen() {
   };
 
   const handleToggleReviewPoints = (recordId: string, nextPoints: -1 | 0 | 1 | 2) => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     setRoundHistory((prev) =>
       prev.map((item) =>
         item.id === recordId ? { ...item, points: nextPoints } : item
@@ -605,7 +662,9 @@ export default function AliasGameScreen() {
   );
 
   const handleConfirmReview = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    triggerHaptic('success');
 
     const skippedWords = roundHistory
       .filter((r) => r.points <= 0)
@@ -883,6 +942,24 @@ export default function AliasGameScreen() {
               style={[styles.backDeckCard, animatedBackCardStyle]}
             />
 
+            {/* Departing Ghost Card for Instant Non-Blocking Feedback */}
+            {departingCard ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.departingGhostCard,
+                  departingCard.guessed
+                    ? styles.departingGhostSuccess
+                    : styles.departingGhostSkip,
+                  animatedGhostCardStyle,
+                ]}
+              >
+                <Text style={styles.departingGhostWord} numberOfLines={2}>
+                  {departingCard.word}
+                </Text>
+              </Animated.View>
+            ) : null}
+
             {/* Active Interactive Word Card */}
             <GestureDetector gesture={panGesture}>
               <Animated.View
@@ -1054,6 +1131,10 @@ export default function AliasGameScreen() {
                 activeOpacity={0.8}
                 style={styles.skipBtn}
                 onPress={() => triggerCardDecisionWithAnimation(false)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  currentStep.penaltyForSkip ? 'Пропуск мінус 1' : 'Пропуск'
+                }
               >
                 <ArrowDown size={18} color={COLORS.textSecondary} />
                 <Text style={styles.skipBtnText}>
@@ -1065,6 +1146,8 @@ export default function AliasGameScreen() {
                 activeOpacity={0.85}
                 style={styles.guessedBtn}
                 onPress={() => triggerCardDecisionWithAnimation(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Вгадали плюс ${currentCard?.difficulty === 3 ? '2' : '1'}`}
               >
                 <ArrowUp size={20} color={COLORS.background} strokeWidth={2.8} />
                 <Text style={styles.guessedBtnText}>
@@ -1760,5 +1843,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.6,
+  },
+  departingGhostCard: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 12,
+  },
+  departingGhostSuccess: {
+    backgroundColor: '#132B23',
+  },
+  departingGhostSkip: {
+    backgroundColor: '#2B151D',
+  },
+  departingGhostWord: {
+    color: COLORS.textPrimary,
+    fontSize: 34,
+    fontWeight: '800',
+    textAlign: 'center',
+    opacity: 0.85,
   },
 });

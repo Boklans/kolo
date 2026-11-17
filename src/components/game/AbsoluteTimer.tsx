@@ -2,14 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
-import { playRoundEndBuzzer, playTimerTick } from '@/utils/sound';
+import { playRoundEndBuzzer, playTimerTick, triggerHaptic } from '@/utils/sound';
 
 interface AbsoluteTimerProps {
   durationSec: number;
@@ -49,6 +49,12 @@ export function AbsoluteTimer({
 
   const pulseScale = useSharedValue(1);
   const barGlowOpacity = useSharedValue(1);
+  const reducedMotion = useReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
 
   useEffect(() => {
     remainingMsRef.current = durationSec * 1000;
@@ -63,15 +69,16 @@ export function AbsoluteTimer({
 
   const triggerTickAnimation = useCallback(
     (secondsLeft: number) => {
+      if (reducedMotionRef.current) return;
       if (secondsLeft <= 10 && secondsLeft > 0) {
-        const peakScale = secondsLeft <= 5 ? 1.14 : 1.08;
+        const peakScale = secondsLeft <= 3 ? 1.15 : secondsLeft <= 5 ? 1.11 : 1.06;
         pulseScale.value = withSequence(
-          withTiming(peakScale, { duration: 110 }),
-          withSpring(1, { damping: 12, stiffness: 220 })
+          withTiming(peakScale, { duration: 100 }),
+          withSpring(1, { damping: 14, stiffness: 240 })
         );
         barGlowOpacity.value = withSequence(
-          withTiming(0.55, { duration: 110 }),
-          withTiming(1, { duration: 240 })
+          withTiming(0.65, { duration: 100 }),
+          withTiming(1, { duration: 220 })
         );
       } else if (secondsLeft <= 20 && secondsLeft > 10) {
         pulseScale.value = withSequence(
@@ -104,13 +111,13 @@ export function AbsoluteTimer({
       triggerTickAnimation(secondsLeft);
 
       if (secondsLeft === 20 || secondsLeft === 15) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        triggerHaptic('light');
         playTimerTick('warning');
       } else if (secondsLeft <= 10 && secondsLeft > 5) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        triggerHaptic('medium');
         playTimerTick('warning');
       } else if (secondsLeft <= 5 && secondsLeft > 0) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        triggerHaptic('heavy');
         playTimerTick('critical');
       }
     }
@@ -178,11 +185,13 @@ export function AbsoluteTimer({
         : accentColor;
 
   const stateLabel =
-    timerState === 'critical'
-      ? 'ФІНАЛЬНІ СЕКУНДИ!'
-      : timerState === 'warning'
-        ? 'ПРИСКОРЮЙСЯ'
-        : 'ЧАС РАУНДУ';
+    displaySeconds <= 3 && displaySeconds > 0
+      ? `ОСТАННІ ${displaySeconds}...`
+      : timerState === 'critical'
+        ? 'ФІНАЛЬНІ 10 СЕКУНД'
+        : timerState === 'warning'
+          ? 'ПРИСКОРЮЙСЯ'
+          : 'ЧАС РАУНДУ';
 
   const minutes = Math.floor(displaySeconds / 60);
   const seconds = displaySeconds % 60;

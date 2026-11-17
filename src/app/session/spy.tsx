@@ -10,12 +10,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 import {
   EyeOff,
   HelpCircle,
@@ -35,6 +36,7 @@ import {
   playSpyDrumrollTick,
   playSpyUnmaskedSting,
   playVictoryFanfare,
+  triggerHaptic,
 } from '@/utils/sound';
 
 type SpyPhase = 'ROLE_DISTRIBUTION' | 'DISCUSSION' | 'RESOLUTION';
@@ -116,6 +118,8 @@ export default function SpyGameScreen() {
   const [spyGuessedLocId, setSpyGuessedLocId] = useState<string | null>(null);
   const [winnerSide, setWinnerSide] = useState<'citizens' | 'spy' | null>(null);
 
+  const reducedMotion = useReducedMotion();
+  const isSubmittingRef = useRef<boolean>(false);
   const unmaskIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const unmaskStartRef = useRef<number>(0);
   const unmaskProgress = useSharedValue(0);
@@ -201,7 +205,7 @@ export default function SpyGameScreen() {
 
   const handleNextPlayerOrStartDiscussion = () => {
     if (!hasSeenRole) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic('medium');
 
     if (isLastPlayer) {
       setPhase('DISCUSSION');
@@ -212,12 +216,12 @@ export default function SpyGameScreen() {
   };
 
   const handleCycleQuestion = () => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     setQuestionIndex((prev) => (prev + 1) % INTERROGATION_QUESTIONS.length);
   };
 
   const handleToggleLocationCross = (locId: string) => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     setCrossedLocationIds((prev) =>
       prev.includes(locId)
         ? prev.filter((id) => id !== locId)
@@ -226,7 +230,7 @@ export default function SpyGameScreen() {
   };
 
   const handleGoToResolution = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    triggerHaptic('warning');
     setIsTruthRevealed(false);
     setIsLocationRevealed(false);
     setSpyGuessedLocId(null);
@@ -250,7 +254,9 @@ export default function SpyGameScreen() {
     setIsUnmaskingHold(true);
     unmaskStartRef.current = Date.now();
     unmaskProgress.value = withTiming(1, { duration: UNMASK_HOLD_MS });
-    unmaskScale.value = withTiming(1.05, { duration: UNMASK_HOLD_MS });
+    if (!reducedMotion) {
+      unmaskScale.value = withTiming(1.05, { duration: UNMASK_HOLD_MS });
+    }
 
     playSpyDrumrollTick(0.1);
 
@@ -269,8 +275,12 @@ export default function SpyGameScreen() {
         }
         setIsUnmaskingHold(false);
         playSpyUnmaskedSting();
-        truthCardScale.value = 0.88;
-        truthCardScale.value = withSpring(1, { damping: 13, stiffness: 220 });
+        if (reducedMotion) {
+          truthCardScale.value = 1;
+        } else {
+          truthCardScale.value = 0.88;
+          truthCardScale.value = withSpring(1, { damping: 13, stiffness: 220 });
+        }
         setIsTruthRevealed(true);
       } else {
         playSpyDrumrollTick(ratio);
@@ -285,9 +295,21 @@ export default function SpyGameScreen() {
       clearInterval(unmaskIntervalRef.current);
       unmaskIntervalRef.current = null;
     }
-    unmaskProgress.value = withTiming(0, { duration: 180 });
-    unmaskScale.value = withSpring(1);
+    unmaskProgress.value = reducedMotion ? 0 : withTiming(0, { duration: 180 });
+    unmaskScale.value = reducedMotion ? 1 : withSpring(1);
   };
+
+  useEffect(() => {
+    if (isPaused && isUnmaskingHold) {
+      setIsUnmaskingHold(false);
+      if (unmaskIntervalRef.current) {
+        clearInterval(unmaskIntervalRef.current);
+        unmaskIntervalRef.current = null;
+      }
+      unmaskProgress.value = 0;
+      unmaskScale.value = 1;
+    }
+  }, [isPaused, isUnmaskingHold, unmaskProgress, unmaskScale]);
 
   const handleSelectWinnerSide = (side: 'citizens' | 'spy') => {
     setWinnerSide(side);
@@ -295,13 +317,16 @@ export default function SpyGameScreen() {
   };
 
   const handlePlayAnotherSpyRound = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (isSubmittingRef.current) return;
+    triggerHaptic('heavy');
     recordSpyOutcome(winnerSide);
     setRoundNonce((n) => n + 1);
   };
 
   const handleFinishSpyStep = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    triggerHaptic('medium');
     recordSpyOutcome(winnerSide);
     advanceToNextStep();
     const updatedState = usePartyStore.getState();
@@ -510,7 +535,10 @@ export default function SpyGameScreen() {
 
       {/* PHASE 3: RESOLUTION (DRUMROLL UNMASKING FINALE) */}
       {phase === 'RESOLUTION' ? (
-        <View style={styles.resolutionBody}>
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeIn.duration(180)}
+          style={styles.resolutionBody}
+        >
           {!isTruthRevealed ? (
             <>
               <View style={styles.resolutionHeader}>
@@ -540,6 +568,8 @@ export default function SpyGameScreen() {
               <Pressable
                 onPressIn={handleStartUnmaskHold}
                 onPressOut={handleStopUnmaskHold}
+                accessibilityRole="button"
+                accessibilityLabel="Утримуй палець, щоб розсекретити шпигуна"
               >
                 <Animated.View
                   style={[styles.unmaskHoldBtn, animatedUnmaskBtnStyle]}
@@ -741,6 +771,12 @@ export default function SpyGameScreen() {
                   activeOpacity={0.88}
                   style={styles.primaryBtn}
                   onPress={handleFinishSpyStep}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    currentStepIndex + 1 < steps.length
+                      ? 'Наступний етап вечірки'
+                      : 'До підсумків вечірки'
+                  }
                 >
                   <Text style={styles.primaryBtnText}>
                     {currentStepIndex + 1 < steps.length
@@ -751,7 +787,7 @@ export default function SpyGameScreen() {
               </View>
             </>
           )}
-        </View>
+        </Animated.View>
       ) : null}
     </SafeAreaView>
   );

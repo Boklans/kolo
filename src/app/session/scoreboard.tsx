@@ -12,15 +12,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
-  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import {
   ArrowRight,
   Copy,
@@ -31,7 +31,7 @@ import {
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
 import { usePartyStore } from '@/stores/usePartyStore';
-import { playVictoryFanfare } from '@/utils/sound';
+import { playVictoryFanfare, triggerHaptic } from '@/utils/sound';
 
 const CONFETTI_PIECES = [
   { left: '8%', color: '#F97316', delay: 0 },
@@ -47,36 +47,34 @@ function ConfettiPiece({
   left,
   color,
   delay,
+  reducedMotion,
 }: {
   left: string;
   color: string;
   delay: number;
+  reducedMotion: boolean;
 }) {
   const translateY = useSharedValue(-16);
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    translateY.value = withDelay(
-      delay,
-      withRepeat(withTiming(110, { duration: 1900 }), 3, false)
-    );
+    if (reducedMotion) return;
+    translateY.value = withDelay(delay, withTiming(110, { duration: 1900 }));
     opacity.value = withDelay(
       delay,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 300 }),
-          withTiming(0, { duration: 1600 })
-        ),
-        3,
-        false
+      withSequence(
+        withTiming(1, { duration: 300 }),
+        withTiming(0, { duration: 1600 })
       )
     );
-  }, [delay, opacity, translateY]);
+  }, [delay, opacity, translateY, reducedMotion]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }, { rotateZ: '18deg' }],
   }));
+
+  if (reducedMotion) return null;
 
   return (
     <Animated.View
@@ -144,6 +142,7 @@ export default function ScoreboardScreen() {
 
   const currentStep = steps[currentStepIndex];
   const nextTeam = teams[currentTeamIndex];
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (isCompleted) {
@@ -152,18 +151,18 @@ export default function ScoreboardScreen() {
   }, [isCompleted]);
 
   const handleContinue = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    triggerHaptic('heavy');
     router.replace('/session/orchestrator');
   };
 
   const handleRematch = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    triggerHaptic('heavy');
     restartRematch();
     router.replace('/session/orchestrator');
   };
 
   const handleExitToHome = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    triggerHaptic('success');
     endSession();
     router.replace('/');
   };
@@ -202,7 +201,7 @@ export default function ScoreboardScreen() {
   };
 
   const handleSharePartySummary = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic('medium');
     const message = buildPartySummaryText();
     try {
       await Share.share({ message });
@@ -218,7 +217,7 @@ export default function ScoreboardScreen() {
   const handleCopyPartySummary = async () => {
     const message = buildPartySummaryText();
     await Clipboard.setStringAsync(message);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    triggerHaptic('success');
     Alert.alert(
       'Скопійовано!',
       'Підсумки вечірки скопійовано в буфер обміну.'
@@ -267,30 +266,24 @@ export default function ScoreboardScreen() {
         ) : null}
 
         {/* Editorial Header */}
-        <View style={styles.headerBlock}>
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeIn.duration(200)}
+          style={styles.headerBlock}
+        >
           {isCompleted ? (
-            <View
-              pointerEvents="none"
-              style={{
-                position: 'absolute',
-                top: -8,
-                left: 0,
-                right: 0,
-                height: 120,
-                zIndex: 10,
-              }}
-            >
+            <View pointerEvents="none" style={styles.confettiWrap}>
               {CONFETTI_PIECES.map((p, idx) => (
                 <ConfettiPiece
                   key={idx}
                   left={p.left}
                   color={p.color}
                   delay={p.delay}
+                  reducedMotion={Boolean(reducedMotion)}
                 />
               ))}
             </View>
           ) : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={styles.headerTagRow}>
             {isCompleted ? <Sparkles size={13} color={COLORS.hot} /> : null}
             <Text style={[styles.overline, isCompleted && { color: COLORS.hot }]}>
               {isCompleted ? 'ФІНАЛ ШОУ · ВІТАЄМО ЧЕМПІОНІВ!' : 'ТУРНІРНА ТАБЛИЦЯ'}
@@ -299,7 +292,7 @@ export default function ScoreboardScreen() {
           <Text style={styles.title}>
             {isCompleted ? presetTitle || 'Фінал гри' : 'Рахунок команд'}
           </Text>
-        </View>
+        </Animated.View>
 
         {/* Standings List */}
         {hasTeamSteps ? (
@@ -561,8 +554,12 @@ export default function ScoreboardScreen() {
             activeOpacity={0.85}
             style={styles.continueButton}
             onPress={handleContinue}
+            accessibilityRole="button"
+            accessibilityLabel={
+              nextTeam ? `${nextTeam.name}, ваш вихід` : 'Продовжити вечірку'
+            }
           >
-            <Text style={styles.continueButtonText}>
+            <Text style={styles.continueButtonText} numberOfLines={1}>
               {nextTeam
                 ? `${nextTeam.name.toUpperCase()}, ВАШ ВИХІД!`
                 : 'ПРОДОВЖИТИ ВЕЧІРКУ'}
@@ -857,6 +854,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  confettiWrap: {
+    position: 'absolute',
+    top: -8,
+    left: 0,
+    right: 0,
+    height: 120,
+    zIndex: 10,
+  },
+  headerTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   footer: {
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
@@ -868,7 +878,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     backgroundColor: COLORS.primary,
-    height: 58,
+    minHeight: 58,
+    paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
   },
   continueButtonText: {
@@ -876,12 +887,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.4,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   homeButton: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.primary,
-    height: 58,
+    minHeight: 58,
+    paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
   },
   homeButtonText: {
@@ -889,5 +903,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
 });

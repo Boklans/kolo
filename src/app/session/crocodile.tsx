@@ -11,12 +11,12 @@ import { useRouter } from 'expo-router';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-import { Dices, Eye, RefreshCw, Sparkles } from 'lucide-react-native';
+import { Dices, Eye, EyeOff, RefreshCw, Sparkles } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -27,8 +27,10 @@ import { CrocodileItem, CrocodileStep } from '@/types';
 import {
   playCountdownBeep,
   playCountdownGo,
+  playVictoryFanfare,
   playWordGuessed,
   playWordSkipped,
+  triggerHaptic,
 } from '@/utils/sound';
 
 type CrocodilePhase = 'READY' | 'PREPARATION' | 'COUNTDOWN' | 'ACTING' | 'RESULT';
@@ -120,12 +122,13 @@ export default function CrocodileGameScreen() {
   const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
   const [turnGuessed, setTurnGuessed] = useState<boolean>(false);
   const [activeModifierIdx, setActiveModifierIdx] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const activeModifier =
     activeModifierIdx !== null ? CROCODILE_MODIFIERS[activeModifierIdx] : null;
 
   const handleCycleModifier = () => {
-    Haptics.selectionAsync();
+    triggerHaptic('selection');
     setActiveModifierIdx((prev) => {
       if (prev === null) {
         return Math.floor(Math.random() * CROCODILE_MODIFIERS.length);
@@ -137,6 +140,7 @@ export default function CrocodileGameScreen() {
   };
 
   const turnExcludeIdsRef = useRef<string[]>([]);
+  const isSubmittingRef = useRef<boolean>(false);
 
   const countdownScale = useSharedValue(0.6);
   const countdownOpacity = useSharedValue(0);
@@ -155,8 +159,9 @@ export default function CrocodileGameScreen() {
   }, [deck, drawNextItem]);
 
   const handleShowPhraseToActor = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic('medium');
     turnExcludeIdsRef.current = [];
+    isSubmittingRef.current = false;
     setSwapsRemaining(1);
     setIsTimeExpired(false);
     pullNextPhrase();
@@ -165,7 +170,7 @@ export default function CrocodileGameScreen() {
 
   const handleSwapPhrase = () => {
     if (swapsRemaining <= 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic('light');
     setSwapsRemaining(0);
     pullNextPhrase();
   };
@@ -185,13 +190,18 @@ export default function CrocodileGameScreen() {
 
     const animateBeat = (label: string, isFinal: boolean) => {
       setCountdownLabel(label);
-      countdownScale.value = 0.55;
-      countdownOpacity.value = 0;
-      countdownScale.value = withSpring(isFinal ? 1.1 : 1, {
-        damping: 12,
-        stiffness: 240,
-      });
-      countdownOpacity.value = withTiming(1, { duration: 110 });
+      if (reducedMotion) {
+        countdownScale.value = 1;
+        countdownOpacity.value = 1;
+      } else {
+        countdownScale.value = 0.55;
+        countdownOpacity.value = 0;
+        countdownScale.value = withSpring(isFinal ? 1.1 : 1, {
+          damping: 12,
+          stiffness: 240,
+        });
+        countdownOpacity.value = withTiming(1, { duration: 110 });
+      }
 
       if (isFinal) {
         playCountdownGo();
@@ -213,7 +223,7 @@ export default function CrocodileGameScreen() {
     }, 650);
 
     return () => clearInterval(interval);
-  }, [phase, countdownScale, countdownOpacity]);
+  }, [phase, reducedMotion, countdownScale, countdownOpacity]);
 
   const animatedCountdownStyle = useAnimatedStyle(() => ({
     opacity: countdownOpacity.value,
@@ -235,7 +245,9 @@ export default function CrocodileGameScreen() {
   const targetPoints = (isBonusPhrase ? 3 : 2) + (activeModifier ? 1 : 0);
 
   const handleConfirmAndNextTeam = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    triggerHaptic('success');
     const points = turnGuessed ? targetPoints : 0;
     const phraseText = currentPhrase?.phrase;
 
@@ -395,21 +407,25 @@ export default function CrocodileGameScreen() {
               adjustsFontSizeToFit
               numberOfLines={4}
             >
-              {currentPhrase?.phrase ?? 'Завантаження...'}
+              {isPaused ? '⏸ ПАУЗА · ПРИХОВАНО' : currentPhrase?.phrase ?? 'Завантаження...'}
             </Text>
 
-            {swapsRemaining > 0 ? (
+            {swapsRemaining > 0 && !isPaused ? (
               <TouchableOpacity
                 activeOpacity={0.75}
                 style={styles.subtleSwapAction}
                 onPress={handleSwapPhrase}
                 hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+                accessibilityRole="button"
+                accessibilityLabel="Замінити слово"
               >
                 <RefreshCw size={14} color={COLORS.textSecondary} />
-                <Text style={styles.subtleSwapText}>Замінити фразу (1 раз)</Text>
+                <Text style={styles.subtleSwapText}>Замінити слово (1 раз)</Text>
               </TouchableOpacity>
             ) : (
-              <Text style={styles.swapUsedLabel}>Заміну використано</Text>
+              <Text style={styles.swapUsedLabel}>
+                {isPaused ? 'Натисни «Продовжити» в меню паузи' : 'Заміну використано'}
+              </Text>
             )}
           </View>
 
@@ -473,29 +489,49 @@ export default function CrocodileGameScreen() {
           </View>
 
           <View style={styles.actingCenter}>
+            {activeModifier ? (
+              <View style={styles.activeModifierPill}>
+                <Text style={styles.activeModifierText}>
+                  {activeModifier.emoji} {activeModifier.title}: {activeModifier.desc}
+                </Text>
+              </View>
+            ) : null}
+
             <Pressable
               onPressIn={() => {
-                Haptics.selectionAsync();
+                if (isPaused) return;
+                triggerHaptic('selection');
                 setIsPeekingSpoiler(true);
               }}
               onPressOut={() => setIsPeekingSpoiler(false)}
               style={[
                 styles.peekSurface,
-                isPeekingSpoiler && styles.peekSurfaceActive,
+                isPeekingSpoiler && !isPaused && styles.peekSurfaceActive,
               ]}
+              accessibilityRole="button"
+              accessibilityLabel="Утримуй, щоб підглянути секретне слово"
             >
-              <Eye
-                size={22}
-                color={isPeekingSpoiler ? COLORS.crocodile : COLORS.textMuted}
-              />
-              {isPeekingSpoiler ? (
-                <Text style={styles.peekRevealedText}>
-                  {currentPhrase?.phrase}
-                </Text>
+              {isPaused ? (
+                <>
+                  <EyeOff size={24} color={COLORS.textMuted} />
+                  <Text style={styles.peekPromptText}>
+                    ПАУЗА · ЗАВДАННЯ ПРИХОВАНО
+                  </Text>
+                </>
+              ) : isPeekingSpoiler ? (
+                <>
+                  <Eye size={22} color={COLORS.crocodile} />
+                  <Text style={styles.peekRevealedText}>
+                    {currentPhrase?.phrase}
+                  </Text>
+                </>
               ) : (
-                <Text style={styles.peekPromptText}>
-                  Забув завдання? Утримуй палець тут, щоб підглянути
-                </Text>
+                <>
+                  <Eye size={22} color={COLORS.textMuted} />
+                  <Text style={styles.peekPromptText}>
+                    Забув слово? Утримуй палець, щоб підглянути
+                  </Text>
+                </>
               )}
             </Pressable>
           </View>
@@ -505,6 +541,8 @@ export default function CrocodileGameScreen() {
               activeOpacity={0.88}
               style={styles.dominantBtn}
               onPress={() => handleFinishTurn(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Команда вгадала, плюс ${targetPoints} бали`}
             >
               <Text style={styles.dominantBtnText}>
                 КОМАНДА ВГАДАЛА!  +{targetPoints}
@@ -515,6 +553,8 @@ export default function CrocodileGameScreen() {
               activeOpacity={0.8}
               style={styles.secondaryBtn}
               onPress={() => handleFinishTurn(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Не вгадали, 0 балів"
             >
               <Text style={styles.secondaryBtnText}>Не вгадали · 0 балів</Text>
             </TouchableOpacity>
@@ -524,33 +564,47 @@ export default function CrocodileGameScreen() {
 
       {/* PHASE 5: ROUND RESULT SPLASH */}
       {phase === 'RESULT' ? (
-        <Animated.View entering={FadeIn.duration(180)} style={styles.screenBody}>
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeIn.duration(180)}
+          style={styles.screenBody}
+        >
           <View
             style={[
               styles.resultHeroCard,
               turnGuessed ? styles.resultCardSuccess : styles.resultCardMissed,
             ]}
           >
-            <Text
-              style={[
-                styles.resultOverline,
-                { color: turnGuessed ? COLORS.crocodile : COLORS.spy },
-              ]}
-            >
-              {turnGuessed ? 'БРАВО АКТОРУ! 👏' : 'СЬОГОДНІ БЕЗ ОСКАРА'}
-            </Text>
+            <View style={styles.resultTopBadge}>
+              <Text
+                style={[
+                  styles.resultOverline,
+                  { color: turnGuessed ? COLORS.crocodile : COLORS.spy },
+                ]}
+              >
+                {turnGuessed ? 'БРАВО АКТОРУ!' : 'ЧАС ВИЙШОВ'}
+              </Text>
+            </View>
 
-            <Text style={styles.resultPointsGiant}>
-              {turnGuessed ? `+${targetPoints} БАЛИ` : '0 БАЛІВ'}
-            </Text>
-
-            <Text style={styles.resultTeamName}>{currentTeam.name}</Text>
+            <View style={styles.resultScoreCenter}>
+              <Text style={styles.resultPointsGiant}>
+                {turnGuessed ? `+${targetPoints}` : '0'}
+              </Text>
+              <Text style={styles.resultPointsUnit}>
+                {turnGuessed ? 'БАЛІВ У ЗАЛІК' : 'БАЛІВ'}
+              </Text>
+              <Text style={styles.resultTeamName}>{currentTeam.name}</Text>
+            </View>
 
             <View style={styles.resultPhraseBox}>
               <Text style={styles.resultPhraseLabel}>СЛОВО РАУНДУ</Text>
               <Text style={styles.resultPhraseValue}>
                 «{currentPhrase?.phrase}»
               </Text>
+              {turnGuessed && activeModifier ? (
+                <Text style={styles.resultModifierBonus}>
+                  {activeModifier.emoji} Бонус за умову (+1 бал)
+                </Text>
+              ) : null}
             </View>
           </View>
 
@@ -558,6 +612,8 @@ export default function CrocodileGameScreen() {
             activeOpacity={0.88}
             style={styles.dominantBtn}
             onPress={handleConfirmAndNextTeam}
+            accessibilityRole="button"
+            accessibilityLabel="Далі, наступна команда"
           >
             <Text style={styles.dominantBtnText}>
               ДАЛІ · НАСТУПНА КОМАНДА →
@@ -787,6 +843,19 @@ const styles = StyleSheet.create({
   actingCenter: {
     flex: 1,
     justifyContent: 'center',
+    gap: SPACING.md,
+  },
+  activeModifierPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+  },
+  activeModifierText: {
+    color: COLORS.crocodile,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   peekSurface: {
     backgroundColor: COLORS.surface,
@@ -822,10 +891,9 @@ const styles = StyleSheet.create({
   resultHeroCard: {
     flex: 1,
     borderRadius: RADIUS.xl,
-    padding: SPACING.xxl,
+    padding: SPACING.xl,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.md,
+    justifyContent: 'space-between',
   },
   resultCardSuccess: {
     backgroundColor: '#13241E',
@@ -833,30 +901,53 @@ const styles = StyleSheet.create({
   resultCardMissed: {
     backgroundColor: COLORS.surface,
   },
+  resultTopBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+  },
   resultOverline: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.8,
+    letterSpacing: 1.6,
+  },
+  resultScoreCenter: {
+    alignItems: 'center',
+    gap: 4,
   },
   resultPointsGiant: {
     color: COLORS.textPrimary,
-    fontSize: 54,
+    fontSize: 72,
     fontWeight: '900',
-    letterSpacing: -1.8,
+    letterSpacing: -2.2,
+    fontVariant: ['tabular-nums'],
+  },
+  resultPointsUnit: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.8,
+    marginBottom: SPACING.sm,
   },
   resultTeamName: {
-    color: COLORS.textSecondary,
-    fontSize: 20,
-    fontWeight: '700',
+    color: COLORS.textPrimary,
+    fontSize: 22,
+    fontWeight: '800',
   },
   resultPhraseBox: {
-    marginTop: SPACING.lg,
     width: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     alignItems: 'center',
     gap: 6,
+  },
+  resultModifierBonus: {
+    color: COLORS.crocodile,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
   resultPhraseLabel: {
     color: COLORS.textMuted,
