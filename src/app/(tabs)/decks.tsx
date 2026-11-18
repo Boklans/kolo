@@ -171,7 +171,7 @@ export default function DecksScreen() {
 
     try {
       await Share.share({
-        message: `Колода KOLO «${deck.title}» (${words.length} карток)\n\nСкопіюй список нижче та встав у «Колоди → Імпорт»:\n\n${listText}`,
+        message: `Колода Balaka «${deck.title}» (${words.length} карток)\n\nСкопіюй список нижче та встав у «Колоди → Імпорт»:\n\n${listText}`,
       });
     } catch {
       Alert.alert(
@@ -279,7 +279,7 @@ export default function DecksScreen() {
       deck.items.alias[0]?.word ??
       deck.items.crocodile[0]?.phrase ??
       deck.items.spyLocations[0]?.name ??
-      'KOLO';
+      'BALAKA';
 
     return (
       <TouchableOpacity
@@ -368,7 +368,7 @@ export default function DecksScreen() {
         {/* Official Party Packs Grid (2-Column Box Covers) */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionOverline}>
-            ОФІЦІЙНІ ВИДАННЯ KOLO · {OFFICIAL_DECKS.length}
+            ОФІЦІЙНІ ВИДАННЯ BALAKA · {OFFICIAL_DECKS.length}
           </Text>
           <View style={styles.coversGrid}>
             {OFFICIAL_DECKS.map(renderDeckCover)}

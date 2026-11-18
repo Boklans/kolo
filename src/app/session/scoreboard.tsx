@@ -169,7 +169,7 @@ export default function ScoreboardScreen() {
 
   const buildPartySummaryText = () => {
     const lines: string[] = [
-      `KOLO · ПІДСУМКИ ВЕЧІРКИ «${presetTitle || 'Вечірка'}»`,
+      `BALAKA · ПІДСУМКИ ВЕЧІРКИ «${presetTitle || 'Вечірка'}»`,
       '',
     ];
 
@@ -406,7 +406,7 @@ export default function ScoreboardScreen() {
             >
               {/* Top Brand Row */}
               <View style={styles.posterBrandRow}>
-                <Text style={styles.posterBrandName}>KOLO</Text>
+                <Text style={styles.posterBrandName}>BALAKA</Text>
                 <Text style={styles.posterPresetTag}>
                   {presetTitle || 'Вечірка'}
                 </Text>
@@ -426,7 +426,7 @@ export default function ScoreboardScreen() {
                     ? isTie
                       ? `${rankedTeams[0].name} & ${rankedTeams[1].name}`
                       : winnerTeam.name
-                    : presetTitle || 'KOLO Party'}
+                    : presetTitle || 'Balaka Party'}
                 </Text>
                 {hasTeamSteps && winnerTeam ? (
                   <Text style={styles.posterScoreSub}>

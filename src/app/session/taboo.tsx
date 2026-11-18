@@ -10,11 +10,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   Extrapolation,
   FadeIn,
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSequence,
   withSpring,
@@ -121,7 +123,10 @@ export default function TabooGameScreen() {
   const [phase, setPhase] = useState<TabooPhase>('READY');
   const [countdownLabel, setCountdownLabel] = useState<string>('3');
   const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [currentCard, setCurrentCard] = useState<TabooItem | null>(null);
+  const [slotCards, setSlotCards] = useState<
+    [{ item: TabooItem; num: number } | null, { item: TabooItem; num: number } | null]
+  >([null, null]);
+  const [frontSlot, setFrontSlot] = useState<0 | 1>(0);
   const [lastSwipedCard, setLastSwipedCard] = useState<TabooItem | null>(null);
   const [roundHistory, setRoundHistory] = useState<RoundWordRecord[]>([]);
   const [currentStreak, setCurrentStreak] = useState<number>(0);
@@ -131,17 +136,69 @@ export default function TabooGameScreen() {
     type: 'success' | 'skip';
   } | null>(null);
 
+  const currentCard = slotCards[frontSlot]?.item ?? null;
+  const reducedMotion = useReducedMotion();
+
   const roundWordIdsRef = useRef<string[]>([]);
-  const isAnimatingDecisionRef = useRef<boolean>(false);
+  const cardSeqRef = useRef<number>(0);
+  const processedSeqRef = useRef<number>(-1);
+  const nextCardNumRef = useRef<number>(1);
+  const frontSlotRef = useRef<0 | 1>(0);
+  const slotCardsRef = useRef<
+    [{ item: TabooItem; num: number } | null, { item: TabooItem; num: number } | null]
+  >([null, null]);
+  const pendingRefillRef = useRef<
+    [{ item: TabooItem; num: number } | null, { item: TabooItem; num: number } | null]
+  >([null, null]);
+  const refillTimersRef = useRef<
+    [ReturnType<typeof setTimeout> | null, ReturnType<typeof setTimeout> | null]
+  >([null, null]);
   const streakRef = useRef<number>(0);
   const isSubmittingRef = useRef<boolean>(false);
 
-  const translateY = useSharedValue(0);
-  const translateX = useSharedValue(0);
-  const cardScale = useSharedValue(1);
-  const cardOpacity = useSharedValue(1);
-  const flashSuccessOpacity = useSharedValue(0);
-  const flashSkipOpacity = useSharedValue(0);
+  const frontSlotSV = useSharedValue<number>(0);
+  const phaseSV = useSharedValue<number>(0); // 1 = PLAYING, 2 = OVERTIME
+  const isPausedSV = useSharedValue<boolean>(false);
+  const reducedMotionSV = useSharedValue<boolean>(false);
+
+  useEffect(() => {
+    phaseSV.value = phase === 'PLAYING' ? 1 : phase === 'OVERTIME' ? 2 : 0;
+  }, [phase, phaseSV]);
+
+  useEffect(() => {
+    isPausedSV.value = isPaused;
+  }, [isPaused, isPausedSV]);
+
+  useEffect(() => {
+    reducedMotionSV.value = Boolean(reducedMotion);
+  }, [reducedMotion, reducedMotionSV]);
+
+  const s0Y = useSharedValue(0);
+  const s0X = useSharedValue(0);
+  const s0Scale = useSharedValue(1);
+  const s0Opacity = useSharedValue(1);
+  const s0FlashSuccess = useSharedValue(0);
+  const s0FlashSkip = useSharedValue(0);
+  const s0Z = useSharedValue(10);
+
+  const s1Y = useSharedValue(6);
+  const s1X = useSharedValue(0);
+  const s1Scale = useSharedValue(0.96);
+  const s1Opacity = useSharedValue(1);
+  const s1FlashSuccess = useSharedValue(0);
+  const s1FlashSkip = useSharedValue(0);
+  const s1Z = useSharedValue(5);
+
+  const clearRefillTimers = useCallback(() => {
+    for (const idx of [0, 1] as const) {
+      if (refillTimersRef.current[idx]) {
+        clearTimeout(refillTimersRef.current[idx]!);
+        refillTimersRef.current[idx] = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => () => clearRefillTimers(), [clearRefillTimers]);
 
   const countdownScale = useSharedValue(0.6);
   const countdownOpacity = useSharedValue(0);
@@ -150,27 +207,7 @@ export default function TabooGameScreen() {
   const burstTranslateY = useSharedValue(0);
   const burstScale = useSharedValue(0.7);
 
-  const animateCardEntrance = useCallback(() => {
-    translateY.value = 22;
-    translateX.value = 0;
-    cardScale.value = 0.93;
-    cardOpacity.value = 0;
-    flashSuccessOpacity.value = 0;
-    flashSkipOpacity.value = 0;
-
-    translateY.value = withSpring(0, { damping: 18, stiffness: 260 });
-    cardScale.value = withSpring(1, { damping: 16, stiffness: 240 });
-    cardOpacity.value = withTiming(1, { duration: 120 });
-  }, [
-    translateY,
-    translateX,
-    cardScale,
-    cardOpacity,
-    flashSuccessOpacity,
-    flashSkipOpacity,
-  ]);
-
-  const pullNextCard = useCallback(() => {
+  const drawSingleDeckEntry = useCallback((): { item: TabooItem; num: number } | null => {
     const pool =
       deck.items.taboo && deck.items.taboo.length > 0
         ? deck.items.taboo
@@ -182,12 +219,64 @@ export default function TabooGameScreen() {
       pool,
       roundWordIdsRef.current
     );
-    if (next) {
-      roundWordIdsRef.current = [...roundWordIdsRef.current, next.id];
-      setCurrentCard(next);
-      animateCardEntrance();
-    }
-  }, [deck, drawNextItem, animateCardEntrance]);
+    if (!next) return null;
+    roundWordIdsRef.current = [...roundWordIdsRef.current, next.id];
+    const num = nextCardNumRef.current;
+    nextCardNumRef.current += 1;
+    return { item: next, num };
+  }, [deck, drawNextItem]);
+
+  const setSlotPoseImmediate = useCallback(
+    (slotIdx: 0 | 1, role: 'front' | 'back') => {
+      const ySV = slotIdx === 0 ? s0Y : s1Y;
+      const xSV = slotIdx === 0 ? s0X : s1X;
+      const scSV = slotIdx === 0 ? s0Scale : s1Scale;
+      const opSV = slotIdx === 0 ? s0Opacity : s1Opacity;
+      const fsSV = slotIdx === 0 ? s0FlashSuccess : s1FlashSuccess;
+      const fkSV = slotIdx === 0 ? s0FlashSkip : s1FlashSkip;
+      const zSV = slotIdx === 0 ? s0Z : s1Z;
+
+      cancelAnimation(ySV);
+      cancelAnimation(xSV);
+      cancelAnimation(scSV);
+      cancelAnimation(opSV);
+      cancelAnimation(fsSV);
+      cancelAnimation(fkSV);
+
+      xSV.value = 0;
+      fsSV.value = 0;
+      fkSV.value = 0;
+      opSV.value = 1;
+      ySV.value = role === 'front' ? 0 : 6;
+      scSV.value = role === 'front' ? 1 : 0.96;
+      zSV.value = role === 'front' ? 10 : 5;
+    },
+    [
+      s0Y, s0X, s0Scale, s0Opacity, s0FlashSuccess, s0FlashSkip, s0Z,
+      s1Y, s1X, s1Scale, s1Opacity, s1FlashSuccess, s1FlashSkip, s1Z,
+    ]
+  );
+
+  const initRoundDeckSlots = useCallback(() => {
+    clearRefillTimers();
+    pendingRefillRef.current = [null, null];
+    nextCardNumRef.current = 1;
+    const first = drawSingleDeckEntry();
+    const second = drawSingleDeckEntry();
+    const nextSlots: [
+      { item: TabooItem; num: number } | null,
+      { item: TabooItem; num: number } | null,
+    ] = [first, second];
+
+    cardSeqRef.current += 1;
+    frontSlotRef.current = 0;
+    frontSlotSV.value = 0;
+    slotCardsRef.current = nextSlots;
+    setSlotCards(nextSlots);
+    setFrontSlot(0);
+    setSlotPoseImmediate(0, 'front');
+    setSlotPoseImmediate(1, 'back');
+  }, [clearRefillTimers, drawSingleDeckEntry, frontSlotSV, setSlotPoseImmediate]);
 
   const triggerFeedbackBurst = useCallback(
     (outcome: 'guessed' | 'skip' | 'taboo', isBonus?: boolean) => {
@@ -203,6 +292,16 @@ export default function TabooGameScreen() {
         text,
         type: outcome === 'guessed' ? 'success' : 'skip',
       });
+
+      if (reducedMotion) {
+        burstTranslateY.value = 0;
+        burstScale.value = 1;
+        burstOpacity.value = withSequence(
+          withTiming(1, { duration: 40 }),
+          withTiming(0, { duration: 280 })
+        );
+        return;
+      }
 
       burstTranslateY.value = 0;
       burstScale.value = 0.65;
@@ -220,15 +319,22 @@ export default function TabooGameScreen() {
         withTiming(0, { duration: 340 })
       );
     },
-    [burstOpacity, burstScale, burstTranslateY]
+    [reducedMotion, burstOpacity, burstScale, burstTranslateY]
   );
 
   const handleStartCountdown = () => {
+    clearRefillTimers();
     roundWordIdsRef.current = [];
+    cardSeqRef.current = 0;
+    processedSeqRef.current = -1;
+    nextCardNumRef.current = 1;
+    pendingRefillRef.current = [null, null];
     streakRef.current = 0;
     isSubmittingRef.current = false;
     setRoundHistory([]);
     setLastSwipedCard(null);
+    setSlotCards([null, null]);
+    slotCardsRef.current = [null, null];
     setCurrentStreak(0);
     setBestStreak(0);
     setFeedbackBurst(null);
@@ -239,6 +345,9 @@ export default function TabooGameScreen() {
   const handleUndoLastCard = () => {
     if (!lastSwipedCard || roundHistory.length === 0 || isPaused) return;
     triggerHaptic('light');
+    clearRefillTimers();
+    pendingRefillRef.current = [null, null];
+    cardSeqRef.current += 1;
 
     const nextHistory = roundHistory.slice(0, -1);
     let maxStreak = 0;
@@ -255,10 +364,24 @@ export default function TabooGameScreen() {
     setCurrentStreak(running);
     setBestStreak(maxStreak);
 
+    const active = frontSlotRef.current;
+    const back = (1 - active) as 0 | 1;
+    const restoredEntry = { item: lastSwipedCard, num: nextHistory.length + 1 };
+    const updatedSlots: [
+      { item: TabooItem; num: number } | null,
+      { item: TabooItem; num: number } | null,
+    ] = [...slotCardsRef.current] as [
+      { item: TabooItem; num: number } | null,
+      { item: TabooItem; num: number } | null,
+    ];
+    updatedSlots[active] = restoredEntry;
+    slotCardsRef.current = updatedSlots;
+    setSlotCards(updatedSlots);
+    setSlotPoseImmediate(active, 'front');
+    setSlotPoseImmediate(back, 'back');
+
     setRoundHistory(nextHistory);
-    setCurrentCard(lastSwipedCard);
     setLastSwipedCard(null);
-    animateCardEntrance();
   };
 
   useEffect(() => {
@@ -269,13 +392,18 @@ export default function TabooGameScreen() {
 
     const animateBeat = (label: string, isFinal: boolean) => {
       setCountdownLabel(label);
-      countdownScale.value = 0.55;
-      countdownOpacity.value = 0;
-      countdownScale.value = withSpring(isFinal ? 1.1 : 1, {
-        damping: 12,
-        stiffness: 240,
-      });
-      countdownOpacity.value = withTiming(1, { duration: 110 });
+      if (reducedMotion) {
+        countdownScale.value = 1;
+        countdownOpacity.value = 1;
+      } else {
+        countdownScale.value = 0.55;
+        countdownOpacity.value = 0;
+        countdownScale.value = withSpring(isFinal ? 1.1 : 1, {
+          damping: 12,
+          stiffness: 240,
+        });
+        countdownOpacity.value = withTiming(1, { duration: 110 });
+      }
 
       if (isFinal) {
         playCountdownGo();
@@ -292,24 +420,41 @@ export default function TabooGameScreen() {
         animateBeat(sequence[stepIdx], stepIdx === sequence.length - 1);
       } else {
         clearInterval(interval);
-        pullNextCard();
+        initRoundDeckSlots();
         setPhase('PLAYING');
       }
     }, 650);
 
     return () => clearInterval(interval);
-  }, [phase, countdownScale, countdownOpacity, pullNextCard]);
+  }, [phase, reducedMotion, countdownScale, countdownOpacity, initRoundDeckSlots]);
 
   const handleTimerExpire = useCallback(() => {
     setPhase((prev) => (prev === 'PLAYING' ? 'OVERTIME' : prev));
   }, []);
 
-  const commitCardDecision = useCallback(
-    (outcome: 'guessed' | 'skip' | 'taboo') => {
-      isAnimatingDecisionRef.current = false;
-      if (!currentCard) return;
+  const commitSlotDecision = useCallback(
+    (exitedSlot: 0 | 1, outcome: 'guessed' | 'skip' | 'taboo') => {
+      const swipedEntry = slotCardsRef.current[exitedSlot];
+      if (
+        isPaused ||
+        !swipedEntry ||
+        exitedSlot !== frontSlotRef.current ||
+        processedSeqRef.current === cardSeqRef.current
+      ) {
+        return;
+      }
+      processedSeqRef.current = cardSeqRef.current;
 
-      const isBonus = currentCard.difficulty === 3;
+      const swipedItem = swipedEntry.item;
+      if (outcome === 'guessed') {
+        streakRef.current += 1;
+        playWordGuessed(streakRef.current);
+      } else {
+        streakRef.current = 0;
+        playWordSkipped();
+      }
+
+      const isBonus = swipedItem.difficulty === 3;
       const points: -1 | 0 | 1 | 2 =
         outcome === 'guessed'
           ? isBonus
@@ -319,14 +464,16 @@ export default function TabooGameScreen() {
             ? -1
             : 0;
 
+      triggerFeedbackBurst(outcome, isBonus);
+
       const record: RoundWordRecord = {
-        id: `${currentCard.id}_${Date.now()}`,
-        word: currentCard.word,
+        id: `${swipedItem.id}_${Date.now()}`,
+        word: swipedItem.word,
         points,
         isBonus,
       };
 
-      setLastSwipedCard(currentCard);
+      setLastSwipedCard(swipedItem);
       setRoundHistory((prev) => [...prev, record]);
 
       if (outcome === 'guessed') {
@@ -340,137 +487,308 @@ export default function TabooGameScreen() {
       }
 
       if (phase === 'OVERTIME') {
-        translateY.value = 0;
-        translateX.value = 0;
-        cardScale.value = 1;
-        cardOpacity.value = 1;
+        clearRefillTimers();
+        pendingRefillRef.current = [null, null];
+        setSlotPoseImmediate(exitedSlot, 'front');
         playVictoryFanfare();
         setPhase('REVIEW');
         return;
       }
 
-      pullNextCard();
+      const nextSlot = (1 - exitedSlot) as 0 | 1;
+
+      if (refillTimersRef.current[nextSlot]) {
+        clearTimeout(refillTimersRef.current[nextSlot]!);
+        refillTimersRef.current[nextSlot] = null;
+      }
+      if (pendingRefillRef.current[nextSlot]) {
+        const readyEntry = pendingRefillRef.current[nextSlot];
+        pendingRefillRef.current[nextSlot] = null;
+        const flushedSlots: [
+          { item: TabooItem; num: number } | null,
+          { item: TabooItem; num: number } | null,
+        ] = [...slotCardsRef.current] as [
+          { item: TabooItem; num: number } | null,
+          { item: TabooItem; num: number } | null,
+        ];
+        flushedSlots[nextSlot] = readyEntry;
+        slotCardsRef.current = flushedSlots;
+        setSlotCards(flushedSlots);
+        setSlotPoseImmediate(nextSlot, 'front');
+      }
+
+      cardSeqRef.current += 1;
+      frontSlotRef.current = nextSlot;
+      frontSlotSV.value = nextSlot;
+      setFrontSlot(nextSlot);
+
+      const upcoming = drawSingleDeckEntry();
+      pendingRefillRef.current[exitedSlot] = upcoming;
+
+      const applyRefill = () => {
+        refillTimersRef.current[exitedSlot] = null;
+        const refillEntry = pendingRefillRef.current[exitedSlot];
+        if (!refillEntry || frontSlotRef.current === exitedSlot) return;
+        pendingRefillRef.current[exitedSlot] = null;
+
+        const updatedSlots: [
+          { item: TabooItem; num: number } | null,
+          { item: TabooItem; num: number } | null,
+        ] = [...slotCardsRef.current] as [
+          { item: TabooItem; num: number } | null,
+          { item: TabooItem; num: number } | null,
+        ];
+        updatedSlots[exitedSlot] = refillEntry;
+        slotCardsRef.current = updatedSlots;
+        setSlotCards(updatedSlots);
+
+        requestAnimationFrame(() => {
+          if (frontSlotRef.current !== exitedSlot) {
+            setSlotPoseImmediate(exitedSlot, 'back');
+          }
+        });
+      };
+
+      if (reducedMotion) {
+        applyRefill();
+      } else {
+        refillTimersRef.current[exitedSlot] = setTimeout(applyRefill, 175);
+      }
     },
     [
-      currentCard,
+      isPaused,
       currentStep.penaltyForTaboo,
       phase,
-      pullNextCard,
-      translateY,
-      translateX,
-      cardScale,
-      cardOpacity,
+      reducedMotion,
+      triggerFeedbackBurst,
+      clearRefillTimers,
+      setSlotPoseImmediate,
+      frontSlotSV,
+      drawSingleDeckEntry,
     ]
   );
 
-  const triggerCardDecisionWithAnimation = useCallback(
+  const triggerButtonDecision = useCallback(
     (outcome: 'guessed' | 'skip' | 'taboo') => {
-      if (!currentCard || isAnimatingDecisionRef.current) return;
-      isAnimatingDecisionRef.current = true;
-
-      if (outcome === 'guessed') {
-        streakRef.current += 1;
-        playWordGuessed(streakRef.current);
-        flashSuccessOpacity.value = withTiming(1, { duration: 70 });
-      } else {
-        streakRef.current = 0;
-        playWordSkipped();
-        flashSkipOpacity.value = withTiming(1, { duration: 70 });
+      const active = frontSlotRef.current;
+      const next = (1 - active) as 0 | 1;
+      if (
+        isPaused ||
+        !slotCardsRef.current[active] ||
+        processedSeqRef.current === cardSeqRef.current
+      ) {
+        return;
       }
 
-      triggerFeedbackBurst(outcome, currentCard.difficulty === 3);
+      if (phase === 'PLAYING') {
+        const ySV = active === 0 ? s0Y : s1Y;
+        const scSV = active === 0 ? s0Scale : s1Scale;
+        const opSV = active === 0 ? s0Opacity : s1Opacity;
+        const fsSV = active === 0 ? s0FlashSuccess : s1FlashSuccess;
+        const fkSV = active === 0 ? s0FlashSkip : s1FlashSkip;
+        const zSV = active === 0 ? s0Z : s1Z;
 
-      const targetY = outcome === 'guessed' ? -320 : 320;
-      cardOpacity.value = withTiming(0, { duration: 130 });
-      cardScale.value = withTiming(0.92, { duration: 130 });
-      translateY.value = withTiming(targetY, { duration: 140 }, () => {
-        runOnJS(commitCardDecision)(outcome);
-      });
+        const nextYSV = next === 0 ? s0Y : s1Y;
+        const nextXSV = next === 0 ? s0X : s1X;
+        const nextScSV = next === 0 ? s0Scale : s1Scale;
+        const nextOpSV = next === 0 ? s0Opacity : s1Opacity;
+        const nextZSV = next === 0 ? s0Z : s1Z;
+
+        if (reducedMotion) {
+          zSV.value = 5;
+          opSV.value = 0;
+        } else {
+          zSV.value = 20;
+          fsSV.value = outcome === 'guessed' ? 0.65 : 0;
+          fkSV.value = outcome === 'guessed' ? 0 : 0.65;
+          ySV.value = withTiming(outcome === 'guessed' ? -420 : 420, { duration: 165 });
+          scSV.value = withTiming(0.96, { duration: 165 });
+          opSV.value = withSequence(
+            withTiming(1, { duration: 115 }),
+            withTiming(0, { duration: 50 })
+          );
+        }
+
+        nextZSV.value = 10;
+        nextXSV.value = 0;
+        nextYSV.value = 0;
+        nextOpSV.value = 1;
+        nextScSV.value = reducedMotion
+          ? 1
+          : withSpring(1, { damping: 20, stiffness: 320 });
+      }
+
+      commitSlotDecision(active, outcome);
     },
     [
-      currentCard,
-      flashSuccessOpacity,
-      flashSkipOpacity,
-      triggerFeedbackBurst,
-      cardOpacity,
-      cardScale,
-      translateY,
-      commitCardDecision,
+      isPaused,
+      phase,
+      reducedMotion,
+      commitSlotDecision,
+      s0Y, s0X, s0Scale, s0Opacity, s0FlashSuccess, s0FlashSkip, s0Z,
+      s1Y, s1X, s1Scale, s1Opacity, s1FlashSuccess, s1FlashSkip, s1Z,
     ]
   );
 
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(phase === 'PLAYING' || phase === 'OVERTIME')
+        .enabled((phase === 'PLAYING' || phase === 'OVERTIME') && !isPaused)
+        .activeOffsetY([-10, 10])
         .onUpdate((event) => {
-          translateY.value = event.translationY;
-          translateX.value = event.translationX * 0.25;
+          const active = frontSlotSV.value;
+          const isZero = active === 0;
+          const ySV = isZero ? s0Y : s1Y;
+          const xSV = isZero ? s0X : s1X;
+          const scSV = isZero ? s0Scale : s1Scale;
+          const fsSV = isZero ? s0FlashSuccess : s1FlashSuccess;
+          const fkSV = isZero ? s0FlashSkip : s1FlashSkip;
+
+          const backYSV = isZero ? s1Y : s0Y;
+          const backScSV = isZero ? s1Scale : s0Scale;
+
+          ySV.value = event.translationY;
+          xSV.value = event.translationX * 0.22;
           const progress = Math.min(1, Math.abs(event.translationY) / 200);
-          cardScale.value = 1 - progress * 0.03;
+          scSV.value = 1 - progress * 0.03;
 
           if (event.translationY < 0) {
-            flashSuccessOpacity.value = Math.min(
-              0.85,
-              Math.abs(event.translationY) / 140
-            );
-            flashSkipOpacity.value = 0;
+            fsSV.value = Math.min(0.75, Math.abs(event.translationY) / 140);
+            fkSV.value = 0;
           } else {
-            flashSkipOpacity.value = Math.min(
-              0.85,
-              event.translationY / 140
-            );
-            flashSuccessOpacity.value = 0;
+            fkSV.value = Math.min(0.75, event.translationY / 140);
+            fsSV.value = 0;
+          }
+
+          if (phaseSV.value === 1) {
+            const lift = Math.min(1, Math.abs(event.translationY) / 140);
+            backScSV.value = interpolate(lift, [0, 1], [0.96, 1], Extrapolation.CLAMP);
+            backYSV.value = interpolate(lift, [0, 1], [6, 0], Extrapolation.CLAMP);
           }
         })
         .onEnd((event) => {
-          if (event.translationY < -SWIPE_THRESHOLD) {
-            runOnJS(triggerCardDecisionWithAnimation)('guessed');
-          } else if (event.translationY > SWIPE_THRESHOLD) {
-            runOnJS(triggerCardDecisionWithAnimation)('skip');
+          const active = frontSlotSV.value === 0 ? 0 : 1;
+          const isZero = active === 0;
+          const ySV = isZero ? s0Y : s1Y;
+          const xSV = isZero ? s0X : s1X;
+          const scSV = isZero ? s0Scale : s1Scale;
+          const opSV = isZero ? s0Opacity : s1Opacity;
+          const fsSV = isZero ? s0FlashSuccess : s1FlashSuccess;
+          const fkSV = isZero ? s0FlashSkip : s1FlashSkip;
+          const zSV = isZero ? s0Z : s1Z;
+
+          const backYSV = isZero ? s1Y : s0Y;
+          const backXSV = isZero ? s1X : s0X;
+          const backScSV = isZero ? s1Scale : s0Scale;
+          const backOpSV = isZero ? s1Opacity : s0Opacity;
+          const backZSV = isZero ? s1Z : s0Z;
+
+          const swipedUp = event.translationY < -SWIPE_THRESHOLD;
+          const swipedDown = event.translationY > SWIPE_THRESHOLD;
+
+          if (swipedUp || swipedDown) {
+            const outcome = swipedUp ? 'guessed' : 'skip';
+            if (phaseSV.value === 1 && !isPausedSV.value) {
+              if (reducedMotionSV.value) {
+                zSV.value = 5;
+                opSV.value = 0;
+              } else {
+                zSV.value = 20;
+                fsSV.value = outcome === 'guessed' ? 0.65 : 0;
+                fkSV.value = outcome === 'guessed' ? 0 : 0.65;
+                ySV.value = withTiming(outcome === 'guessed' ? -420 : 420, { duration: 160 });
+                scSV.value = withTiming(0.96, { duration: 160 });
+                opSV.value = withSequence(
+                  withTiming(1, { duration: 110 }),
+                  withTiming(0, { duration: 50 })
+                );
+              }
+
+              const nextSlot = active === 0 ? 1 : 0;
+              frontSlotSV.value = nextSlot;
+              backZSV.value = 10;
+              backXSV.value = 0;
+              backYSV.value = 0;
+              backOpSV.value = 1;
+              backScSV.value = reducedMotionSV.value
+                ? 1
+                : withTiming(1, { duration: 130 });
+            }
+            runOnJS(commitSlotDecision)(active, outcome);
           } else {
-            translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
-            translateX.value = withSpring(0, { damping: 18, stiffness: 220 });
-            cardScale.value = withSpring(1);
-            flashSuccessOpacity.value = withTiming(0, { duration: 120 });
-            flashSkipOpacity.value = withTiming(0, { duration: 120 });
+            ySV.value = withSpring(0, { damping: 24, stiffness: 280, overshootClamping: true });
+            xSV.value = withSpring(0, { damping: 24, stiffness: 280, overshootClamping: true });
+            scSV.value = withTiming(1, { duration: 120 });
+            fsSV.value = withTiming(0, { duration: 120 });
+            fkSV.value = withTiming(0, { duration: 120 });
+            if (phaseSV.value === 1) {
+              backScSV.value = withTiming(0.96, { duration: 130 });
+              backYSV.value = withTiming(6, { duration: 130 });
+            }
           }
         }),
     [
       phase,
-      triggerCardDecisionWithAnimation,
-      translateY,
-      translateX,
-      cardScale,
-      flashSuccessOpacity,
-      flashSkipOpacity,
+      isPaused,
+      frontSlotSV,
+      phaseSV,
+      isPausedSV,
+      reducedMotionSV,
+      commitSlotDecision,
+      s0Y, s0X, s0Scale, s0Opacity, s0FlashSuccess, s0FlashSkip, s0Z,
+      s1Y, s1X, s1Scale, s1Opacity, s1FlashSuccess, s1FlashSkip, s1Z,
     ]
   );
 
-  const animatedCardStyle = useAnimatedStyle(() => {
+  const slot0AnimatedStyle = useAnimatedStyle(() => {
     const rotateDeg = interpolate(
-      translateX.value,
+      s0X.value,
       [-60, 0, 60],
       [-4, 0, 4],
       Extrapolation.CLAMP
     );
     return {
-      opacity: cardOpacity.value,
+      opacity: s0Opacity.value,
+      zIndex: s0Z.value,
       transform: [
-        { translateY: translateY.value },
-        { translateX: translateX.value },
-        { scale: cardScale.value },
+        { translateY: s0Y.value },
+        { translateX: s0X.value },
+        { scale: s0Scale.value },
         { rotateZ: `${rotateDeg}deg` },
       ],
     };
   });
 
-  const animatedSuccessOverlayStyle = useAnimatedStyle(() => ({
-    opacity: flashSuccessOpacity.value,
-  }));
+  const slot1AnimatedStyle = useAnimatedStyle(() => {
+    const rotateDeg = interpolate(
+      s1X.value,
+      [-60, 0, 60],
+      [-4, 0, 4],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity: s1Opacity.value,
+      zIndex: s1Z.value,
+      transform: [
+        { translateY: s1Y.value },
+        { translateX: s1X.value },
+        { scale: s1Scale.value },
+        { rotateZ: `${rotateDeg}deg` },
+      ],
+    };
+  });
 
-  const animatedSkipOverlayStyle = useAnimatedStyle(() => ({
-    opacity: flashSkipOpacity.value,
+  const slot0SuccessOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s0FlashSuccess.value,
+  }));
+  const slot0SkipOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s0FlashSkip.value,
+  }));
+  const slot1SuccessOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s1FlashSuccess.value,
+  }));
+  const slot1SkipOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s1FlashSkip.value,
   }));
 
   const animatedBurstStyle = useAnimatedStyle(() => ({
@@ -546,55 +864,82 @@ export default function TabooGameScreen() {
 
       {/* PHASE 1: READY */}
       {phase === 'READY' ? (
-        <View style={styles.readyBody}>
-          <View style={styles.calloutStageCard}>
-            <View style={styles.calloutTopRow}>
-              <View style={styles.roundBadge}>
-                <ShieldAlert size={13} color={COLORS.taboo} />
-                <Text style={styles.roundBadgeText}>
-                  РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
-                </Text>
-              </View>
-              <Text style={styles.teamCurrentScoreText}>
-                Рахунок: {currentTeamTotalScore}
-              </Text>
-            </View>
-
-            <View style={styles.calloutHeroCenter}>
-              <Text style={styles.calloutOverline}>МІННЕ ПОЛЕ СЛІВ</Text>
-              <Text style={styles.calloutTeamName}>{currentTeam.name}</Text>
-              <Text style={styles.calloutInstruction}>
-                Поясни головне слово, НЕ називаючи 4 заборонені слова під ним!
-                Суперник стежить через плече.
-              </Text>
-            </View>
-
-            <View style={styles.calloutRulesRow}>
-              <View style={styles.ruleMiniBlock}>
-                <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
-                <Text style={styles.ruleMiniValue} numberOfLines={1}>
-                  {deck.title}
-                </Text>
-              </View>
-              <View style={styles.ruleMiniDivider} />
-              <View style={styles.ruleMiniBlock}>
-                <Text style={styles.ruleMiniLabel}>СКАЗАВ ТАБУ-СЛОВО</Text>
-                <Text style={[styles.ruleMiniValue, { color: COLORS.spy }]}>
-                  {currentStep.penaltyForTaboo ? 'Штраф −1 бал' : 'Пропуск (0)'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={styles.launchButton}
-            onPress={handleStartCountdown}
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeIn.duration(180)}
+          style={styles.readyBody}
+        >
+          <ScrollView
+            style={styles.readyScroll}
+            contentContainerStyle={styles.readyScrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.launchButtonSub}>ГОТОВІ?</Text>
-            <Text style={styles.launchButtonTitle}>ПОЧАТИ ВІДЛІК 3 · 2 · 1</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.readyMainGroup}>
+              <View style={styles.calloutStageCard}>
+                <View style={styles.calloutTopRow}>
+                  <View style={styles.roundBadge}>
+                    <ShieldAlert size={12} color={COLORS.taboo} />
+                    <Text style={styles.roundBadgeText}>
+                      РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
+                    </Text>
+                  </View>
+                  <Text style={styles.teamCurrentScoreText}>
+                    Рахунок: {currentTeamTotalScore}
+                  </Text>
+                </View>
+
+                <View style={styles.calloutHeroCenter}>
+                  <Text style={styles.calloutOverline}>МІННЕ ПОЛЕ СЛІВ</Text>
+                  <Text style={styles.calloutTeamName} numberOfLines={2}>
+                    {currentTeam.name}
+                  </Text>
+                  <Text style={styles.calloutInstruction}>
+                    Поясни головне слово, НЕ називаючи 4 заборонені слова під ним!
+                    Суперник стежить через плече.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.readySettingsBlock}>
+                <View style={styles.calloutRulesRow}>
+                  <View style={styles.ruleMiniBlock}>
+                    <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
+                    <Text style={styles.ruleMiniValue} numberOfLines={1}>
+                      {deck.title}
+                    </Text>
+                  </View>
+                  <View style={styles.ruleMiniDivider} />
+                  <View style={styles.ruleMiniBlock}>
+                    <Text style={styles.ruleMiniLabel}>СКАЗАВ ТАБУ-СЛОВО</Text>
+                    <Text style={[styles.ruleMiniValue, { color: COLORS.spy }]}>
+                      {currentStep.penaltyForTaboo ? 'Штраф −1 бал' : 'Пропуск (0)'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.gestureLegendRow}>
+                  <View style={styles.gestureLegendItem}>
+                    <ArrowUp size={14} color={COLORS.crocodile} strokeWidth={2.6} />
+                    <Text style={styles.gestureLegendText}>Вгору — Вгадали</Text>
+                  </View>
+                  <View style={styles.gestureLegendDivider} />
+                  <View style={styles.gestureLegendItem}>
+                    <ArrowDown size={14} color={COLORS.textMuted} strokeWidth={2.4} />
+                    <Text style={styles.gestureLegendText}>Вниз — Пас</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.launchButton}
+              onPress={handleStartCountdown}
+            >
+              <Text style={styles.launchButtonSub}>ГОТОВІ?</Text>
+              <Text style={styles.launchButtonTitle}>ПОЧАТИ ВІДЛІК 3 · 2 · 1</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </Animated.View>
       ) : null}
 
       {/* PHASE 2: COUNTDOWN */}
@@ -622,39 +967,27 @@ export default function TabooGameScreen() {
       {phase === 'PLAYING' || phase === 'OVERTIME' ? (
         <View style={styles.playingBody}>
           <View style={styles.topHud}>
-            <View style={styles.hudHeaderRow}>
-              <View style={styles.hudTeamBlock}>
-                <Text style={styles.hudTeamName} numberOfLines={1}>
-                  {currentTeam.name}
-                </Text>
-                {currentStreak >= 2 ? (
-                  <View style={styles.streakBadge}>
-                    <Flame size={13} color={COLORS.hot} />
-                    <Text style={styles.streakBadgeText}>
-                      {currentStreak} ПІДРЯД!
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.liveScorePill}>
-                <Text style={styles.liveScoreLabel}>РАУНД</Text>
-                <Text
-                  style={[
-                    styles.liveScoreValue,
-                    totalRoundPoints > 0 && { color: COLORS.crocodile },
-                    totalRoundPoints < 0 && { color: COLORS.spy },
-                  ]}
-                >
-                  {totalRoundPoints > 0
-                    ? `+${totalRoundPoints}`
-                    : totalRoundPoints}
-                </Text>
-              </View>
-            </View>
-
             {phase === 'OVERTIME' ? (
               <View style={styles.overtimeBanner}>
+                <View style={styles.hudHeaderRow}>
+                  <Text style={styles.hudTeamName} numberOfLines={1}>
+                    {currentTeam.name}
+                  </Text>
+                  <View style={styles.liveScorePill}>
+                    <Text style={styles.liveScoreLabel}>РАУНД</Text>
+                    <Text
+                      style={[
+                        styles.liveScoreValue,
+                        totalRoundPoints > 0 && { color: COLORS.crocodile },
+                        totalRoundPoints < 0 && { color: COLORS.spy },
+                      ]}
+                    >
+                      {totalRoundPoints > 0
+                        ? `+${totalRoundPoints}`
+                        : totalRoundPoints}
+                    </Text>
+                  </View>
+                </View>
                 <Text style={styles.overtimeOverline}>ЧАС ВИЙШОВ!</Text>
                 <Text style={styles.overtimeTitle}>
                   Фінальна картка раунду — дограйте її!
@@ -667,11 +1000,43 @@ export default function TabooGameScreen() {
                 onExpire={handleTimerExpire}
                 accentColor={COLORS.taboo}
                 size="hero"
+                headerSlot={
+                  <View style={styles.hudHeaderRow}>
+                    <View style={styles.hudTeamBlock}>
+                      <Text style={styles.hudTeamName} numberOfLines={1}>
+                        {currentTeam.name}
+                      </Text>
+                      {currentStreak >= 2 ? (
+                        <View style={styles.streakBadge}>
+                          <Flame size={12} color={COLORS.hot} />
+                          <Text style={styles.streakBadgeText}>
+                            {currentStreak} ПІДРЯД
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.liveScorePill}>
+                      <Text style={styles.liveScoreLabel}>РАУНД</Text>
+                      <Text
+                        style={[
+                          styles.liveScoreValue,
+                          totalRoundPoints > 0 && { color: COLORS.crocodile },
+                          totalRoundPoints < 0 && { color: COLORS.spy },
+                        ]}
+                      >
+                        {totalRoundPoints > 0
+                          ? `+${totalRoundPoints}`
+                          : totalRoundPoints}
+                      </Text>
+                    </View>
+                  </View>
+                }
               />
             )}
           </View>
 
-          {/* Word & Taboo Card Stage */}
+          {/* Clipped 2-Slot Taboo Card Stage */}
           <View style={styles.cardStage}>
             {feedbackBurst ? (
               <Animated.View
@@ -689,95 +1054,125 @@ export default function TabooGameScreen() {
             ) : null}
 
             <GestureDetector gesture={panGesture}>
-              <Animated.View style={[styles.wordSurface, animatedCardStyle]}>
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.cardFlashOverlay,
-                    styles.cardFlashSuccess,
-                    animatedSuccessOverlayStyle,
-                  ]}
-                />
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.cardFlashOverlay,
-                    styles.cardFlashSkip,
-                    animatedSkipOverlayStyle,
-                  ]}
-                />
+              <View style={styles.cardSlot}>
+                <View pointerEvents="none" style={styles.underDeckLayer} />
 
-                <View style={styles.cardTopEdge}>
-                  {currentCard?.difficulty === 3 ? (
-                    <View
+                {([0, 1] as const).map((slotIdx) => {
+                  const entry = slotCards[slotIdx];
+                  if (!entry) return null;
+                  const isFront = frontSlot === slotIdx;
+                  const slotAnimStyle =
+                    slotIdx === 0 ? slot0AnimatedStyle : slot1AnimatedStyle;
+                  const successOverlayStyle =
+                    slotIdx === 0
+                      ? slot0SuccessOverlayStyle
+                      : slot1SuccessOverlayStyle;
+                  const skipOverlayStyle =
+                    slotIdx === 0
+                      ? slot0SkipOverlayStyle
+                      : slot1SkipOverlayStyle;
+
+                  return (
+                    <Animated.View
+                      key={slotIdx}
+                      pointerEvents={isFront ? 'auto' : 'none'}
                       style={[
-                        styles.cardCounterPill,
-                        styles.cardBonusPill,
+                        styles.wordSurface,
+                        styles.wordSurfaceAbsolute,
+                        phase === 'OVERTIME' && styles.wordSurfaceOvertime,
+                        slotAnimStyle,
                       ]}
                     >
-                      <Text style={styles.cardBonusText}>
-                        🔥 БОНУС x2 · +2
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.cardCounterPill}>
-                      <Text style={styles.cardCounterText}>
-                        #{String(roundHistory.length + 1).padStart(2, '0')}
-                      </Text>
-                    </View>
-                  )}
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.cardFlashOverlay,
+                          styles.cardFlashSuccess,
+                          successOverlayStyle,
+                        ]}
+                      />
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.cardFlashOverlay,
+                          styles.cardFlashSkip,
+                          skipOverlayStyle,
+                        ]}
+                      />
 
-                  {lastSwipedCard && phase === 'PLAYING' ? (
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={handleUndoLastCard}
-                      style={[styles.cardCounterPill, styles.cardUndoPill]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Повернути попереднє слово"
-                    >
-                      <RotateCcw size={11} color={COLORS.cardInkMuted} />
-                      <Text style={styles.cardUndoText}>Повернути</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View />
-                  )}
-                </View>
+                      <View style={styles.cardTopEdge}>
+                        {entry.item.difficulty === 3 ? (
+                          <View style={[styles.cardCounterPill, styles.cardBonusPill]}>
+                            <Text style={styles.cardBonusText}>🔥 БОНУС +2</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.cardCounterPill}>
+                            <Text style={styles.cardCounterText}>
+                              #{String(entry.num).padStart(2, '0')}
+                            </Text>
+                          </View>
+                        )}
 
-                <View style={styles.wordCenterWrap}>
-                  <Text
-                    style={[
-                      styles.dominantWord,
-                      {
-                        fontSize: getWordFontSize(
-                          isPaused ? 'ПАУЗА' : currentCard?.word ?? 'Готово'
-                        ),
-                      },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {isPaused ? '⏸ ПАУЗА' : currentCard?.word ?? 'Готово'}
-                  </Text>
-                </View>
+                        {isFront && lastSwipedCard && phase === 'PLAYING' ? (
+                          <TouchableOpacity
+                            activeOpacity={0.75}
+                            onPress={handleUndoLastCard}
+                            style={[styles.cardCounterPill, styles.cardUndoPill]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Повернути попереднє слово"
+                          >
+                            <RotateCcw size={12} color={COLORS.textSecondary} />
+                            <Text style={styles.cardUndoText}>Повернути</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View />
+                        )}
+                      </View>
 
-                {/* Forbidden Words Zone */}
-                <View style={styles.tabooZone}>
-                  <View style={styles.tabooZoneHeader}>
-                    <Ban size={13} color={COLORS.cardTabooDangerInk} />
-                    <Text style={styles.tabooZoneOverline}>
-                      ЗАБОРОНЕНІ СЛОВА (НЕ ВЖИВАТИ)
-                    </Text>
-                  </View>
-                  <View style={styles.tabooWordsGrid}>
-                    {(isPaused ? [] : currentCard?.forbiddenWords ?? []).map(
-                      (fw, idx) => (
-                        <View key={idx} style={styles.tabooWordPill}>
-                          <Text style={styles.tabooWordText}>{fw}</Text>
+                      <View style={styles.wordCenterWrap}>
+                        <Text
+                          style={[
+                            styles.dominantWord,
+                            {
+                              fontSize: getWordFontSize(
+                                isPaused ? 'ПАУЗА' : entry.item.word
+                              ),
+                            },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {isPaused ? '⏸ ПАУЗА' : entry.item.word}
+                        </Text>
+                      </View>
+
+                      {/* Forbidden Words Danger Zone */}
+                      <View style={styles.tabooZone}>
+                        <View style={styles.tabooZoneHeader}>
+                          <Ban size={12} color="#FDA4AF" />
+                          <Text style={styles.tabooZoneOverline}>
+                            ЗАБОРОНЕНІ СЛОВА
+                          </Text>
                         </View>
-                      )
-                    )}
-                  </View>
-                </View>
-              </Animated.View>
+                        <View style={styles.tabooWordsGrid}>
+                          {(isPaused ? [] : entry.item.forbiddenWords ?? []).map(
+                            (fw, idx) => (
+                              <View key={idx} style={styles.tabooWordPill}>
+                                <Text
+                                  style={styles.tabooWordText}
+                                  numberOfLines={1}
+                                  adjustsFontSizeToFit
+                                >
+                                  {fw}
+                                </Text>
+                              </View>
+                            )
+                          )}
+                        </View>
+                      </View>
+                    </Animated.View>
+                  );
+                })}
+              </View>
             </GestureDetector>
           </View>
 
@@ -786,7 +1181,7 @@ export default function TabooGameScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               style={styles.skipBtn}
-              onPress={() => triggerCardDecisionWithAnimation('skip')}
+              onPress={() => triggerButtonDecision('skip')}
             >
               <ArrowDown size={16} color={COLORS.textSecondary} />
               <Text style={styles.skipBtnText}>Пас (0)</Text>
@@ -795,16 +1190,16 @@ export default function TabooGameScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.tabooPenaltyBtn}
-              onPress={() => triggerCardDecisionWithAnimation('taboo')}
+              onPress={() => triggerButtonDecision('taboo')}
             >
-              <Ban size={16} color={COLORS.spy} />
+              <Ban size={15} color={COLORS.textPrimary} />
               <Text style={styles.tabooPenaltyBtnText}>ТАБУ −1</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.guessedBtn}
-              onPress={() => triggerCardDecisionWithAnimation('guessed')}
+              onPress={() => triggerButtonDecision('guessed')}
             >
               <ArrowUp size={18} color={COLORS.background} strokeWidth={2.8} />
               <Text style={styles.guessedBtnText}>
@@ -920,22 +1315,29 @@ const styles = StyleSheet.create({
   },
   readyBody: {
     flex: 1,
+  },
+  readyScroll: {
+    flex: 1,
+  },
+  readyScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.xl,
-    justifyContent: 'space-between',
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    gap: SPACING.md,
+  },
+  readyMainGroup: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: SPACING.md,
   },
   calloutStageCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#161026',
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.25)',
-    borderTopWidth: 5,
-    borderTopColor: COLORS.taboo,
+    borderColor: 'rgba(168, 85, 247, 0.28)',
     padding: SPACING.xl,
-    justifyContent: 'space-between',
-    marginBottom: SPACING.lg,
+    gap: SPACING.lg,
   },
   calloutTopRow: {
     flexDirection: 'row',
@@ -946,24 +1348,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(168, 85, 247, 0.14)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(168, 85, 247, 0.16)',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
   roundBadgeText: {
     color: COLORS.taboo,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.1,
   },
   teamCurrentScoreText: {
     color: COLORS.textSecondary,
     fontSize: 13,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   calloutHeroCenter: {
-    gap: 10,
+    gap: 6,
   },
   calloutOverline: {
     color: COLORS.taboo,
@@ -973,21 +1376,29 @@ const styles = StyleSheet.create({
   },
   calloutTeamName: {
     color: COLORS.textPrimary,
-    fontSize: 40,
+    fontSize: 38,
     fontWeight: '900',
-    letterSpacing: -1.2,
+    letterSpacing: -1.1,
+    lineHeight: 44,
   },
   calloutInstruction: {
     color: COLORS.textSecondary,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 21,
+    marginTop: 2,
+  },
+  readySettingsBlock: {
+    gap: 10,
   },
   calloutRulesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     borderRadius: RADIUS.lg,
-    padding: SPACING.md,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
   },
   ruleMiniBlock: {
     flex: 1,
@@ -1010,26 +1421,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  gestureLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.md,
+  },
+  gestureLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  gestureLegendText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  gestureLegendDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: COLORS.border,
+  },
   launchButton: {
     backgroundColor: COLORS.taboo,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipTaboo,
-    borderRadius: RADIUS.xl,
-    paddingVertical: 17,
+    borderRadius: RADIUS.lg,
+    paddingVertical: 16,
     alignItems: 'center',
     gap: 2,
   },
   launchButtonSub: {
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.78)',
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.4,
+    letterSpacing: 1.6,
   },
   launchButtonTitle: {
     color: COLORS.textPrimary,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
   },
   countdownBody: {
     flex: 1,
@@ -1068,18 +1504,18 @@ const styles = StyleSheet.create({
   playingBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.xs,
     paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
-    gap: SPACING.md,
+    gap: 8,
   },
   topHud: {
-    gap: 8,
+    paddingTop: 2,
   },
   hudHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: SPACING.sm,
   },
   hudTeamBlock: {
     flexDirection: 'row',
@@ -1091,6 +1527,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '800',
+    flexShrink: 1,
   },
   streakBadge: {
     flexDirection: 'row',
@@ -1098,61 +1535,91 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: 'rgba(249, 115, 22, 0.16)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: RADIUS.full,
   },
   streakBadgeText: {
     color: COLORS.hot,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   liveScorePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
   liveScoreLabel: {
     color: COLORS.textMuted,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   liveScoreValue: {
     color: COLORS.textPrimary,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   overtimeBanner: {
-    backgroundColor: 'rgba(249, 115, 22, 0.14)',
+    backgroundColor: '#241218',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
     borderRadius: RADIUS.lg,
-    padding: 12,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    gap: 6,
   },
   overtimeOverline: {
     color: COLORS.hot,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: 1.4,
   },
   overtimeTitle: {
     color: COLORS.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
   cardStage: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardSlot: {
+    width: '100%',
+    flex: 1,
+    maxHeight: 380,
+    minHeight: 240,
+    position: 'relative',
+  },
+  underDeckLayer: {
+    position: 'absolute',
+    top: 6,
+    left: 10,
+    right: 10,
+    bottom: -6,
+    backgroundColor: '#120D1E',
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.16)',
   },
   burstBadge: {
     position: 'absolute',
-    top: 12,
+    top: 4,
     alignSelf: 'center',
-    zIndex: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    zIndex: 30,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
   burstBadgeSuccess: {
@@ -1162,19 +1629,32 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.spy,
   },
   burstBadgeText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
+    color: COLORS.background,
+    fontSize: 17,
     fontWeight: '900',
+    letterSpacing: -0.3,
   },
   wordSurface: {
     flex: 1,
-    backgroundColor: COLORS.cardPaper,
+    backgroundColor: '#181228',
     borderRadius: RADIUS.xl,
-    borderBottomWidth: 6,
-    borderBottomColor: COLORS.lipPaper,
-    padding: SPACING.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.32)',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
     justifyContent: 'space-between',
     overflow: 'hidden',
+  },
+  wordSurfaceAbsolute: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  wordSurfaceOvertime: {
+    backgroundColor: '#241712',
+    borderColor: COLORS.hot,
   },
   cardFlashOverlay: {
     position: 'absolute',
@@ -1182,12 +1662,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
+    borderRadius: RADIUS.xl,
   },
   cardFlashSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.34)',
+    backgroundColor: 'rgba(16, 185, 129, 0.28)',
   },
   cardFlashSkip: {
-    backgroundColor: 'rgba(244, 63, 94, 0.3)',
+    backgroundColor: 'rgba(244, 63, 94, 0.25)',
   },
   cardTopEdge: {
     flexDirection: 'row',
@@ -1195,25 +1676,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardCounterPill: {
-    backgroundColor: 'rgba(18, 18, 24, 0.07)',
-    paddingHorizontal: 11,
-    paddingVertical: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
   cardCounterText: {
-    color: COLORS.cardInkMuted,
+    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.1,
+    letterSpacing: 1,
+    fontVariant: ['tabular-nums'],
   },
   cardBonusPill: {
     backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
   },
   cardBonusText: {
-    color: '#C2410C',
+    color: COLORS.hot,
     fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
   },
   cardUndoPill: {
     flexDirection: 'row',
@@ -1221,71 +1706,64 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   cardUndoText: {
-    color: COLORS.cardInkMuted,
+    color: COLORS.textSecondary,
     fontSize: 11,
-    fontWeight: '800',
-  },
-  swipeDirectionHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  swipeUpHintText: {
-    color: COLORS.crocodile,
-    fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   wordCenterWrap: {
-    paddingVertical: SPACING.md,
+    flex: 1,
+    paddingVertical: SPACING.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dominantWord: {
-    color: COLORS.cardInk,
+    color: COLORS.textPrimary,
     fontSize: 40,
     fontWeight: '900',
     textAlign: 'center',
     letterSpacing: -1.2,
   },
   tabooZone: {
-    backgroundColor: COLORS.cardTabooDangerBg,
+    backgroundColor: '#24101A',
     borderWidth: 1,
-    borderColor: 'rgba(190, 18, 60, 0.16)',
+    borderColor: 'rgba(244, 63, 94, 0.28)',
     borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    gap: 10,
+    padding: SPACING.sm,
+    gap: 8,
   },
   tabooZoneHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
   },
   tabooZoneOverline: {
-    color: COLORS.cardTabooDangerInk,
+    color: '#FDA4AF',
     fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1.3,
+    fontWeight: '800',
+    letterSpacing: 1.2,
   },
   tabooWordsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   tabooWordPill: {
-    width: '48.2%',
-    backgroundColor: '#FFFFFF',
+    width: '48.8%',
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(190, 18, 60, 0.14)',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderColor: 'rgba(244, 63, 94, 0.22)',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
     borderRadius: RADIUS.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabooWordText: {
-    color: COLORS.cardTabooDangerInk,
-    fontSize: 15,
+    color: '#FFE4E6',
+    fontSize: 14,
     fontWeight: '800',
+    textAlign: 'center',
   },
   controlsRow: {
     flexDirection: 'row',
@@ -1293,15 +1771,17 @@ const styles = StyleSheet.create({
   },
   skipBtn: {
     flex: 0.9,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: COLORS.surfaceElevated,
-    borderBottomWidth: 5,
+    gap: 5,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipNeutral,
-    paddingVertical: 16,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
   },
   skipBtnText: {
     color: COLORS.textPrimary,
@@ -1310,15 +1790,15 @@ const styles = StyleSheet.create({
   },
   tabooPenaltyBtn: {
     flex: 1,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: COLORS.spy,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipSpy,
-    paddingVertical: 16,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
   },
   tabooPenaltyBtnText: {
     color: COLORS.textPrimary,
@@ -1327,15 +1807,15 @@ const styles = StyleSheet.create({
   },
   guessedBtn: {
     flex: 1.3,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: COLORS.crocodile,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipCrocodile,
-    paddingVertical: 16,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
   },
   guessedBtnText: {
     color: COLORS.background,

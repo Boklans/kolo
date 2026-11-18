@@ -18,6 +18,7 @@ interface AbsoluteTimerProps {
   accentColor?: string;
   size?: 'compact' | 'large' | 'hero' | 'stage';
   onSecondChange?: (secondsLeft: number) => void;
+  headerSlot?: React.ReactNode;
 }
 
 export function AbsoluteTimer({
@@ -27,6 +28,7 @@ export function AbsoluteTimer({
   accentColor = COLORS.primary,
   size = 'compact',
   onSecondChange,
+  headerSlot,
 }: AbsoluteTimerProps) {
   const totalMs = durationSec * 1000;
   const endTimestampRef = useRef<number | null>(null);
@@ -252,14 +254,18 @@ export function AbsoluteTimer({
 
   if (size === 'hero') {
     return (
-      <View
-        style={[
-          styles.heroContainer,
-          timerState === 'critical' && styles.heroContainerCritical,
-          timerState === 'warning' && styles.heroContainerWarning,
-        ]}
-      >
-        <View style={styles.heroTopRow}>
+        <View
+          style={[
+            styles.heroContainer,
+            timerState === 'critical' && styles.heroContainerCritical,
+            timerState === 'warning' && styles.heroContainerWarning,
+          ]}
+        >
+          {headerSlot ? (
+            <View style={styles.heroHeaderSlot}>{headerSlot}</View>
+          ) : null}
+
+          <View style={styles.heroTopRow}>
           <View style={styles.heroStateBadge}>
             <View
               style={[styles.heroStateDot, { backgroundColor: activeColor }]}
@@ -367,6 +373,11 @@ const styles = StyleSheet.create({
   heroContainerCritical: {
     backgroundColor: '#291118',
     borderColor: 'rgba(244, 63, 94, 0.45)',
+  },
+  heroHeaderSlot: {
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
   heroTopRow: {
     flexDirection: 'row',

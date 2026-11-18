@@ -438,19 +438,20 @@ export default function SpyGameScreen() {
       {phase === 'DISCUSSION' ? (
         <View style={styles.discussionBody}>
           <View style={styles.discussionTop}>
-            <View style={styles.discussionMetaRow}>
-              <Text style={styles.discussionLabel}>ТРИВАЄ ДОПИТ</Text>
-              <Text style={styles.discussionSpyCount}>
-                Шпигунів за столом: {spyIndices.length}
-              </Text>
-            </View>
-
             <AbsoluteTimer
               durationSec={currentStep.discussionTimeSec}
               isRunning={phase === 'DISCUSSION' && !isPaused}
               onExpire={handleGoToResolution}
               accentColor={COLORS.spy}
               size="hero"
+              headerSlot={
+                <View style={styles.discussionMetaRow}>
+                  <Text style={styles.discussionLabel}>ТРИВАЄ ДОПИТ</Text>
+                  <Text style={styles.discussionSpyCount}>
+                    Шпигунів за столом: {spyIndices.length}
+                  </Text>
+                </View>
+              }
             />
           </View>
 
@@ -546,22 +547,24 @@ export default function SpyGameScreen() {
                 <Text style={styles.passHeadline}>Час зірвати маски</Text>
               </View>
 
-              <View style={styles.suspenseStageCard}>
-                <View style={styles.suspenseTargetCircle}>
-                  <EyeOff
-                    size={36}
-                    color={isUnmaskingHold ? COLORS.textPrimary : COLORS.spy}
-                  />
-                </View>
+              <View style={styles.suspenseCenterStage}>
+                <View style={styles.suspenseStageCard}>
+                  <View style={styles.suspenseTargetCircle}>
+                    <EyeOff
+                      size={36}
+                      color={isUnmaskingHold ? COLORS.textPrimary : COLORS.spy}
+                    />
+                  </View>
 
-                <Text style={styles.suspenseStepBadge}>КРОК 1 · ГОЛОСУВАННЯ</Text>
-                <Text style={styles.resolutionPromptTitle}>
-                  На рахунок «ТРИ» вкажіть пальцем на підозрюваного!
-                </Text>
-                <Text style={styles.resolutionPromptSub}>
-                  Коли всі зробили свій вибір — затисніть кнопку нижче, щоб
-                  розсекретити справжнього Шпигуна.
-                </Text>
+                  <Text style={styles.suspenseStepBadge}>КРОК 1 · ГОЛОСУВАННЯ</Text>
+                  <Text style={styles.resolutionPromptTitle}>
+                    На рахунок «ТРИ» вкажіть пальцем на підозрюваного!
+                  </Text>
+                  <Text style={styles.resolutionPromptSub}>
+                    Коли всі зробили свій вибір — затисніть кнопку нижче, щоб
+                    розсекретити справжнього Шпигуна.
+                  </Text>
+                </View>
               </View>
 
               {/* Hold-to-Unmask Drumroll Button */}
@@ -590,7 +593,11 @@ export default function SpyGameScreen() {
               </Pressable>
             </>
           ) : (
-            <>
+            <ScrollView
+              style={styles.resolutionScroll}
+              contentContainerStyle={styles.resolutionScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.resolutionHeader}>
                 <Text style={styles.playerOverline}>ДОСЬЄ РОЗСЕКРЕЧЕНО</Text>
                 <Text style={styles.passHeadline}>Правда відкрита!</Text>
@@ -612,50 +619,20 @@ export default function SpyGameScreen() {
 
                 {!isLocationRevealed ? (
                   <View style={styles.truthLocationBox}>
-                    <Text
-                      style={[
-                        styles.truthCaption,
-                        { color: COLORS.hot, textAlign: 'center' },
-                      ]}
-                    >
+                    <Text style={styles.lastChanceOverline}>
                       🎯 ОСТАННІЙ ШАНС ШПИГУНА · ВГАДАЙ ЛОКАЦІЮ
                     </Text>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        flexWrap: 'wrap',
-                        gap: 8,
-                        marginTop: 6,
-                        width: '100%',
-                      }}
-                    >
+                    <View style={styles.candidateGrid}>
                       {spyGuessCandidates.map((loc) => (
                         <TouchableOpacity
                           key={loc.id}
                           activeOpacity={0.8}
                           onPress={() => handleSpyLastChanceGuess(loc)}
-                          style={{
-                            width: '48.2%',
-                            backgroundColor: COLORS.surface,
-                            borderWidth: 1,
-                            borderColor: 'rgba(255, 255, 255, 0.08)',
-                            paddingVertical: 11,
-                            paddingHorizontal: 8,
-                            borderRadius: RADIUS.sm,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
+                          style={styles.candidateChip}
                         >
                           <Text
-                            style={{
-                              color: COLORS.textPrimary,
-                              fontSize: 12,
-                              fontWeight: '700',
-                              textAlign: 'center',
-                            }}
-                            adjustsFontSizeToFit
-                            minimumFontScale={0.8}
-                            numberOfLines={1}
+                            style={styles.candidateChipText}
+                            numberOfLines={2}
                           >
                             {loc.name}
                           </Text>
@@ -665,16 +642,9 @@ export default function SpyGameScreen() {
                     <TouchableOpacity
                       activeOpacity={0.75}
                       onPress={() => setIsLocationRevealed(true)}
-                      style={{ marginTop: 8, paddingVertical: 4 }}
+                      style={styles.skipGuessBtn}
                     >
-                      <Text
-                        style={{
-                          color: COLORS.textMuted,
-                          fontSize: 11,
-                          fontWeight: '700',
-                          textAlign: 'center',
-                        }}
-                      >
+                      <Text style={styles.skipGuessBtnText}>
                         Пропустити і показати локацію →
                       </Text>
                     </TouchableOpacity>
@@ -756,10 +726,10 @@ export default function SpyGameScreen() {
                 </View>
               </Animated.View>
 
-              <View style={{ gap: 8 }}>
+              <View style={styles.resolutionActions}>
                 <TouchableOpacity
                   activeOpacity={0.88}
-                  style={[styles.primaryBtn, { backgroundColor: COLORS.surfaceElevated }]}
+                  style={styles.secondarySpyBtn}
                   onPress={handlePlayAnotherSpyRound}
                 >
                   <Text style={styles.primaryBtnText}>
@@ -785,7 +755,7 @@ export default function SpyGameScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            </>
+            </ScrollView>
           )}
         </Animated.View>
       ) : null}
@@ -847,19 +817,35 @@ const styles = StyleSheet.create({
   primaryBtn: {
     width: '100%',
     backgroundColor: COLORS.spy,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipSpy,
-    minHeight: 58,
+    minHeight: 56,
     paddingVertical: 14,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryBtnDisabled: {
     backgroundColor: COLORS.surface,
-    borderBottomWidth: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipNeutral,
+  },
+  secondarySpyBtn: {
+    width: '100%',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
+    borderBottomColor: COLORS.lipNeutral,
+    minHeight: 54,
+    paddingVertical: 13,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryBtnText: {
     color: COLORS.textPrimary,
@@ -1002,18 +988,32 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.xs,
     paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
-    gap: SPACING.lg,
+    gap: SPACING.md,
+  },
+  resolutionScroll: {
+    flex: 1,
+  },
+  resolutionScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    gap: SPACING.md,
   },
   resolutionHeader: {
     gap: 4,
   },
-  suspenseStageCard: {
+  suspenseCenterStage: {
     flex: 1,
+    justifyContent: 'center',
+  },
+  suspenseStageCard: {
+    width: '100%',
+    flex: 1,
+    maxHeight: 350,
     backgroundColor: '#1B0E14',
     borderWidth: 1,
     borderColor: 'rgba(244, 63, 94, 0.25)',
     borderRadius: RADIUS.xl,
-    padding: SPACING.xxl,
+    padding: SPACING.xl,
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.md,
@@ -1052,13 +1052,13 @@ const styles = StyleSheet.create({
   },
   unmaskHoldBtn: {
     width: '100%',
-    height: 70,
+    height: 66,
     backgroundColor: '#25131B',
     borderWidth: 1,
     borderColor: 'rgba(244, 63, 94, 0.4)',
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipSpy,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -1087,14 +1087,59 @@ const styles = StyleSheet.create({
 
   // REVEALED TRUTH
   truthSurface: {
-    flex: 1,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
-    justifyContent: 'space-between',
     gap: SPACING.md,
+  },
+  lastChanceOverline: {
+    color: COLORS.hot,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textAlign: 'center',
+  },
+  candidateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+    width: '100%',
+  },
+  candidateChip: {
+    width: '48.2%',
+    minHeight: 44,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  candidateChipText: {
+    color: COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  skipGuessBtn: {
+    marginTop: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  skipGuessBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  resolutionActions: {
+    gap: 8,
   },
   truthSpyBanner: {
     backgroundColor: '#2D1019',

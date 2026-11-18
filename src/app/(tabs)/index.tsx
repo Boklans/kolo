@@ -95,7 +95,7 @@ export default function VibesScreen() {
       >
         {/* Editorial Party Header */}
         <View style={styles.header}>
-          <Text style={styles.overline}>KOLO · PARTY GAME SHOW</Text>
+          <Text style={styles.overline}>BALAKA · PARTY GAME SHOW</Text>
           <Text style={styles.headline}>Афіша вечора</Text>
         </View>
 

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -274,118 +275,107 @@ export default function CrocodileGameScreen() {
 
       {/* PHASE 1: READY (Leader Callout Stage) */}
       {phase === 'READY' ? (
-        <View style={styles.screenBody}>
-          <View style={styles.calloutStageCard}>
-            <View style={styles.calloutTopRow}>
-              <View style={styles.roundBadge}>
-                <Sparkles size={13} color={COLORS.crocodile} />
-                <Text style={styles.roundBadgeText}>
-                  РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
-                </Text>
-              </View>
-              <Text style={styles.teamCurrentScoreText}>
-                Рахунок: {currentTeamTotalScore}
-              </Text>
-            </View>
-
-            <View style={styles.calloutHeroCenter}>
-              <Text style={styles.calloutOverline}>ЧАС ПАНТОМІМИ</Text>
-              <Text style={styles.calloutTeamName}>{currentTeam.name}</Text>
-              <Text style={styles.calloutInstruction}>
-                Оберіть актора з команди. Тільки він бере телефон і дивиться
-                секретну фразу!
-              </Text>
-            </View>
-
-            <View style={{ gap: 8 }}>
-              <View style={styles.calloutRulesRow}>
-                <View style={styles.ruleMiniBlock}>
-                  <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
-                  <Text style={styles.ruleMiniValue} numberOfLines={1}>
-                    {deck.title}
-                  </Text>
-                </View>
-                <View style={styles.ruleMiniDivider} />
-                <View style={styles.ruleMiniBlock}>
-                  <Text style={styles.ruleMiniLabel}>НАГОРОДА</Text>
-                  <Text style={[styles.ruleMiniValue, { color: COLORS.crocodile }]}>
-                    +2–3 бали за слово
-                  </Text>
-                </View>
-              </View>
-
-              {/* Compact Inline Round Modifier Pill */}
-              <TouchableOpacity
-                activeOpacity={0.82}
-                onPress={handleCycleModifier}
-                style={{
-                  backgroundColor: activeModifier
-                    ? 'rgba(16, 185, 129, 0.14)'
-                    : COLORS.surfaceSubtle,
-                  borderRadius: RADIUS.md,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  gap: 3,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Dices
-                      size={13}
-                      color={activeModifier ? COLORS.crocodile : COLORS.textMuted}
-                    />
-                    <Text
-                      style={{
-                        color: activeModifier ? COLORS.crocodile : COLORS.textSecondary,
-                        fontSize: 11,
-                        fontWeight: '700',
-                      }}
-                    >
-                      {activeModifier
-                        ? `${activeModifier.emoji} ${activeModifier.title} (+1 бал)`
-                        : 'Додати умову раунду (+1 бал)'}
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeIn.duration(180)}
+          style={styles.readyBody}
+        >
+          <ScrollView
+            style={styles.readyScroll}
+            contentContainerStyle={styles.readyScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.readyMainGroup}>
+              <View style={styles.calloutStageCard}>
+                <View style={styles.calloutTopRow}>
+                  <View style={styles.roundBadge}>
+                    <Sparkles size={12} color={COLORS.crocodile} />
+                    <Text style={styles.roundBadgeText}>
+                      РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      color: COLORS.textMuted,
-                      fontSize: 11,
-                      fontWeight: '700',
-                    }}
-                  >
-                    {activeModifier ? 'Змінити' : 'Вимк'}
+                  <Text style={styles.teamCurrentScoreText}>
+                    Рахунок: {currentTeamTotalScore}
                   </Text>
                 </View>
-                {activeModifier ? (
-                  <Text
-                    style={{
-                      color: COLORS.textSecondary,
-                      fontSize: 12,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {activeModifier.desc}
-                  </Text>
-                ) : null}
-              </TouchableOpacity>
-            </View>
-          </View>
 
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={styles.dominantBtn}
-            onPress={handleShowPhraseToActor}
-          >
-            <Text style={styles.dominantBtnSub}>ТЕЛЕФОН У РУКАХ ВЕДУЧОГО</Text>
-            <Text style={styles.dominantBtnText}>ПОКАЗАТИ ЗАВДАННЯ</Text>
-          </TouchableOpacity>
-        </View>
+                <View style={styles.calloutHeroCenter}>
+                  <Text style={styles.calloutOverline}>ЧАС ПАНТОМІМИ</Text>
+                  <Text style={styles.calloutTeamName} numberOfLines={2}>
+                    {currentTeam.name}
+                  </Text>
+                  <Text style={styles.calloutInstruction}>
+                    Оберіть актора з команди. Тільки він бере телефон і дивиться
+                    секретну фразу!
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.readySettingsBlock}>
+                <View style={styles.calloutRulesRow}>
+                  <View style={styles.ruleMiniBlock}>
+                    <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
+                    <Text style={styles.ruleMiniValue} numberOfLines={1}>
+                      {deck.title}
+                    </Text>
+                  </View>
+                  <View style={styles.ruleMiniDivider} />
+                  <View style={styles.ruleMiniBlock}>
+                    <Text style={styles.ruleMiniLabel}>НАГОРОДА</Text>
+                    <Text style={[styles.ruleMiniValue, { color: COLORS.crocodile }]}>
+                      +2–3 бали за слово
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.82}
+                  onPress={handleCycleModifier}
+                  style={[
+                    styles.modifierCard,
+                    activeModifier && styles.modifierCardActive,
+                  ]}
+                >
+                  <View style={styles.modifierTopRow}>
+                    <View style={styles.modifierTitleRow}>
+                      <Dices
+                        size={14}
+                        color={activeModifier ? COLORS.crocodile : COLORS.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.modifierTitleText,
+                          activeModifier && styles.modifierTitleTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {activeModifier
+                          ? `${activeModifier.emoji} ${activeModifier.title} (+1 бал)`
+                          : 'Додати умову раунду (+1 бал)'}
+                      </Text>
+                    </View>
+                    <Text style={styles.modifierStatusText}>
+                      {activeModifier ? 'Змінити' : 'Вимк'}
+                    </Text>
+                  </View>
+                  {activeModifier ? (
+                    <Text style={styles.modifierDescText} numberOfLines={2}>
+                      {activeModifier.desc}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.dominantBtn}
+              onPress={handleShowPhraseToActor}
+            >
+              <Text style={styles.dominantBtnSub}>ТЕЛЕФОН У РУКАХ ВЕДУЧОГО</Text>
+              <Text style={styles.dominantBtnText}>ПОКАЗАТИ ЗАВДАННЯ</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </Animated.View>
       ) : null}
 
       {/* PHASE 2: PREPARATION (Secret Task Card) */}
@@ -396,37 +386,39 @@ export default function CrocodileGameScreen() {
             <Text style={styles.prepDeckLabel}>Тільки для очей ведучого</Text>
           </View>
 
-          <View style={styles.prepCardSurface}>
-            <Text style={styles.prepHint}>
-              {isBonusPhrase
-                ? '🔥 ХАРДКОР 3★ (+3 БАЛИ) · ПОКАЖИ БЕЗ СЛІВ'
-                : 'ПОКАЖИ БЕЗ СЛІВ І ЗВУКІВ (+2 БАЛИ)'}
-            </Text>
-            <Text
-              style={styles.prepPhraseHero}
-              adjustsFontSizeToFit
-              numberOfLines={4}
-            >
-              {isPaused ? '⏸ ПАУЗА · ПРИХОВАНО' : currentPhrase?.phrase ?? 'Завантаження...'}
-            </Text>
-
-            {swapsRemaining > 0 && !isPaused ? (
-              <TouchableOpacity
-                activeOpacity={0.75}
-                style={styles.subtleSwapAction}
-                onPress={handleSwapPhrase}
-                hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-                accessibilityRole="button"
-                accessibilityLabel="Замінити слово"
-              >
-                <RefreshCw size={14} color={COLORS.textSecondary} />
-                <Text style={styles.subtleSwapText}>Замінити слово (1 раз)</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text style={styles.swapUsedLabel}>
-                {isPaused ? 'Натисни «Продовжити» в меню паузи' : 'Заміну використано'}
+          <View style={styles.prepCenterStage}>
+            <View style={styles.prepCardSurface}>
+              <Text style={styles.prepHint}>
+                {isBonusPhrase
+                  ? '🔥 ХАРДКОР 3★ (+3 БАЛИ) · ПОКАЖИ БЕЗ СЛІВ'
+                  : 'ПОКАЖИ БЕЗ СЛІВ І ЗВУКІВ (+2 БАЛИ)'}
               </Text>
-            )}
+              <Text
+                style={styles.prepPhraseHero}
+                adjustsFontSizeToFit
+                numberOfLines={4}
+              >
+                {isPaused ? '⏸ ПАУЗА · ПРИХОВАНО' : currentPhrase?.phrase ?? 'Завантаження...'}
+              </Text>
+
+              {swapsRemaining > 0 && !isPaused ? (
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  style={styles.subtleSwapAction}
+                  onPress={handleSwapPhrase}
+                  hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Замінити слово"
+                >
+                  <RefreshCw size={14} color={COLORS.textSecondary} />
+                  <Text style={styles.subtleSwapText}>Замінити слово (1 раз)</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.swapUsedLabel}>
+                  {isPaused ? 'Натисни «Продовжити» в меню паузи' : 'Заміну використано'}
+                </Text>
+              )}
+            </View>
           </View>
 
           <TouchableOpacity
@@ -563,43 +555,45 @@ export default function CrocodileGameScreen() {
           entering={reducedMotion ? undefined : FadeIn.duration(180)}
           style={styles.screenBody}
         >
-          <View
-            style={[
-              styles.resultHeroCard,
-              turnGuessed ? styles.resultCardSuccess : styles.resultCardMissed,
-            ]}
-          >
-            <View style={styles.resultTopBadge}>
-              <Text
-                style={[
-                  styles.resultOverline,
-                  { color: turnGuessed ? COLORS.crocodile : COLORS.spy },
-                ]}
-              >
-                {turnGuessed ? 'БРАВО АКТОРУ!' : 'ЧАС ВИЙШОВ'}
-              </Text>
-            </View>
-
-            <View style={styles.resultScoreCenter}>
-              <Text style={styles.resultPointsGiant}>
-                {turnGuessed ? `+${targetPoints}` : '0'}
-              </Text>
-              <Text style={styles.resultPointsUnit}>
-                {turnGuessed ? 'БАЛІВ У ЗАЛІК' : 'БАЛІВ'}
-              </Text>
-              <Text style={styles.resultTeamName}>{currentTeam.name}</Text>
-            </View>
-
-            <View style={styles.resultPhraseBox}>
-              <Text style={styles.resultPhraseLabel}>СЛОВО РАУНДУ</Text>
-              <Text style={styles.resultPhraseValue}>
-                «{currentPhrase?.phrase}»
-              </Text>
-              {turnGuessed && activeModifier ? (
-                <Text style={styles.resultModifierBonus}>
-                  {activeModifier.emoji} Бонус за умову (+1 бал)
+          <View style={styles.resultCenterStage}>
+            <View
+              style={[
+                styles.resultHeroCard,
+                turnGuessed ? styles.resultCardSuccess : styles.resultCardMissed,
+              ]}
+            >
+              <View style={styles.resultTopBadge}>
+                <Text
+                  style={[
+                    styles.resultOverline,
+                    { color: turnGuessed ? COLORS.crocodile : COLORS.spy },
+                  ]}
+                >
+                  {turnGuessed ? 'БРАВО АКТОРУ!' : 'ЧАС ВИЙШОВ'}
                 </Text>
-              ) : null}
+              </View>
+
+              <View style={styles.resultScoreCenter}>
+                <Text style={styles.resultPointsGiant}>
+                  {turnGuessed ? `+${targetPoints}` : '0'}
+                </Text>
+                <Text style={styles.resultPointsUnit}>
+                  {turnGuessed ? 'БАЛІВ У ЗАЛІК' : 'БАЛІВ'}
+                </Text>
+                <Text style={styles.resultTeamName}>{currentTeam.name}</Text>
+              </View>
+
+              <View style={styles.resultPhraseBox}>
+                <Text style={styles.resultPhraseLabel}>СЛОВО РАУНДУ</Text>
+                <Text style={styles.resultPhraseValue}>
+                  «{currentPhrase?.phrase}»
+                </Text>
+                {turnGuessed && activeModifier ? (
+                  <Text style={styles.resultModifierBonus}>
+                    {activeModifier.emoji} Бонус за умову (+1 бал)
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
 
@@ -628,23 +622,36 @@ const styles = StyleSheet.create({
   screenBody: {
     flex: 1,
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.sm,
     paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
-    gap: SPACING.lg,
+    gap: SPACING.md,
   },
-
-  // PHASE 1: READY (Leader Callout Stage)
-  calloutStageCard: {
+  readyBody: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+  },
+  readyScroll: {
+    flex: 1,
+  },
+  readyScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: SPACING.xl,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg,
+    gap: SPACING.md,
+  },
+  readyMainGroup: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: SPACING.md,
+  },
+  calloutStageCard: {
+    backgroundColor: '#0E1F19',
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.24)',
-    borderTopWidth: 5,
-    borderTopColor: COLORS.crocodile,
+    borderColor: 'rgba(16, 185, 129, 0.28)',
     padding: SPACING.xl,
-    justifyContent: 'space-between',
+    gap: SPACING.lg,
   },
   calloutTopRow: {
     flexDirection: 'row',
@@ -655,52 +662,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: `${COLORS.crocodile}20`,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
   roundBadgeText: {
     color: COLORS.crocodile,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.1,
   },
   teamCurrentScoreText: {
     color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   calloutHeroCenter: {
-    gap: 10,
-    paddingVertical: SPACING.lg,
+    gap: 6,
   },
   calloutOverline: {
     color: COLORS.crocodile,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1.8,
   },
   calloutTeamName: {
     color: COLORS.textPrimary,
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: -1.2,
-    lineHeight: 48,
+    fontSize: 38,
+    fontWeight: '900',
+    letterSpacing: -1.1,
+    lineHeight: 44,
   },
   calloutInstruction: {
     color: COLORS.textSecondary,
-    fontSize: 16,
-    lineHeight: 23,
-    marginTop: 4,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 2,
+  },
+  readySettingsBlock: {
+    gap: 10,
   },
   calloutRulesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceElevated,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     gap: SPACING.md,
   },
   ruleMiniBlock: {
@@ -723,6 +735,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  modifierCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  modifierCardActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  modifierTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  modifierTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  modifierTitleText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  modifierTitleTextActive: {
+    color: COLORS.crocodile,
+  },
+  modifierStatusText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modifierDescText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
 
   // PHASE 2: PREPARATION
   prepMetaRow: {
@@ -733,54 +789,63 @@ const styles = StyleSheet.create({
   prepTeamLabel: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   prepDeckLabel: {
     color: COLORS.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
-  prepCardSurface: {
+  prepCenterStage: {
     flex: 1,
-    backgroundColor: COLORS.cardPaper,
+    justifyContent: 'center',
+  },
+  prepCardSurface: {
+    width: '100%',
+    minHeight: 220,
+    maxHeight: 330,
+    flex: 1,
+    backgroundColor: '#0E1F19',
     borderRadius: RADIUS.xl,
-    borderBottomWidth: 6,
-    borderBottomColor: COLORS.lipPaper,
-    padding: SPACING.xxl,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.30)',
+    padding: SPACING.xl,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   prepHint: {
-    color: '#047857',
+    color: COLORS.crocodile,
     fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.4,
+    fontWeight: '800',
+    letterSpacing: 1.3,
     textAlign: 'center',
   },
   prepPhraseHero: {
-    color: COLORS.cardInk,
-    fontSize: 40,
+    color: COLORS.textPrimary,
+    fontSize: 38,
     fontWeight: '900',
-    lineHeight: 46,
-    letterSpacing: -1.2,
+    lineHeight: 44,
+    letterSpacing: -1.1,
     textAlign: 'center',
   },
   subtleSwapAction: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
     borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(18, 18, 24, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   subtleSwapText: {
-    color: COLORS.cardInk,
+    color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
   swapUsedLabel: {
-    color: COLORS.cardInkMuted,
+    color: COLORS.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -865,15 +930,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.25)',
-    borderRadius: RADIUS.xl,
-    minHeight: 84,
+    borderRadius: RADIUS.lg,
+    minHeight: 76,
     paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   peekSurfaceActive: {
-    backgroundColor: COLORS.cardPaper,
+    backgroundColor: '#122B22',
     borderColor: COLORS.crocodile,
   },
   peekInlineRow: {
@@ -888,10 +953,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   peekRevealedText: {
-    color: COLORS.cardInk,
-    fontSize: 28,
+    color: COLORS.textPrimary,
+    fontSize: 26,
     fontWeight: '900',
-    lineHeight: 34,
+    lineHeight: 32,
     textAlign: 'center',
   },
   actingActions: {
@@ -899,9 +964,17 @@ const styles = StyleSheet.create({
   },
 
   // PHASE 5: RESULT SPLASH
-  resultHeroCard: {
+  resultCenterStage: {
     flex: 1,
+    justifyContent: 'center',
+  },
+  resultHeroCard: {
+    width: '100%',
+    flex: 1,
+    maxHeight: 370,
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.24)',
     padding: SPACING.xl,
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -973,15 +1046,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Shared Buttons (Tactile 3D Arcade Keycaps)
+  // Shared Buttons
   dominantBtn: {
     width: '100%',
     backgroundColor: COLORS.crocodile,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipCrocodile,
-    paddingVertical: 17,
+    paddingVertical: 16,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
@@ -1002,12 +1075,14 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     width: '100%',
-    backgroundColor: COLORS.surfaceElevated,
-    borderBottomWidth: 4,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipNeutral,
-    paddingVertical: 15,
+    paddingVertical: 14,
     paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

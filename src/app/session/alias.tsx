@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   Extrapolation,
   FadeIn,
   interpolate,
@@ -151,7 +152,10 @@ export default function AliasGameScreen() {
   const [phase, setPhase] = useState<AliasPhase>('READY');
   const [countdownLabel, setCountdownLabel] = useState<string>('3');
   const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [currentCard, setCurrentCard] = useState<AliasItem | null>(null);
+  const [slotCards, setSlotCards] = useState<
+    [{ item: AliasItem; num: number } | null, { item: AliasItem; num: number } | null]
+  >([null, null]);
+  const [frontSlot, setFrontSlot] = useState<0 | 1>(0);
   const [lastSwipedCard, setLastSwipedCard] = useState<AliasItem | null>(null);
   const [roundHistory, setRoundHistory] = useState<RoundWordRecord[]>([]);
   const [currentStreak, setCurrentStreak] = useState<number>(0);
@@ -163,33 +167,76 @@ export default function AliasGameScreen() {
     word: string;
     points: number;
   } | null>(null);
-  const [departingCard, setDepartingCard] = useState<{
-    word: string;
-    guessed: boolean;
-  } | null>(null);
   const [feedbackBurst, setFeedbackBurst] = useState<{
     text: string;
     type: 'success' | 'skip';
   } | null>(null);
 
+  const currentCard = slotCards[frontSlot]?.item ?? null;
+
   const reducedMotion = useReducedMotion();
   const roundWordIdsRef = useRef<string[]>([]);
   const cardSeqRef = useRef<number>(0);
   const processedSeqRef = useRef<number>(-1);
+  const nextCardNumRef = useRef<number>(1);
+  const frontSlotRef = useRef<0 | 1>(0);
+  const slotCardsRef = useRef<
+    [{ item: AliasItem; num: number } | null, { item: AliasItem; num: number } | null]
+  >([null, null]);
+  const pendingRefillRef = useRef<
+    [{ item: AliasItem; num: number } | null, { item: AliasItem; num: number } | null]
+  >([null, null]);
+  const refillTimersRef = useRef<
+    [ReturnType<typeof setTimeout> | null, ReturnType<typeof setTimeout> | null]
+  >([null, null]);
   const streakRef = useRef<number>(0);
   const isSubmittingRef = useRef<boolean>(false);
 
-  // Card physics shared values
-  const translateY = useSharedValue(0);
-  const translateX = useSharedValue(0);
-  const cardScale = useSharedValue(1);
-  const cardOpacity = useSharedValue(1);
-  const flashSuccessOpacity = useSharedValue(0);
-  const flashSkipOpacity = useSharedValue(0);
+  // Synced worklet state for zero-latency gesture handling on UI thread
+  const frontSlotSV = useSharedValue<number>(0);
+  const phaseSV = useSharedValue<number>(0); // 1 = PLAYING, 2 = OVERTIME
+  const isPausedSV = useSharedValue<boolean>(false);
+  const reducedMotionSV = useSharedValue<boolean>(false);
 
-  // Departing ghost card shared values (non-blocking visual exit)
-  const ghostTranslateY = useSharedValue(0);
-  const ghostOpacity = useSharedValue(0);
+  useEffect(() => {
+    phaseSV.value = phase === 'PLAYING' ? 1 : phase === 'OVERTIME' ? 2 : 0;
+  }, [phase, phaseSV]);
+
+  useEffect(() => {
+    isPausedSV.value = isPaused;
+  }, [isPaused, isPausedSV]);
+
+  useEffect(() => {
+    reducedMotionSV.value = Boolean(reducedMotion);
+  }, [reducedMotion, reducedMotionSV]);
+
+  // Persistent two-slot card physics (zero mount flashes, zero center snap)
+  const s0Y = useSharedValue(0);
+  const s0X = useSharedValue(0);
+  const s0Scale = useSharedValue(1);
+  const s0Opacity = useSharedValue(1);
+  const s0FlashSuccess = useSharedValue(0);
+  const s0FlashSkip = useSharedValue(0);
+  const s0Z = useSharedValue(10);
+
+  const s1Y = useSharedValue(6);
+  const s1X = useSharedValue(0);
+  const s1Scale = useSharedValue(0.96);
+  const s1Opacity = useSharedValue(1);
+  const s1FlashSuccess = useSharedValue(0);
+  const s1FlashSkip = useSharedValue(0);
+  const s1Z = useSharedValue(5);
+
+  const clearRefillTimers = useCallback(() => {
+    for (const idx of [0, 1] as const) {
+      if (refillTimersRef.current[idx]) {
+        clearTimeout(refillTimersRef.current[idx]!);
+        refillTimersRef.current[idx] = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => () => clearRefillTimers(), [clearRefillTimers]);
 
   // Countdown animation values
   const countdownScale = useSharedValue(0.6);
@@ -200,49 +247,71 @@ export default function AliasGameScreen() {
   const burstTranslateY = useSharedValue(0);
   const burstScale = useSharedValue(0.7);
 
-  const animateCardEntrance = useCallback(() => {
-    translateX.value = 0;
-    flashSuccessOpacity.value = 0;
-    flashSkipOpacity.value = 0;
-
-    if (reducedMotion) {
-      translateY.value = 0;
-      cardScale.value = 1;
-      cardOpacity.value = 1;
-      return;
-    }
-
-    translateY.value = 18;
-    cardScale.value = 0.94;
-    cardOpacity.value = 0.2;
-
-    translateY.value = withSpring(0, { damping: 20, stiffness: 320 });
-    cardScale.value = withSpring(1, { damping: 18, stiffness: 300 });
-    cardOpacity.value = withTiming(1, { duration: 90 });
-  }, [
-    reducedMotion,
-    translateY,
-    translateX,
-    cardScale,
-    cardOpacity,
-    flashSuccessOpacity,
-    flashSkipOpacity,
-  ]);
-
-  const pullNextCard = useCallback(() => {
+  const drawSingleDeckEntry = useCallback((): { item: AliasItem; num: number } | null => {
     const next = drawNextItem(
       deck.id,
       'alias',
       deck.items.alias,
       roundWordIdsRef.current
     );
-    if (next) {
-      cardSeqRef.current += 1;
-      roundWordIdsRef.current = [...roundWordIdsRef.current, next.id];
-      setCurrentCard(next);
-      animateCardEntrance();
-    }
-  }, [deck, drawNextItem, animateCardEntrance]);
+    if (!next) return null;
+    roundWordIdsRef.current = [...roundWordIdsRef.current, next.id];
+    const num = nextCardNumRef.current;
+    nextCardNumRef.current += 1;
+    return { item: next, num };
+  }, [deck, drawNextItem]);
+
+  const setSlotPoseImmediate = useCallback(
+    (slotIdx: 0 | 1, role: 'front' | 'back') => {
+      const ySV = slotIdx === 0 ? s0Y : s1Y;
+      const xSV = slotIdx === 0 ? s0X : s1X;
+      const scSV = slotIdx === 0 ? s0Scale : s1Scale;
+      const opSV = slotIdx === 0 ? s0Opacity : s1Opacity;
+      const fsSV = slotIdx === 0 ? s0FlashSuccess : s1FlashSuccess;
+      const fkSV = slotIdx === 0 ? s0FlashSkip : s1FlashSkip;
+      const zSV = slotIdx === 0 ? s0Z : s1Z;
+
+      cancelAnimation(ySV);
+      cancelAnimation(xSV);
+      cancelAnimation(scSV);
+      cancelAnimation(opSV);
+      cancelAnimation(fsSV);
+      cancelAnimation(fkSV);
+
+      xSV.value = 0;
+      fsSV.value = 0;
+      fkSV.value = 0;
+      opSV.value = 1;
+      ySV.value = role === 'front' ? 0 : 6;
+      scSV.value = role === 'front' ? 1 : 0.96;
+      zSV.value = role === 'front' ? 10 : 5;
+    },
+    [
+      s0Y, s0X, s0Scale, s0Opacity, s0FlashSuccess, s0FlashSkip, s0Z,
+      s1Y, s1X, s1Scale, s1Opacity, s1FlashSuccess, s1FlashSkip, s1Z,
+    ]
+  );
+
+  const initRoundDeckSlots = useCallback(() => {
+    clearRefillTimers();
+    pendingRefillRef.current = [null, null];
+    nextCardNumRef.current = 1;
+    const first = drawSingleDeckEntry();
+    const second = drawSingleDeckEntry();
+    const nextSlots: [
+      { item: AliasItem; num: number } | null,
+      { item: AliasItem; num: number } | null,
+    ] = [first, second];
+
+    cardSeqRef.current += 1;
+    frontSlotRef.current = 0;
+    frontSlotSV.value = 0;
+    slotCardsRef.current = nextSlots;
+    setSlotCards(nextSlots);
+    setFrontSlot(0);
+    setSlotPoseImmediate(0, 'front');
+    setSlotPoseImmediate(1, 'back');
+  }, [clearRefillTimers, drawSingleDeckEntry, frontSlotSV, setSlotPoseImmediate]);
 
   const triggerFeedbackBurst = useCallback(
     (guessed: boolean, penaltyForSkip: boolean, isBonusWord?: boolean) => {
@@ -302,14 +371,18 @@ export default function AliasGameScreen() {
 
   // 3 - 2 - 1 - ПОГНАЛИ! Countdown sequence
   const handleStartCountdown = () => {
+    clearRefillTimers();
     roundWordIdsRef.current = [];
     cardSeqRef.current = 0;
     processedSeqRef.current = -1;
+    nextCardNumRef.current = 1;
+    pendingRefillRef.current = [null, null];
     streakRef.current = 0;
     isSubmittingRef.current = false;
     setRoundHistory([]);
     setLastSwipedCard(null);
-    setDepartingCard(null);
+    setSlotCards([null, null]);
+    slotCardsRef.current = [null, null];
     setCurrentStreak(0);
     setBestStreak(0);
     setStolenInfo(null);
@@ -321,10 +394,11 @@ export default function AliasGameScreen() {
   const handleUndoLastCard = () => {
     if (!lastSwipedCard || roundHistory.length === 0 || isPaused) return;
     triggerHaptic('light');
+    clearRefillTimers();
+    pendingRefillRef.current = [null, null];
     cardSeqRef.current += 1;
 
     const nextHistory = roundHistory.slice(0, -1);
-    let trailingStreak = 0;
     let maxStreak = 0;
     let running = 0;
     for (const entry of nextHistory) {
@@ -335,15 +409,28 @@ export default function AliasGameScreen() {
         running = 0;
       }
     }
-    trailingStreak = running;
-    streakRef.current = trailingStreak;
-    setCurrentStreak(trailingStreak);
+    streakRef.current = running;
+    setCurrentStreak(running);
     setBestStreak(maxStreak);
 
+    const active = frontSlotRef.current;
+    const back = (1 - active) as 0 | 1;
+    const restoredEntry = { item: lastSwipedCard, num: nextHistory.length + 1 };
+    const updatedSlots: [
+      { item: AliasItem; num: number } | null,
+      { item: AliasItem; num: number } | null,
+    ] = [...slotCardsRef.current] as [
+      { item: AliasItem; num: number } | null,
+      { item: AliasItem; num: number } | null,
+    ];
+    updatedSlots[active] = restoredEntry;
+    slotCardsRef.current = updatedSlots;
+    setSlotCards(updatedSlots);
+    setSlotPoseImmediate(active, 'front');
+    setSlotPoseImmediate(back, 'back');
+
     setRoundHistory(nextHistory);
-    setCurrentCard(lastSwipedCard);
     setLastSwipedCard(null);
-    animateCardEntrance();
   };
 
   useEffect(() => {
@@ -382,29 +469,32 @@ export default function AliasGameScreen() {
         animateBeat(sequence[stepIdx], stepIdx === sequence.length - 1);
       } else {
         clearInterval(interval);
-        pullNextCard();
+        initRoundDeckSlots();
         setPhase('PLAYING');
       }
     }, 650);
 
     return () => clearInterval(interval);
-  }, [phase, reducedMotion, countdownScale, countdownOpacity, pullNextCard]);
+  }, [phase, reducedMotion, countdownScale, countdownOpacity, initRoundDeckSlots]);
 
   const handleTimerExpire = useCallback(() => {
     setPhase((prev) => (prev === 'PLAYING' ? 'OVERTIME' : prev));
   }, []);
 
-  const triggerCardDecisionWithAnimation = useCallback(
-    (guessed: boolean) => {
+  const commitSlotDecision = useCallback(
+    (exitedSlot: 0 | 1, guessed: boolean) => {
+      const swipedEntry = slotCardsRef.current[exitedSlot];
       if (
         isPaused ||
-        !currentCard ||
+        !swipedEntry ||
+        exitedSlot !== frontSlotRef.current ||
         processedSeqRef.current === cardSeqRef.current
       ) {
         return;
       }
       processedSeqRef.current = cardSeqRef.current;
 
+      const swipedItem = swipedEntry.item;
       if (guessed) {
         streakRef.current += 1;
         playWordGuessed(streakRef.current);
@@ -413,20 +503,20 @@ export default function AliasGameScreen() {
         playWordSkipped();
       }
 
-      const isBonus = currentCard.difficulty === 3;
+      const isBonus = swipedItem.difficulty === 3;
       const defaultSkipScore: -1 | 0 = currentStep.penaltyForSkip ? -1 : 0;
       const points: -1 | 0 | 1 | 2 = guessed ? (isBonus ? 2 : 1) : defaultSkipScore;
 
       triggerFeedbackBurst(guessed, currentStep.penaltyForSkip, isBonus);
 
       const record: RoundWordRecord = {
-        id: `${currentCard.id}_${Date.now()}`,
-        word: currentCard.word,
+        id: `${swipedItem.id}_${Date.now()}`,
+        word: swipedItem.word,
         points,
         isBonus,
       };
 
-      setLastSwipedCard(currentCard);
+      setLastSwipedCard(swipedItem);
       setRoundHistory((prev) => [...prev, record]);
 
       if (guessed) {
@@ -440,41 +530,149 @@ export default function AliasGameScreen() {
       }
 
       if (phase === 'OVERTIME') {
-        translateY.value = 0;
-        translateX.value = 0;
-        cardScale.value = 1;
-        cardOpacity.value = 1;
-        setDepartingCard(null);
+        clearRefillTimers();
+        pendingRefillRef.current = [null, null];
+        setSlotPoseImmediate(exitedSlot, 'front');
         playVictoryFanfare();
         setPhase('REVIEW');
         return;
       }
 
-      // Non-blocking departing ghost animation so next card is interactive immediately
-      if (!reducedMotion) {
-        setDepartingCard({ word: currentCard.word, guessed });
-        ghostTranslateY.value = translateY.value;
-        ghostOpacity.value = 1;
-        ghostTranslateY.value = withTiming(guessed ? -260 : 260, { duration: 170 });
-        ghostOpacity.value = withTiming(0, { duration: 170 });
+      const nextSlot = (1 - exitedSlot) as 0 | 1;
+
+      // Flush any still-pending refill on nextSlot synchronously (handles ultra-fast double-taps)
+      if (refillTimersRef.current[nextSlot]) {
+        clearTimeout(refillTimersRef.current[nextSlot]!);
+        refillTimersRef.current[nextSlot] = null;
+      }
+      if (pendingRefillRef.current[nextSlot]) {
+        const readyEntry = pendingRefillRef.current[nextSlot];
+        pendingRefillRef.current[nextSlot] = null;
+        const flushedSlots: [
+          { item: AliasItem; num: number } | null,
+          { item: AliasItem; num: number } | null,
+        ] = [...slotCardsRef.current] as [
+          { item: AliasItem; num: number } | null,
+          { item: AliasItem; num: number } | null,
+        ];
+        flushedSlots[nextSlot] = readyEntry;
+        slotCardsRef.current = flushedSlots;
+        setSlotCards(flushedSlots);
+        setSlotPoseImmediate(nextSlot, 'front');
       }
 
-      pullNextCard();
+      // Advance front slot immediately so the next card is interactive at 0ms
+      cardSeqRef.current += 1;
+      frontSlotRef.current = nextSlot;
+      frontSlotSV.value = nextSlot;
+      setFrontSlot(nextSlot);
+
+      // Draw upcoming word for exitedSlot & park it behind frontSlot after exit completes
+      const upcoming = drawSingleDeckEntry();
+      pendingRefillRef.current[exitedSlot] = upcoming;
+
+      const applyRefill = () => {
+        refillTimersRef.current[exitedSlot] = null;
+        const refillEntry = pendingRefillRef.current[exitedSlot];
+        if (!refillEntry || frontSlotRef.current === exitedSlot) return;
+        pendingRefillRef.current[exitedSlot] = null;
+
+        const updatedSlots: [
+          { item: AliasItem; num: number } | null,
+          { item: AliasItem; num: number } | null,
+        ] = [...slotCardsRef.current] as [
+          { item: AliasItem; num: number } | null,
+          { item: AliasItem; num: number } | null,
+        ];
+        updatedSlots[exitedSlot] = refillEntry;
+        slotCardsRef.current = updatedSlots;
+        setSlotCards(updatedSlots);
+
+        requestAnimationFrame(() => {
+          if (frontSlotRef.current !== exitedSlot) {
+            setSlotPoseImmediate(exitedSlot, 'back');
+          }
+        });
+      };
+
+      if (reducedMotion) {
+        applyRefill();
+      } else {
+        refillTimersRef.current[exitedSlot] = setTimeout(applyRefill, 175);
+      }
     },
     [
       isPaused,
-      currentCard,
       currentStep.penaltyForSkip,
       phase,
       reducedMotion,
       triggerFeedbackBurst,
-      pullNextCard,
-      translateY,
-      translateX,
-      cardScale,
-      cardOpacity,
-      ghostTranslateY,
-      ghostOpacity,
+      clearRefillTimers,
+      setSlotPoseImmediate,
+      frontSlotSV,
+      drawSingleDeckEntry,
+    ]
+  );
+
+  const triggerButtonDecision = useCallback(
+    (guessed: boolean) => {
+      const active = frontSlotRef.current;
+      const next = (1 - active) as 0 | 1;
+      if (
+        isPaused ||
+        !slotCardsRef.current[active] ||
+        processedSeqRef.current === cardSeqRef.current
+      ) {
+        return;
+      }
+
+      if (phase === 'PLAYING') {
+        const ySV = active === 0 ? s0Y : s1Y;
+        const scSV = active === 0 ? s0Scale : s1Scale;
+        const opSV = active === 0 ? s0Opacity : s1Opacity;
+        const fsSV = active === 0 ? s0FlashSuccess : s1FlashSuccess;
+        const fkSV = active === 0 ? s0FlashSkip : s1FlashSkip;
+        const zSV = active === 0 ? s0Z : s1Z;
+
+        const nextYSV = next === 0 ? s0Y : s1Y;
+        const nextXSV = next === 0 ? s0X : s1X;
+        const nextScSV = next === 0 ? s0Scale : s1Scale;
+        const nextOpSV = next === 0 ? s0Opacity : s1Opacity;
+        const nextZSV = next === 0 ? s0Z : s1Z;
+
+        if (reducedMotion) {
+          zSV.value = 5;
+          opSV.value = 0;
+        } else {
+          zSV.value = 20;
+          fsSV.value = guessed ? 0.65 : 0;
+          fkSV.value = guessed ? 0 : 0.65;
+          ySV.value = withTiming(guessed ? -380 : 380, { duration: 165 });
+          scSV.value = withTiming(0.96, { duration: 165 });
+          opSV.value = withSequence(
+            withTiming(1, { duration: 115 }),
+            withTiming(0, { duration: 50 })
+          );
+        }
+
+        nextZSV.value = 10;
+        nextXSV.value = 0;
+        nextYSV.value = 0;
+        nextOpSV.value = 1;
+        nextScSV.value = reducedMotion
+          ? 1
+          : withSpring(1, { damping: 20, stiffness: 320 });
+      }
+
+      commitSlotDecision(active, guessed);
+    },
+    [
+      isPaused,
+      phase,
+      reducedMotion,
+      commitSlotDecision,
+      s0Y, s0X, s0Scale, s0Opacity, s0FlashSuccess, s0FlashSkip, s0Z,
+      s1Y, s1X, s1Scale, s1Opacity, s1FlashSuccess, s1FlashSkip, s1Z,
     ]
   );
 
@@ -482,91 +680,162 @@ export default function AliasGameScreen() {
     () =>
       Gesture.Pan()
         .enabled((phase === 'PLAYING' || phase === 'OVERTIME') && !isPaused)
+        .activeOffsetY([-10, 10])
         .onUpdate((event) => {
-          translateY.value = event.translationY;
-          translateX.value = event.translationX * 0.25;
+          const active = frontSlotSV.value;
+          const isZero = active === 0;
+          const ySV = isZero ? s0Y : s1Y;
+          const xSV = isZero ? s0X : s1X;
+          const scSV = isZero ? s0Scale : s1Scale;
+          const fsSV = isZero ? s0FlashSuccess : s1FlashSuccess;
+          const fkSV = isZero ? s0FlashSkip : s1FlashSkip;
+
+          const backYSV = isZero ? s1Y : s0Y;
+          const backScSV = isZero ? s1Scale : s0Scale;
+
+          ySV.value = event.translationY;
+          xSV.value = event.translationX * 0.22;
           const progress = Math.min(1, Math.abs(event.translationY) / 200);
-          cardScale.value = 1 - progress * 0.03;
+          scSV.value = 1 - progress * 0.03;
 
           if (event.translationY < 0) {
-            flashSuccessOpacity.value = Math.min(
-              0.85,
-              Math.abs(event.translationY) / 140
-            );
-            flashSkipOpacity.value = 0;
+            fsSV.value = Math.min(0.75, Math.abs(event.translationY) / 140);
+            fkSV.value = 0;
           } else {
-            flashSkipOpacity.value = Math.min(
-              0.85,
-              event.translationY / 140
-            );
-            flashSuccessOpacity.value = 0;
+            fkSV.value = Math.min(0.75, event.translationY / 140);
+            fsSV.value = 0;
+          }
+
+          if (phaseSV.value === 1) {
+            const lift = Math.min(1, Math.abs(event.translationY) / 140);
+            backScSV.value = interpolate(lift, [0, 1], [0.96, 1], Extrapolation.CLAMP);
+            backYSV.value = interpolate(lift, [0, 1], [6, 0], Extrapolation.CLAMP);
           }
         })
         .onEnd((event) => {
-          if (event.translationY < -SWIPE_THRESHOLD) {
-            runOnJS(triggerCardDecisionWithAnimation)(true);
-          } else if (event.translationY > SWIPE_THRESHOLD) {
-            runOnJS(triggerCardDecisionWithAnimation)(false);
+          const active = frontSlotSV.value === 0 ? 0 : 1;
+          const isZero = active === 0;
+          const ySV = isZero ? s0Y : s1Y;
+          const xSV = isZero ? s0X : s1X;
+          const scSV = isZero ? s0Scale : s1Scale;
+          const opSV = isZero ? s0Opacity : s1Opacity;
+          const fsSV = isZero ? s0FlashSuccess : s1FlashSuccess;
+          const fkSV = isZero ? s0FlashSkip : s1FlashSkip;
+          const zSV = isZero ? s0Z : s1Z;
+
+          const backYSV = isZero ? s1Y : s0Y;
+          const backXSV = isZero ? s1X : s0X;
+          const backScSV = isZero ? s1Scale : s0Scale;
+          const backOpSV = isZero ? s1Opacity : s0Opacity;
+          const backZSV = isZero ? s1Z : s0Z;
+
+          const swipedUp = event.translationY < -SWIPE_THRESHOLD;
+          const swipedDown = event.translationY > SWIPE_THRESHOLD;
+
+          if (swipedUp || swipedDown) {
+            const guessed = swipedUp;
+            if (phaseSV.value === 1 && !isPausedSV.value) {
+              if (reducedMotionSV.value) {
+                zSV.value = 5;
+                opSV.value = 0;
+              } else {
+                // Fly cleanly straight off from exact current position (no center snap!)
+                zSV.value = 20;
+                fsSV.value = guessed ? 0.65 : 0;
+                fkSV.value = guessed ? 0 : 0.65;
+                ySV.value = withTiming(guessed ? -380 : 380, { duration: 160 });
+                scSV.value = withTiming(0.96, { duration: 160 });
+                opSV.value = withSequence(
+                  withTiming(1, { duration: 110 }),
+                  withTiming(0, { duration: 50 })
+                );
+              }
+
+              const nextSlot = active === 0 ? 1 : 0;
+              frontSlotSV.value = nextSlot;
+              backZSV.value = 10;
+              backXSV.value = 0;
+              backYSV.value = 0;
+              backOpSV.value = 1;
+              backScSV.value = reducedMotionSV.value
+                ? 1
+                : withTiming(1, { duration: 130 });
+            }
+            runOnJS(commitSlotDecision)(active, guessed);
           } else {
-            translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
-            translateX.value = withSpring(0, { damping: 18, stiffness: 220 });
-            cardScale.value = withSpring(1);
-            flashSuccessOpacity.value = withTiming(0, { duration: 120 });
-            flashSkipOpacity.value = withTiming(0, { duration: 120 });
+            ySV.value = withSpring(0, { damping: 24, stiffness: 280, overshootClamping: true });
+            xSV.value = withSpring(0, { damping: 24, stiffness: 280, overshootClamping: true });
+            scSV.value = withTiming(1, { duration: 120 });
+            fsSV.value = withTiming(0, { duration: 120 });
+            fkSV.value = withTiming(0, { duration: 120 });
+            if (phaseSV.value === 1) {
+              backScSV.value = withTiming(0.96, { duration: 130 });
+              backYSV.value = withTiming(6, { duration: 130 });
+            }
           }
         }),
     [
       phase,
       isPaused,
-      triggerCardDecisionWithAnimation,
-      translateY,
-      translateX,
-      cardScale,
-      flashSuccessOpacity,
-      flashSkipOpacity,
+      frontSlotSV,
+      phaseSV,
+      isPausedSV,
+      reducedMotionSV,
+      commitSlotDecision,
+      s0Y, s0X, s0Scale, s0Opacity, s0FlashSuccess, s0FlashSkip, s0Z,
+      s1Y, s1X, s1Scale, s1Opacity, s1FlashSuccess, s1FlashSkip, s1Z,
     ]
   );
 
-  const animatedCardStyle = useAnimatedStyle(() => {
+  const slot0AnimatedStyle = useAnimatedStyle(() => {
     const rotateDeg = interpolate(
-      translateX.value,
+      s0X.value,
       [-60, 0, 60],
       [-4, 0, 4],
       Extrapolation.CLAMP
     );
     return {
-      opacity: cardOpacity.value,
+      opacity: s0Opacity.value,
+      zIndex: s0Z.value,
       transform: [
-        { translateY: translateY.value },
-        { translateX: translateX.value },
-        { scale: cardScale.value },
+        { translateY: s0Y.value },
+        { translateX: s0X.value },
+        { scale: s0Scale.value },
         { rotateZ: `${rotateDeg}deg` },
       ],
     };
   });
 
-  const animatedBackCardStyle = useAnimatedStyle(() => {
-    const dragProgress = interpolate(
-      Math.abs(translateY.value),
-      [0, 160],
-      [0, 1],
+  const slot1AnimatedStyle = useAnimatedStyle(() => {
+    const rotateDeg = interpolate(
+      s1X.value,
+      [-60, 0, 60],
+      [-4, 0, 4],
       Extrapolation.CLAMP
     );
     return {
+      opacity: s1Opacity.value,
+      zIndex: s1Z.value,
       transform: [
-        { scale: interpolate(dragProgress, [0, 1], [0.93, 0.98]) },
-        { translateY: interpolate(dragProgress, [0, 1], [14, 4]) },
+        { translateY: s1Y.value },
+        { translateX: s1X.value },
+        { scale: s1Scale.value },
+        { rotateZ: `${rotateDeg}deg` },
       ],
-      opacity: interpolate(dragProgress, [0, 1], [0.45, 0.8]),
     };
   });
 
-  const animatedSuccessOverlayStyle = useAnimatedStyle(() => ({
-    opacity: flashSuccessOpacity.value,
+  const slot0SuccessOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s0FlashSuccess.value,
   }));
-
-  const animatedSkipOverlayStyle = useAnimatedStyle(() => ({
-    opacity: flashSkipOpacity.value,
+  const slot0SkipOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s0FlashSkip.value,
+  }));
+  const slot1SuccessOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s1FlashSuccess.value,
+  }));
+  const slot1SkipOverlayStyle = useAnimatedStyle(() => ({
+    opacity: s1FlashSkip.value,
   }));
 
   const animatedBurstStyle = useAnimatedStyle(() => ({
@@ -575,11 +844,6 @@ export default function AliasGameScreen() {
       { translateY: burstTranslateY.value },
       { scale: burstScale.value },
     ],
-  }));
-
-  const animatedGhostCardStyle = useAnimatedStyle(() => ({
-    opacity: ghostOpacity.value,
-    transform: [{ translateY: ghostTranslateY.value }],
   }));
 
   const animatedCountdownStyle = useAnimatedStyle(() => ({
@@ -632,19 +896,19 @@ export default function AliasGameScreen() {
 
     if (liveTotal > maxOpponent && liveTotal > 0) {
       return {
-        label: `👑 ЛІДЕР (+${liveTotal - maxOpponent})`,
+        label: `👑 +${liveTotal - maxOpponent}`,
         color: COLORS.hot,
       };
     }
     if (liveTotal === maxOpponent && maxOpponent > 0) {
       return {
-        label: '⚡ НІЧИЯ ЗАРАЗ',
+        label: '⚡ РІВНО',
         color: COLORS.alias,
       };
     }
     if (maxOpponent > liveTotal) {
       return {
-        label: `До лідера: ${maxOpponent - liveTotal}`,
+        label: `−${maxOpponent - liveTotal} до лідера`,
         color: COLORS.textSecondary,
       };
     }
@@ -704,121 +968,125 @@ export default function AliasGameScreen() {
       {/* PHASE 1: READY (TEAM CALLOUT STAGE) */}
       {phase === 'READY' ? (
         <Animated.View entering={FadeIn.duration(180)} style={styles.readyBody}>
-          <View style={styles.calloutStageCard}>
-            <View style={styles.calloutTopRow}>
-              <View style={styles.roundBadge}>
-                <Zap size={13} color={COLORS.alias} />
-                <Text style={styles.roundBadgeText}>
-                  РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
-                </Text>
-              </View>
-              <Text style={styles.teamCurrentScoreText}>
-                Рахунок: {currentTeamTotalScore}
-              </Text>
-            </View>
-
-            <View style={styles.calloutHeroCenter}>
-              <Text style={styles.calloutOverline}>ВАШ ВИХІД НА СЦЕНУ</Text>
-              <Text style={styles.calloutTeamName}>{currentTeam.name}</Text>
-              <Text style={styles.calloutInstruction}>
-                Ведучий бере телефон. Пояснюй слова команді на максимальній
-                швидкості!
-              </Text>
-            </View>
-
-            <View style={{ gap: 8 }}>
-              <View style={styles.calloutRulesRow}>
-                <View style={styles.ruleMiniBlock}>
-                  <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
-                  <Text style={styles.ruleMiniValue} numberOfLines={1}>
-                    {deck.title}
-                  </Text>
-                </View>
-                <View style={styles.ruleMiniDivider} />
-                <View style={styles.ruleMiniBlock}>
-                  <Text style={styles.ruleMiniLabel}>ПРОПУСК СЛОВА</Text>
-                  <Text
-                    style={[
-                      styles.ruleMiniValue,
-                      currentStep.penaltyForSkip && { color: COLORS.spy },
-                    ]}
-                  >
-                    {currentStep.penaltyForSkip ? 'Штраф −1 бал' : 'Без штрафу'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Compact Inline Round Modifier Pill */}
-              <TouchableOpacity
-                activeOpacity={0.82}
-                onPress={handleCycleModifier}
-                style={{
-                  backgroundColor: activeModifier
-                    ? 'rgba(249, 115, 22, 0.14)'
-                    : COLORS.surfaceSubtle,
-                  borderRadius: RADIUS.md,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  gap: 3,
-                }}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Dices
-                      size={13}
-                      color={activeModifier ? COLORS.hot : COLORS.textMuted}
-                    />
-                    <Text
-                      style={{
-                        color: activeModifier ? COLORS.hot : COLORS.textSecondary,
-                        fontSize: 11,
-                        fontWeight: '700',
-                      }}
-                    >
-                      {activeModifier
-                        ? `${activeModifier.emoji} ${activeModifier.title} (+1 бал)`
-                        : 'Додати умову раунду (+1 бал)'}
+          <ScrollView
+            style={styles.readyScroll}
+            contentContainerStyle={styles.readyScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top+Middle Stage Content grouped with intentional rhythm */}
+            <View style={styles.readyMainGroup}>
+              {/* 1. Team Callout Hero Card */}
+              <View style={styles.calloutStageCard}>
+                <View style={styles.calloutTopRow}>
+                  <View style={styles.roundBadge}>
+                    <Zap size={12} color={COLORS.alias} />
+                    <Text style={styles.roundBadgeText}>
+                      РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
                     </Text>
                   </View>
-                  <Text
-                    style={{
-                      color: COLORS.textMuted,
-                      fontSize: 11,
-                      fontWeight: '700',
-                    }}
-                  >
-                    {activeModifier ? 'Змінити' : 'Вимк'}
+                  <Text style={styles.teamCurrentScoreText}>
+                    Рахунок: {currentTeamTotalScore}
                   </Text>
                 </View>
-                {activeModifier ? (
-                  <Text
-                    style={{
-                      color: COLORS.textSecondary,
-                      fontSize: 12,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {activeModifier.desc}
-                  </Text>
-                ) : null}
-              </TouchableOpacity>
-            </View>
-          </View>
 
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={styles.launchButton}
-            onPress={handleStartCountdown}
-          >
-            <Text style={styles.launchButtonSub}>ГОТОВІ?</Text>
-            <Text style={styles.launchButtonTitle}>ПОЧАТИ ВІДЛІК 3 · 2 · 1</Text>
-          </TouchableOpacity>
+                <View style={styles.calloutHeroCenter}>
+                  <Text style={styles.calloutOverline}>ВАШ ВИХІД НА СЦЕНУ</Text>
+                  <Text style={styles.calloutTeamName} numberOfLines={2}>
+                    {currentTeam.name}
+                  </Text>
+                  <Text style={styles.calloutInstruction}>
+                    Ведучий бере телефон і пояснює слова команді на швидкість без
+                    спільнокореневих.
+                  </Text>
+                </View>
+              </View>
+
+              {/* 2. Round Parameters, Modifier & Gesture Legend */}
+              <View style={styles.readySettingsBlock}>
+                <View style={styles.calloutRulesRow}>
+                  <View style={styles.ruleMiniBlock}>
+                    <Text style={styles.ruleMiniLabel}>КОЛОДА</Text>
+                    <Text style={styles.ruleMiniValue} numberOfLines={1}>
+                      {deck.title}
+                    </Text>
+                  </View>
+                  <View style={styles.ruleMiniDivider} />
+                  <View style={styles.ruleMiniBlock}>
+                    <Text style={styles.ruleMiniLabel}>ПРОПУСК СЛОВА</Text>
+                    <Text
+                      style={[
+                        styles.ruleMiniValue,
+                        currentStep.penaltyForSkip && { color: COLORS.spy },
+                      ]}
+                    >
+                      {currentStep.penaltyForSkip ? 'Штраф −1 бал' : 'Без штрафу'}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.82}
+                  onPress={handleCycleModifier}
+                  style={[
+                    styles.modifierCard,
+                    activeModifier && styles.modifierCardActive,
+                  ]}
+                >
+                  <View style={styles.modifierTopRow}>
+                    <View style={styles.modifierTitleRow}>
+                      <Dices
+                        size={14}
+                        color={activeModifier ? COLORS.hot : COLORS.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.modifierTitleText,
+                          activeModifier && styles.modifierTitleTextActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {activeModifier
+                          ? `${activeModifier.emoji} ${activeModifier.title} (+1 бал)`
+                          : 'Додати умову раунду (+1 бал)'}
+                      </Text>
+                    </View>
+                    <Text style={styles.modifierStatusText}>
+                      {activeModifier ? 'Змінити' : 'Вимк'}
+                    </Text>
+                  </View>
+                  {activeModifier ? (
+                    <Text style={styles.modifierDescText} numberOfLines={2}>
+                      {activeModifier.desc}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+
+                <View style={styles.gestureLegendRow}>
+                  <View style={styles.gestureLegendItem}>
+                    <ArrowUp size={14} color={COLORS.crocodile} strokeWidth={2.6} />
+                    <Text style={styles.gestureLegendText}>
+                      Вгору — Вгадали (+1)
+                    </Text>
+                  </View>
+                  <View style={styles.gestureLegendDivider} />
+                  <View style={styles.gestureLegendItem}>
+                    <ArrowDown size={14} color={COLORS.textMuted} strokeWidth={2.4} />
+                    <Text style={styles.gestureLegendText}>Вниз — Пропуск</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* 3. Primary Launch CTA */}
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.launchButton}
+              onPress={handleStartCountdown}
+            >
+              <Text style={styles.launchButtonSub}>ГОТОВІ?</Text>
+              <Text style={styles.launchButtonTitle}>ПОЧАТИ ВІДЛІК 3 · 2 · 1</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </Animated.View>
       ) : null}
 
@@ -849,57 +1117,31 @@ export default function AliasGameScreen() {
       {/* PHASE 3 & 4: PLAYING & OVERTIME */}
       {phase === 'PLAYING' || phase === 'OVERTIME' ? (
         <View style={styles.playingBody}>
-          {/* Top Game Show HUD: Score + Streak + Dynamic Emotional Timer */}
+          {/* Unified Broadcast HUD: Team + Live Score + Dynamic Timer */}
           <View style={styles.topHud}>
-            <View style={styles.hudHeaderRow}>
-              <View style={styles.hudTeamBlock}>
-                <Text style={styles.hudTeamName} numberOfLines={1}>
-                  {currentTeam.name}
-                </Text>
-                {currentStreak >= 2 ? (
-                  <View style={styles.streakBadge}>
-                    <Flame size={13} color={COLORS.hot} />
-                    <Text style={styles.streakBadgeText}>
-                      {currentStreak} ПІДРЯД!
-                    </Text>
-                  </View>
-                ) : liveChaseStatus ? (
-                  <View
-                    style={[
-                      styles.streakBadge,
-                      { backgroundColor: COLORS.surface },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.streakBadgeText,
-                        { color: liveChaseStatus.color },
-                      ]}
-                    >
-                      {liveChaseStatus.label}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.liveScorePill}>
-                <Text style={styles.liveScoreLabel}>РАУНД</Text>
-                <Text
-                  style={[
-                    styles.liveScoreValue,
-                    totalRoundPoints > 0 && { color: COLORS.crocodile },
-                    totalRoundPoints < 0 && { color: COLORS.spy },
-                  ]}
-                >
-                  {totalRoundPoints > 0
-                    ? `+${totalRoundPoints}`
-                    : totalRoundPoints}
-                </Text>
-              </View>
-            </View>
-
             {phase === 'OVERTIME' ? (
               <View style={styles.overtimeBanner}>
+                <View style={styles.hudHeaderRow}>
+                  <View style={styles.hudTeamBlock}>
+                    <Text style={styles.hudTeamName} numberOfLines={1}>
+                      {currentTeam.name}
+                    </Text>
+                  </View>
+                  <View style={styles.liveScorePill}>
+                    <Text style={styles.liveScoreLabel}>РАУНД</Text>
+                    <Text
+                      style={[
+                        styles.liveScoreValue,
+                        totalRoundPoints > 0 && { color: COLORS.crocodile },
+                        totalRoundPoints < 0 && { color: COLORS.spy },
+                      ]}
+                    >
+                      {totalRoundPoints > 0
+                        ? `+${totalRoundPoints}`
+                        : totalRoundPoints}
+                    </Text>
+                  </View>
+                </View>
                 <Text style={styles.overtimeOverline}>
                   ⚡ ВІДКРИТИЙ МІКРОФОН · ЧАС ВИЙШОВ!
                 </Text>
@@ -914,11 +1156,53 @@ export default function AliasGameScreen() {
                 onExpire={handleTimerExpire}
                 accentColor={COLORS.alias}
                 size="hero"
+                headerSlot={
+                  <View style={styles.hudHeaderRow}>
+                    <View style={styles.hudTeamBlock}>
+                      <Text style={styles.hudTeamName} numberOfLines={1}>
+                        {currentTeam.name}
+                      </Text>
+                      {currentStreak >= 2 ? (
+                        <View style={styles.streakBadge}>
+                          <Flame size={12} color={COLORS.hot} />
+                          <Text style={styles.streakBadgeText}>
+                            {currentStreak} ПІДРЯД
+                          </Text>
+                        </View>
+                      ) : liveChaseStatus ? (
+                        <Text
+                          style={[
+                            styles.chaseInlineText,
+                            { color: liveChaseStatus.color },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          · {liveChaseStatus.label}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.liveScorePill}>
+                      <Text style={styles.liveScoreLabel}>РАУНД</Text>
+                      <Text
+                        style={[
+                          styles.liveScoreValue,
+                          totalRoundPoints > 0 && { color: COLORS.crocodile },
+                          totalRoundPoints < 0 && { color: COLORS.spy },
+                        ]}
+                      >
+                        {totalRoundPoints > 0
+                          ? `+${totalRoundPoints}`
+                          : totalRoundPoints}
+                      </Text>
+                    </View>
+                  </View>
+                }
               />
             )}
           </View>
 
-          {/* Physical Word Deck Stage */}
+          {/* Clipped Word Card Stage */}
           <View style={styles.cardStage}>
             {/* Floating +1 / Skip Burst */}
             {feedbackBurst ? (
@@ -936,123 +1220,122 @@ export default function AliasGameScreen() {
               </Animated.View>
             ) : null}
 
-            {/* Underlying Stacked Physical Deck Layers */}
-            <View pointerEvents="none" style={styles.deepDeckCard} />
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.backDeckCard, animatedBackCardStyle]}
-            />
-
-            {/* Departing Ghost Card for Instant Non-Blocking Feedback */}
-            {departingCard ? (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.departingGhostCard,
-                  departingCard.guessed
-                    ? styles.departingGhostSuccess
-                    : styles.departingGhostSkip,
-                  animatedGhostCardStyle,
-                ]}
-              >
-                <Text style={styles.departingGhostWord} numberOfLines={2}>
-                  {departingCard.word}
-                </Text>
-              </Animated.View>
-            ) : null}
-
-            {/* Active Interactive Word Card */}
             <GestureDetector gesture={panGesture}>
-              <Animated.View
-                style={[
-                  styles.wordSurface,
-                  phase === 'OVERTIME' && styles.wordSurfaceOvertime,
-                  animatedCardStyle,
-                ]}
-              >
-                {/* Green Flash Overlay on Guess */}
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.cardFlashOverlay,
-                    styles.cardFlashSuccess,
-                    animatedSuccessOverlayStyle,
-                  ]}
-                />
+              <View style={styles.cardSlot}>
+                {/* Subtle deck rim behind both persistent cards */}
+                <View pointerEvents="none" style={styles.underDeckLayer} />
 
-                {/* Crimson Flash Overlay on Skip */}
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.cardFlashOverlay,
-                    styles.cardFlashSkip,
-                    animatedSkipOverlayStyle,
-                  ]}
-                />
+                {([0, 1] as const).map((slotIdx) => {
+                  const entry = slotCards[slotIdx];
+                  if (!entry) return null;
+                  const isFront = frontSlot === slotIdx;
+                  const slotAnimStyle =
+                    slotIdx === 0 ? slot0AnimatedStyle : slot1AnimatedStyle;
+                  const successOverlayStyle =
+                    slotIdx === 0
+                      ? slot0SuccessOverlayStyle
+                      : slot1SuccessOverlayStyle;
+                  const skipOverlayStyle =
+                    slotIdx === 0
+                      ? slot0SkipOverlayStyle
+                      : slot1SkipOverlayStyle;
 
-                {/* Top Edge: Minimal Card Badge & Undo */}
-                <View style={styles.cardTopEdge}>
-                  {currentCard?.difficulty === 3 ? (
-                    <View
+                  return (
+                    <Animated.View
+                      key={slotIdx}
+                      pointerEvents={isFront ? 'auto' : 'none'}
                       style={[
-                        styles.cardCounterPill,
-                        styles.cardBonusPill,
+                        styles.wordSurface,
+                        styles.wordSurfaceAbsolute,
+                        phase === 'OVERTIME' && styles.wordSurfaceOvertime,
+                        slotAnimStyle,
                       ]}
                     >
-                      <Text style={styles.cardBonusText}>
-                        🔥 БОНУС x2 · +2
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.cardCounterPill}>
-                      <Text style={styles.cardCounterText}>
-                        #{String(roundHistory.length + 1).padStart(2, '0')}
-                      </Text>
-                    </View>
-                  )}
+                      {/* Green Flash Overlay on Guess */}
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.cardFlashOverlay,
+                          styles.cardFlashSuccess,
+                          successOverlayStyle,
+                        ]}
+                      />
 
-                  {lastSwipedCard && phase === 'PLAYING' ? (
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={handleUndoLastCard}
-                      style={[styles.cardCounterPill, styles.cardUndoPill]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Повернути попереднє слово"
-                    >
-                      <RotateCcw size={11} color={COLORS.cardInkMuted} />
-                      <Text style={styles.cardUndoText}>Повернути</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View />
-                  )}
-                </View>
+                      {/* Crimson Flash Overlay on Skip */}
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.cardFlashOverlay,
+                          styles.cardFlashSkip,
+                          skipOverlayStyle,
+                        ]}
+                      />
 
-                {/* Dominant Center Word (Smart Typography + Pause Mask) */}
-                <View style={styles.wordCenterWrap}>
-                  <Text
-                    style={[
-                      styles.dominantWord,
-                      {
-                        fontSize: getWordFontSize(
-                          isPaused ? 'ПАУЗА' : currentCard?.word ?? 'Готово'
-                        ),
-                      },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {isPaused
-                      ? '⏸ ПАУЗА'
-                      : currentCard?.word ?? 'Готово'}
-                  </Text>
-                </View>
+                      {/* Top Edge: Index / Bonus Badge & Undo */}
+                      <View style={styles.cardTopEdge}>
+                        {entry.item.difficulty === 3 ? (
+                          <View
+                            style={[styles.cardCounterPill, styles.cardBonusPill]}
+                          >
+                            <Text style={styles.cardBonusText}>🔥 БОНУС +2</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.cardCounterPill}>
+                            <Text style={styles.cardCounterText}>
+                              #{String(entry.num).padStart(2, '0')}
+                            </Text>
+                          </View>
+                        )}
 
-                {/* Bottom Edge: Subtle Deck Watermark */}
-                <View style={[styles.cardBottomEdge, { justifyContent: 'center' }]}>
-                  <Text style={styles.cardDeckWatermark} numberOfLines={1}>
-                    {deck.title}
-                  </Text>
-                </View>
-              </Animated.View>
+                        {isFront && lastSwipedCard && phase === 'PLAYING' ? (
+                          <TouchableOpacity
+                            activeOpacity={0.75}
+                            onPress={handleUndoLastCard}
+                            style={[styles.cardCounterPill, styles.cardUndoPill]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Повернути попереднє слово"
+                          >
+                            <RotateCcw size={12} color={COLORS.textSecondary} />
+                            <Text style={styles.cardUndoText}>Повернути</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View />
+                        )}
+                      </View>
+
+                      {/* Dominant Center Word (Smart Typography + Pause Mask) */}
+                      <View style={styles.wordCenterWrap}>
+                        <Text
+                          style={[
+                            styles.dominantWord,
+                            {
+                              fontSize: getWordFontSize(
+                                isPaused ? 'ПАУЗА' : entry.item.word
+                              ),
+                            },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {isPaused ? '⏸ ПАУЗА' : entry.item.word}
+                        </Text>
+                      </View>
+
+                      {/* Bottom Edge: Subtle Deck & Gesture Anchor */}
+                      <View style={styles.cardBottomEdge}>
+                        <Text style={styles.cardEdgeCue}>↓ Пропуск</Text>
+                        <Text style={styles.cardDeckWatermark} numberOfLines={1}>
+                          {deck.title}
+                        </Text>
+                        <Text
+                          style={[styles.cardEdgeCue, { color: COLORS.crocodile }]}
+                        >
+                          Вгадали ↑
+                        </Text>
+                      </View>
+                    </Animated.View>
+                  );
+                })}
+              </View>
             </GestureDetector>
           </View>
 
@@ -1063,7 +1346,7 @@ export default function AliasGameScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={styles.skipBtn}
-                  onPress={() => triggerCardDecisionWithAnimation(false)}
+                  onPress={() => triggerButtonDecision(false)}
                 >
                   <ArrowDown size={18} color={COLORS.textSecondary} />
                   <Text style={styles.skipBtnText}>Ніхто не вгадав</Text>
@@ -1072,7 +1355,7 @@ export default function AliasGameScreen() {
                 <TouchableOpacity
                   activeOpacity={0.85}
                   style={styles.guessedBtn}
-                  onPress={() => triggerCardDecisionWithAnimation(true)}
+                  onPress={() => triggerButtonDecision(true)}
                 >
                   <ArrowUp size={18} color={COLORS.background} strokeWidth={2.8} />
                   <Text style={styles.guessedBtnText} numberOfLines={1}>
@@ -1121,7 +1404,7 @@ export default function AliasGameScreen() {
               <TouchableOpacity
                 activeOpacity={0.8}
                 style={styles.skipBtn}
-                onPress={() => triggerCardDecisionWithAnimation(false)}
+                onPress={() => triggerButtonDecision(false)}
                 accessibilityRole="button"
                 accessibilityLabel={
                   currentStep.penaltyForSkip ? 'Пропуск мінус 1' : 'Пропуск'
@@ -1136,7 +1419,7 @@ export default function AliasGameScreen() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.guessedBtn}
-                onPress={() => triggerCardDecisionWithAnimation(true)}
+                onPress={() => triggerButtonDecision(true)}
                 accessibilityRole="button"
                 accessibilityLabel={`Вгадали плюс ${currentCard?.difficulty === 3 ? '2' : '1'}`}
               >
@@ -1286,22 +1569,29 @@ const styles = StyleSheet.create({
   // PHASE 1: READY (TEAM CALLOUT)
   readyBody: {
     flex: 1,
+  },
+  readyScroll: {
+    flex: 1,
+  },
+  readyScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.sm,
     paddingBottom: SPACING.lg,
-    justifyContent: 'space-between',
-    gap: SPACING.lg,
+    gap: SPACING.md,
+  },
+  readyMainGroup: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: SPACING.md,
   },
   calloutStageCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#121726',
     borderRadius: RADIUS.xl,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-    borderTopWidth: 5,
-    borderTopColor: COLORS.alias,
+    borderColor: 'rgba(59, 130, 246, 0.24)',
     padding: SPACING.xl,
-    justifyContent: 'space-between',
+    gap: SPACING.lg,
   },
   calloutTopRow: {
     flexDirection: 'row',
@@ -1313,15 +1603,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: 'rgba(59, 130, 246, 0.16)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
   roundBadgeText: {
     color: COLORS.alias,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.1,
   },
   teamCurrentScoreText: {
     color: COLORS.textSecondary,
@@ -1330,34 +1620,39 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   calloutHeroCenter: {
-    gap: 10,
-    paddingVertical: SPACING.lg,
+    gap: 6,
   },
   calloutOverline: {
     color: COLORS.alias,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1.8,
   },
   calloutTeamName: {
     color: COLORS.textPrimary,
-    fontSize: 44,
+    fontSize: 38,
     fontWeight: '900',
-    letterSpacing: -1.3,
-    lineHeight: 50,
+    letterSpacing: -1.1,
+    lineHeight: 44,
   },
   calloutInstruction: {
     color: COLORS.textSecondary,
-    fontSize: 16,
-    lineHeight: 23,
-    marginTop: 4,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 2,
+  },
+  readySettingsBlock: {
+    gap: 10,
   },
   calloutRulesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surfaceSubtle,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     gap: SPACING.md,
   },
   ruleMiniBlock: {
@@ -1380,26 +1675,95 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  modifierCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  modifierCardActive: {
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+  },
+  modifierTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  modifierTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  modifierTitleText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  modifierTitleTextActive: {
+    color: COLORS.hot,
+  },
+  modifierStatusText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  modifierDescText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  gestureLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.md,
+  },
+  gestureLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  gestureLegendText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  gestureLegendDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: COLORS.border,
+  },
   launchButton: {
     width: '100%',
     backgroundColor: COLORS.alias,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipAlias,
-    paddingVertical: 17,
-    borderRadius: RADIUS.xl,
+    paddingVertical: 16,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   launchButtonSub: {
-    color: 'rgba(245, 245, 247, 0.78)',
+    color: 'rgba(245, 245, 247, 0.8)',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.8,
   },
   launchButtonTitle: {
     color: COLORS.textPrimary,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
     letterSpacing: 0.4,
   },
@@ -1454,15 +1818,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingBottom: SPACING.lg,
     justifyContent: 'space-between',
+    gap: 8,
   },
   topHud: {
-    gap: 10,
+    paddingTop: 2,
   },
   hudHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: SPACING.md,
+    gap: SPACING.sm,
   },
   hudTeamBlock: {
     flexDirection: 'row',
@@ -1472,81 +1837,97 @@ const styles = StyleSheet.create({
   },
   hudTeamName: {
     color: COLORS.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     flexShrink: 1,
+  },
+  chaseInlineText: {
+    fontSize: 12,
+    fontWeight: '700',
+    flexShrink: 0,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: `${COLORS.hot}24`,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: RADIUS.full,
   },
   streakBadgeText: {
     color: COLORS.hot,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
   },
   liveScorePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 6,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
   liveScoreLabel: {
     color: COLORS.textMuted,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1.1,
+    letterSpacing: 1,
   },
   liveScoreValue: {
     color: COLORS.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   overtimeBanner: {
-    backgroundColor: '#281319',
+    backgroundColor: '#241218',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.35)',
     paddingVertical: 12,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
-    alignItems: 'center',
-    gap: 2,
+    gap: 6,
   },
   overtimeOverline: {
     color: COLORS.spy,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.6,
+    letterSpacing: 1.4,
   },
   overtimeTitle: {
     color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
   },
 
-  // CARD STAGE
+  // CARD STAGE (clipped so departing card never overlaps HUD)
   cardStage: {
     flex: 1,
     justifyContent: 'center',
-    marginVertical: SPACING.md,
+    alignItems: 'center',
+    paddingVertical: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardSlot: {
+    width: '100%',
+    flex: 1,
+    maxHeight: 332,
+    minHeight: 196,
     position: 'relative',
   },
   burstBadge: {
     position: 'absolute',
-    top: 8,
+    top: 4,
     alignSelf: 'center',
     zIndex: 30,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
   },
   burstBadgeSuccess: {
@@ -1557,46 +1938,43 @@ const styles = StyleSheet.create({
   },
   burstBadgeText: {
     color: COLORS.background,
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
-  deepDeckCard: {
+  underDeckLayer: {
     position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 6,
-    height: 310,
-    backgroundColor: COLORS.cardPaperDeep,
+    top: 6,
+    left: 10,
+    right: 10,
+    bottom: -6,
+    backgroundColor: '#101524',
     borderRadius: RADIUS.xl,
-    opacity: 0.45,
-  },
-  backDeckCard: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    height: 336,
-    backgroundColor: COLORS.cardPaperBack,
-    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.16)',
   },
   wordSurface: {
     flex: 1,
-    maxHeight: 368,
-    backgroundColor: COLORS.cardPaper,
+    backgroundColor: '#161C2E',
     borderRadius: RADIUS.xl,
-    borderBottomWidth: 6,
-    borderBottomColor: COLORS.lipPaper,
-    padding: SPACING.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.30)',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
   },
+  wordSurfaceAbsolute: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   wordSurfaceOvertime: {
-    backgroundColor: '#FFF0E6',
-    borderWidth: 2,
+    backgroundColor: '#241712',
     borderColor: COLORS.hot,
-    borderBottomWidth: 6,
-    borderBottomColor: COLORS.lipHot,
   },
   cardFlashOverlay: {
     position: 'absolute',
@@ -1607,10 +1985,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
   },
   cardFlashSuccess: {
-    backgroundColor: 'rgba(16, 185, 129, 0.34)',
+    backgroundColor: 'rgba(16, 185, 129, 0.28)',
   },
   cardFlashSkip: {
-    backgroundColor: 'rgba(244, 63, 94, 0.3)',
+    backgroundColor: 'rgba(244, 63, 94, 0.25)',
   },
   cardTopEdge: {
     flexDirection: 'row',
@@ -1618,26 +1996,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   cardCounterPill: {
-    backgroundColor: 'rgba(18, 18, 24, 0.07)',
-    paddingHorizontal: 11,
-    paddingVertical: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
   cardCounterText: {
-    color: COLORS.cardInkMuted,
+    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.1,
+    letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
   cardBonusPill: {
     backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
   },
   cardBonusText: {
-    color: '#C2410C',
+    color: COLORS.hot,
     fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 0.8,
+    letterSpacing: 0.7,
   },
   cardUndoPill: {
     flexDirection: 'row',
@@ -1645,26 +2026,9 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   cardUndoText: {
-    color: COLORS.cardInkMuted,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  swipeDirectionHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  swipeUpHintText: {
-    color: COLORS.crocodile,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  swipeDownHintText: {
-    color: COLORS.textMuted,
+    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.8,
   },
   wordCenterWrap: {
     flex: 1,
@@ -1673,10 +2037,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   dominantWord: {
-    color: COLORS.cardInk,
+    color: COLORS.textPrimary,
     fontSize: 44,
     fontWeight: '900',
-    letterSpacing: -1.4,
+    letterSpacing: -1.2,
     textAlign: 'center',
     lineHeight: 50,
   },
@@ -1684,28 +2048,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
-  cardDeckWatermark: {
-    color: COLORS.cardInkMuted,
+  cardEdgeCue: {
+    color: 'rgba(245, 245, 247, 0.42)',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.8,
+  },
+  cardDeckWatermark: {
+    color: COLORS.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    opacity: 0.75,
+    flexShrink: 1,
+    textAlign: 'center',
   },
 
-  // BOTTOM CONTROLS (TACTILE 3D KEYCAPS)
+  // BOTTOM CONTROLS
   controlsRow: {
     flexDirection: 'row',
     gap: SPACING.md,
   },
   skipBtn: {
     flex: 1,
-    height: 64,
-    backgroundColor: COLORS.surfaceElevated,
-    borderBottomWidth: 5,
+    height: 60,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipNeutral,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1718,11 +2091,11 @@ const styles = StyleSheet.create({
   },
   guessedBtn: {
     flex: 1.45,
-    height: 64,
+    height: 60,
     backgroundColor: COLORS.crocodile,
-    borderBottomWidth: 5,
+    borderBottomWidth: 3,
     borderBottomColor: COLORS.lipCrocodile,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1885,28 +2258,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.6,
-  },
-  departingGhostCard: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    maxHeight: 368,
-    borderRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 12,
-  },
-  departingGhostSuccess: {
-    backgroundColor: '#D1FAE5',
-  },
-  departingGhostSkip: {
-    backgroundColor: '#FFE4E6',
-  },
-  departingGhostWord: {
-    color: COLORS.cardInk,
-    fontSize: 36,
-    fontWeight: '900',
-    textAlign: 'center',
   },
 });
