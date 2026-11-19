@@ -392,7 +392,7 @@ export default function ScoreboardScreen() {
                 ...rankedTeams.map((t) => Math.max(0, t.totalScore)),
               );
               return rankedTeams.map((team, idx) => {
-                const isLeader = idx === 0 && team.totalScore > 0;
+                const isLeader = idx === 0 && team.totalScore > 0 && !isTie;
                 const mascot = getTeamMascot(team.mascotId, team.name, idx);
                 const progressPct = Math.round(
                   (Math.max(0, team.totalScore) / maxScore) * 100,
@@ -564,86 +564,118 @@ export default function ScoreboardScreen() {
                 <View style={styles.posterStatsRow}>
                   <View style={styles.posterStatBox}>
                     <Text style={styles.posterStatNumber}>
-                      {totalGuessedWords}
+                      {isSpyOnlySession ? spyStats.citizensWins : totalGuessedWords}
                     </Text>
-                    <Text style={styles.posterStatCaption}>Відгадано слів</Text>
+                    <Text style={styles.posterStatCaption}>
+                      {isSpyOnlySession ? 'Викрито шпигунів' : 'Відгадано слів'}
+                    </Text>
                   </View>
                   <View style={styles.posterStatBox}>
-                    <Text style={styles.posterStatNumber}>{steps.length}</Text>
-                    <Text style={styles.posterStatCaption}>Зіграно режимів</Text>
+                    <Text style={styles.posterStatNumber}>
+                      {isSpyOnlySession ? spyStats.spyWins : steps.length}
+                    </Text>
+                    <Text style={styles.posterStatCaption}>
+                      {isSpyOnlySession ? 'Перемог шпигуна' : 'Зіграно режимів'}
+                    </Text>
                   </View>
                 </View>
 
-                {/* Party Achievements & Awards ("Оскари Вечірки") */}
-                {(achievements.length > 0 || bestStreakCount >= 2 || bestTurnPoints > 0 || bonusWordsGuessed > 0 || spyStats.roundsPlayed > 0) ? (
-                  <View style={styles.awardsCard}>
-                    <Text style={styles.awardsTitle}>
-                      🏆 НОМІНАЦІЇ ТА ОСКАРИ ВЕЧІРКИ
-                    </Text>
+                {/* Unified Party Achievements & Records ("Нагороди та рекорди вечора") */}
+                {(() => {
+                  const hasFireAch = achievements.some((a) => a.id === 'on_fire');
+                  const hasMachineGunAch = achievements.some((a) => a.id === 'machine_gun');
+                  const hasHardcoreAch = achievements.some((a) => a.id === 'hardcore');
+                  const hasSpyAch = achievements.some(
+                    (a) => a.id === 'bluff_king' || a.id === 'detectives'
+                  );
 
-                    {achievements.length > 0 ? (
-                      <View style={styles.achievementsBadgesWrap}>
-                        {achievements.map((ach) => (
-                          <View key={ach.id} style={styles.achievementBadgeCard}>
-                            <Text style={styles.achievementEmoji}>{ach.emoji}</Text>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.achievementTitle}>
-                                {ach.title}
-                              </Text>
-                              <Text style={styles.achievementDetail}>
-                                {ach.detail}
-                              </Text>
+                  const extraRecords: { label: string; value: string }[] = [];
+                  if (!hasFireAch && bestStreakCount >= 2 && bestStreakTeamName) {
+                    extraRecords.push({
+                      label: '🔥 Найкраща серія',
+                      value: `${bestStreakTeamName} (${bestStreakCount} підряд)`,
+                    });
+                  }
+                  if (!hasMachineGunAch && bestTurnPoints > 0 && bestTurnTeamName) {
+                    extraRecords.push({
+                      label: '⚡ Рекорд одного раунду',
+                      value: `${bestTurnTeamName} (+${bestTurnPoints})`,
+                    });
+                  }
+                  if (!hasHardcoreAch && bonusWordsGuessed > 0) {
+                    extraRecords.push({
+                      label: '💎 Хардкор-слова (3★)',
+                      value: `${bonusWordsGuessed} слів`,
+                    });
+                  }
+                  if (!hasSpyAch && !isSpyOnlySession && spyStats.roundsPlayed > 0) {
+                    extraRecords.push({
+                      label: '🕵️ Протокол «Шпигун»',
+                      value: `Мирні ${spyStats.citizensWins} : ${spyStats.spyWins} Шпигун`,
+                    });
+                  }
+
+                  if (achievements.length === 0 && extraRecords.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <View style={styles.awardsCard}>
+                      <Text style={styles.awardsTitle}>
+                        🏆 НАГОРОДИ ТА РЕКОРДИ ВЕЧОРА
+                      </Text>
+
+                      {achievements.length > 0 ? (
+                        <View style={styles.achievementsBadgesWrap}>
+                          {achievements.map((ach) => (
+                            <View key={ach.id} style={styles.achievementBadgeCard}>
+                              <Text style={styles.achievementEmoji}>{ach.emoji}</Text>
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.achievementTitle}>
+                                  {ach.title}
+                                </Text>
+                                <Text style={styles.achievementDetail}>
+                                  {ach.detail}
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
+                          ))}
+                        </View>
+                      ) : null}
 
-                    {bestStreakCount >= 2 && bestStreakTeamName ? (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                          🔥 Серійна машина
-                        </Text>
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                          {bestStreakTeamName} ({bestStreakCount} підряд)
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {bestTurnPoints > 0 && bestTurnTeamName ? (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                          ⚡ Рекорд одного раунду
-                        </Text>
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                          {bestTurnTeamName} (+{bestTurnPoints})
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {bonusWordsGuessed > 0 ? (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                          💎 Мисливці за хардкором (3★)
-                        </Text>
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                          {bonusWordsGuessed} слів
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {spyStats.roundsPlayed > 0 ? (
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                          🕵️ Протокол «Шпигун»
-                        </Text>
-                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                          Мирні {spyStats.citizensWins} : {spyStats.spyWins} Шпигун
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
+                      {extraRecords.map((rec) => (
+                        <View
+                          key={rec.label}
+                          style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 8,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: COLORS.textSecondary,
+                              fontSize: 12,
+                              fontWeight: '700',
+                            }}
+                          >
+                            {rec.label}
+                          </Text>
+                          <Text
+                            style={{
+                              color: COLORS.textPrimary,
+                              fontSize: 13,
+                              fontWeight: '800',
+                            }}
+                          >
+                            {rec.value}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
 
                 {/* Word that broke the party */}
                 {!isSpyOnlySession ? (

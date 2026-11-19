@@ -153,7 +153,11 @@ export default function SetupScreen() {
       mascotId: savedTeamMascots?.[idx] ?? guessMascotIdFromName(name, idx),
     }));
   });
-  const [playerCount, setPlayerCount] = useState<number>(5);
+  const [playerCount, setPlayerCount] = useState<number>(() =>
+    savedPlayerNames && savedPlayerNames.length >= 3
+      ? Math.min(12, savedPlayerNames.length)
+      : 5
+  );
   const [playerNames, setPlayerNames] = useState<string[]>(() => {
     const base = savedPlayerNames && savedPlayerNames.length > 0
       ? savedPlayerNames

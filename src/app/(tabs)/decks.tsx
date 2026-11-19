@@ -33,11 +33,17 @@ import {
   CustomDeckTargetMode,
   OFFICIAL_DECKS,
   parseRawDeckText,
+  parseRawSpyText,
+  parseRawTabooText,
   useDeckStore,
 } from '@/stores/useDeckStore';
 import { useUsedContentStore } from '@/stores/useUsedContentStore';
 import { Deck } from '@/types';
-import { encodeDeckToShareUrl, extractDeckRawLines } from '@/utils/deckShare';
+import {
+  detectDeckTargetMode,
+  encodeDeckToShareUrl,
+  extractDeckRawLines,
+} from '@/utils/deckShare';
 
 const OFFICIAL_DECK_ART: Record<string, any> = {
   base_ua: require('../../../assets/images/cards/deck_base.webp'),
@@ -50,9 +56,11 @@ const OFFICIAL_DECK_ART: Record<string, any> = {
 const EMOJI_OPTIONS = ['🃏', '🍻', '🔥', '🌶️', '🐸', '💻', '🍕', '🎬', '🎸', '🚀', '🦄', '💣'];
 
 const TARGET_MODES: { id: CustomDeckTargetMode; label: string }[] = [
-  { id: 'both', label: 'Обидва режими' },
-  { id: 'alias', label: 'Тільки Еліас' },
-  { id: 'crocodile', label: 'Тільки Крокодил' },
+  { id: 'both', label: 'Еліас + Крокодил' },
+  { id: 'alias', label: 'Еліас' },
+  { id: 'crocodile', label: 'Крокодил' },
+  { id: 'taboo', label: 'Табу' },
+  { id: 'spy', label: 'Шпигун' },
 ];
 
 type CoverTheme = {
@@ -129,7 +137,15 @@ export default function DecksScreen() {
   const [previewDeck, setPreviewDeck] = useState<Deck | null>(null);
   const [previewTab, setPreviewTab] = useState<'alias' | 'crocodile' | 'taboo' | 'spy'>('alias');
 
-  const parsedPreviewItems = useMemo(() => parseRawDeckText(rawText), [rawText]);
+  const parsedPreviewItems = useMemo(() => {
+    if (targetMode === 'taboo') {
+      return parseRawTabooText(rawText).map((i) => i.word);
+    }
+    if (targetMode === 'spy') {
+      return parseRawSpyText(rawText).map((i) => i.name);
+    }
+    return parseRawDeckText(rawText);
+  }, [rawText, targetMode]);
 
   const openModal = (prefillSample = false) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -145,20 +161,14 @@ export default function DecksScreen() {
 
   const handleEditCustomDeck = (deck: Deck) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const hasAlias = deck.items.alias.length > 0;
-    const hasCroc = deck.items.crocodile.length > 0;
-    const mode: CustomDeckTargetMode =
-      hasAlias && hasCroc ? 'both' : hasAlias ? 'alias' : 'crocodile';
-
-    const words = hasAlias
-      ? deck.items.alias.map((item) => item.word)
-      : deck.items.crocodile.map((item) => item.phrase);
+    const mode = detectDeckTargetMode(deck);
+    const lines = extractDeckRawLines(deck);
 
     setEditingDeckId(deck.id);
     setTitle(deck.title);
     setSelectedEmoji(deck.emoji);
     setTargetMode(mode);
-    setRawText(words.join('\n'));
+    setRawText(lines.join('\n'));
     setPreviewDeck(null);
     setModalVisible(true);
   };
@@ -243,7 +253,10 @@ export default function DecksScreen() {
     const payload = {
       title: deckTitle,
       emoji: selectedEmoji,
-      rawText: parsedPreviewItems.join('\n'),
+      rawText:
+        targetMode === 'taboo' || targetMode === 'spy'
+          ? rawText.trim()
+          : parsedPreviewItems.join('\n'),
       targetMode,
     };
 
