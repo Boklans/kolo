@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ArrowDown, ArrowUp, Ban, Flame, RotateCcw, ShieldAlert } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { getTeamMascot } from '@/constants/mascots';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
 import { baseUaDeck, useDeckStore } from '@/stores/useDeckStore';
@@ -110,6 +111,11 @@ export default function TabooGameScreen() {
     name: 'Команда 1',
     scoresByGroup: { main: 0 },
   };
+  const teamMascot = getTeamMascot(
+    currentTeam.mascotId,
+    currentTeam.name,
+    currentTeamIndex
+  );
 
   const currentTeamTotalScore = useMemo(
     () =>
@@ -160,6 +166,23 @@ export default function TabooGameScreen() {
   const phaseSV = useSharedValue<number>(0); // 1 = PLAYING, 2 = OVERTIME
   const isPausedSV = useSharedValue<boolean>(false);
   const reducedMotionSV = useSharedValue<boolean>(false);
+  const shakeX = useSharedValue(0);
+
+  const triggerShake = useCallback(() => {
+    if (reducedMotion) return;
+    shakeX.value = withSequence(
+      withTiming(-8, { duration: 40 }),
+      withTiming(8, { duration: 45 }),
+      withTiming(-6, { duration: 45 }),
+      withTiming(6, { duration: 45 }),
+      withTiming(-3, { duration: 40 }),
+      withTiming(0, { duration: 40 })
+    );
+  }, [reducedMotion, shakeX]);
+
+  const shakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeX.value }],
+  }));
 
   useEffect(() => {
     phaseSV.value = phase === 'PLAYING' ? 1 : phase === 'OVERTIME' ? 2 : 0;
@@ -429,8 +452,9 @@ export default function TabooGameScreen() {
   }, [phase, reducedMotion, countdownScale, countdownOpacity, initRoundDeckSlots]);
 
   const handleTimerExpire = useCallback(() => {
+    triggerShake();
     setPhase((prev) => (prev === 'PLAYING' ? 'OVERTIME' : prev));
-  }, []);
+  }, [triggerShake]);
 
   const commitSlotDecision = useCallback(
     (exitedSlot: 0 | 1, outcome: 'guessed' | 'skip' | 'taboo') => {
@@ -452,6 +476,9 @@ export default function TabooGameScreen() {
       } else {
         streakRef.current = 0;
         playWordSkipped();
+        if (outcome === 'taboo' && currentStep.penaltyForTaboo) {
+          triggerShake();
+        }
       }
 
       const isBonus = swipedItem.difficulty === 3;
@@ -565,6 +592,7 @@ export default function TabooGameScreen() {
       setSlotPoseImmediate,
       frontSlotSV,
       drawSingleDeckEntry,
+      triggerShake,
     ]
   );
 
@@ -852,6 +880,7 @@ export default function TabooGameScreen() {
 
   const stepNumStr = String(currentStepIndex + 1).padStart(2, '0');
   const totalStepsStr = String(Math.max(1, steps.length)).padStart(2, '0');
+  const isOnFire = currentStreak >= 3 && phase === 'PLAYING';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -862,6 +891,8 @@ export default function TabooGameScreen() {
         gameType="taboo"
         onPauseChange={setIsPaused}
       />
+
+      <Animated.View style={[{ flex: 1 }, shakeStyle]}>
 
       {/* PHASE 1: READY */}
       {phase === 'READY' ? (
@@ -891,7 +922,7 @@ export default function TabooGameScreen() {
                 <View style={styles.calloutHeroCenter}>
                   <Text style={styles.calloutOverline}>МІННЕ ПОЛЕ СЛІВ</Text>
                   <Text style={styles.calloutTeamName} numberOfLines={2}>
-                    {currentTeam.name}
+                    {teamMascot.emoji} {currentTeam.name}
                   </Text>
                   <Text style={styles.calloutInstruction}>
                     Поясни головне слово, НЕ називаючи 4 заборонені слова під ним!
@@ -999,13 +1030,13 @@ export default function TabooGameScreen() {
                 durationSec={currentStep.roundTimeSec}
                 isRunning={phase === 'PLAYING' && !isPaused}
                 onExpire={handleTimerExpire}
-                accentColor={COLORS.taboo}
+                accentColor={isOnFire ? COLORS.hot : COLORS.taboo}
                 size="hero"
                 headerSlot={
                   <View style={styles.hudHeaderRow}>
                     <View style={styles.hudTeamBlock}>
                       <Text style={styles.hudTeamName} numberOfLines={1}>
-                        {currentTeam.name}
+                        {teamMascot.emoji} {currentTeam.name}
                       </Text>
                       {currentStreak >= 2 ? (
                         <View style={styles.streakBadge}>
@@ -1080,6 +1111,7 @@ export default function TabooGameScreen() {
                       style={[
                         styles.wordSurface,
                         styles.wordSurfaceAbsolute,
+                        isOnFire && styles.wordSurfaceStreakFire,
                         phase === 'OVERTIME' && styles.wordSurfaceOvertime,
                         slotAnimStyle,
                       ]}
@@ -1102,7 +1134,14 @@ export default function TabooGameScreen() {
                       />
 
                       <View style={styles.cardTopEdge}>
-                        {entry.item.difficulty === 3 ? (
+                        {isOnFire ? (
+                          <View style={[styles.cardCounterPill, styles.cardBonusPill]}>
+                            <Text style={styles.cardBonusText}>
+                              🔥 У ВОГНІ · ×{currentStreak}
+                              {entry.item.difficulty === 3 ? ' · БОНУС +2' : ''}
+                            </Text>
+                          </View>
+                        ) : entry.item.difficulty === 3 ? (
                           <View style={[styles.cardCounterPill, styles.cardBonusPill]}>
                             <Text style={styles.cardBonusText}>🔥 БОНУС +2</Text>
                           </View>
@@ -1218,7 +1257,9 @@ export default function TabooGameScreen() {
             <View style={styles.roundResultTopRow}>
               <View>
                 <Text style={styles.roundResultOverline}>ПІДСУМОК РАУНДУ ТАБУ</Text>
-                <Text style={styles.roundResultTeam}>{currentTeam.name}</Text>
+                <Text style={styles.roundResultTeam}>
+                  {teamMascot.emoji} {currentTeam.name}
+                </Text>
               </View>
 
               <View style={styles.roundResultBigScoreBox}>
@@ -1305,6 +1346,7 @@ export default function TabooGameScreen() {
           </View>
         </View>
       ) : null}
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -1656,6 +1698,10 @@ const styles = StyleSheet.create({
   wordSurfaceOvertime: {
     backgroundColor: '#241712',
     borderColor: COLORS.hot,
+  },
+  wordSurfaceStreakFire: {
+    borderColor: COLORS.hot,
+    borderWidth: 2,
   },
   cardFlashOverlay: {
     position: 'absolute',

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -13,92 +14,41 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeIn,
-  useAnimatedStyle,
+  LinearTransition,
   useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withSequence,
-  withTiming,
 } from 'react-native-reanimated';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import * as Clipboard from 'expo-clipboard';
 import {
   ArrowRight,
   Copy,
+  Dices,
+  Download,
   Share2,
   Smartphone,
   Sparkles,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import {
+  buildShowCommentatorLine,
+  computePartyAchievements,
+  getTeamMascot,
+} from '@/constants/mascots';
+import { ConfettiCanvas } from '@/components/game/ConfettiCanvas';
+import { ForfeitWheelModal } from '@/components/game/ForfeitWheelModal';
 import { BalakaLogo } from '@/components/graphics/BalakaLogo';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
+import { useHistoryStore } from '@/stores/useHistoryStore';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { playVictoryFanfare, triggerHaptic } from '@/utils/sound';
 
-const CONFETTI_PIECES = [
-  { left: '8%', color: '#F97316', delay: 0 },
-  { left: '20%', color: '#10B981', delay: 140 },
-  { left: '34%', color: '#3B82F6', delay: 260 },
-  { left: '48%', color: '#A855F7', delay: 80 },
-  { left: '62%', color: '#F43F5E', delay: 200 },
-  { left: '76%', color: '#FACC15', delay: 120 },
-  { left: '90%', color: '#10B981', delay: 300 },
-];
-
-function ConfettiPiece({
-  left,
-  color,
-  delay,
-  reducedMotion,
-}: {
-  left: string;
-  color: string;
-  delay: number;
-  reducedMotion: boolean;
-}) {
-  const translateY = useSharedValue(-16);
-  const opacity = useSharedValue(0);
-
-  useEffect(() => {
-    if (reducedMotion) return;
-    translateY.value = withDelay(delay, withTiming(110, { duration: 1900 }));
-    opacity.value = withDelay(
-      delay,
-      withSequence(
-        withTiming(1, { duration: 300 }),
-        withTiming(0, { duration: 1600 })
-      )
-    );
-  }, [delay, opacity, translateY, reducedMotion]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }, { rotateZ: '18deg' }],
-  }));
-
-  if (reducedMotion) return null;
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          top: 0,
-          left: left as any,
-          width: 8,
-          height: 16,
-          borderRadius: 4,
-          backgroundColor: color,
-        },
-        animStyle,
-      ]}
-    />
-  );
-}
-
 export default function ScoreboardScreen() {
   const router = useRouter();
+  const storyPosterRef = useRef<any>(null);
+  const [isForfeitOpen, setIsForfeitOpen] = useState(false);
 
+  const sessionId = usePartyStore((s) => s.sessionId);
   const isCompleted = usePartyStore((s) => s.isCompleted);
   const presetTitle = usePartyStore((s) => s.presetTitle);
   const steps = usePartyStore((s) => s.steps);
@@ -136,20 +86,139 @@ export default function ScoreboardScreen() {
   }, [teams]);
 
   const winnerTeam = rankedTeams[0];
+  const losingTeam =
+    rankedTeams.length >= 2 ? rankedTeams[rankedTeams.length - 1] : null;
   const isTie =
     rankedTeams.length >= 2 &&
-    rankedTeams[0].totalScore === rankedTeams[1].totalScore &&
-    rankedTeams[0].totalScore > 0;
+    rankedTeams[0].totalScore === rankedTeams[1].totalScore;
+  const isSpyOnlySession = !hasTeamSteps && spyStats.roundsPlayed > 0;
+  const leaderGap =
+    rankedTeams.length >= 2
+      ? rankedTeams[0].totalScore - rankedTeams[1].totalScore
+      : 0;
 
   const currentStep = steps[currentStepIndex];
   const nextTeam = teams[currentTeamIndex];
   const reducedMotion = useReducedMotion();
 
+  const forfeitTargetTeam = isTie ? rankedTeams[1] ?? losingTeam : losingTeam;
+  const forfeitTargetMascot = forfeitTargetTeam
+    ? getTeamMascot(
+        forfeitTargetTeam.mascotId,
+        forfeitTargetTeam.name,
+        Math.max(0, rankedTeams.length - 1)
+      )
+    : undefined;
+
+  const achievements = useMemo(
+    () =>
+      computePartyAchievements({
+        totalGuessedWords,
+        bestStreakCount,
+        bestStreakTeamName,
+        bestTurnPoints,
+        bestTurnTeamName,
+        bonusWordsGuessed,
+        hardestUnansweredWord,
+        spyRounds: spyStats.roundsPlayed,
+        spyCitizensWins: spyStats.citizensWins,
+        spyWins: spyStats.spyWins,
+        isTie,
+        leaderGap,
+      }),
+    [
+      totalGuessedWords,
+      bestStreakCount,
+      bestStreakTeamName,
+      bestTurnPoints,
+      bestTurnTeamName,
+      bonusWordsGuessed,
+      hardestUnansweredWord,
+      spyStats.roundsPlayed,
+      spyStats.citizensWins,
+      spyStats.spyWins,
+      isTie,
+      leaderGap,
+    ]
+  );
+
+  const commentatorLine = useMemo(
+    () =>
+      buildShowCommentatorLine({
+        rankedTeams,
+        nextTeamName: nextTeam?.name,
+        lastTurnTeamName: lastTurnInfo?.teamName,
+        lastTurnDelta: lastTurnInfo?.pointsDelta,
+        currentRoundInStep,
+      }),
+    [
+      rankedTeams,
+      nextTeam?.name,
+      lastTurnInfo?.teamName,
+      lastTurnInfo?.pointsDelta,
+      currentRoundInStep,
+    ]
+  );
+
   useEffect(() => {
-    if (isCompleted) {
-      playVictoryFanfare();
-    }
-  }, [isCompleted]);
+    if (!isCompleted) return;
+    playVictoryFanfare();
+    const effectiveSessionId =
+      sessionId ||
+      `legacy_${presetTitle || 'party'}_${totalGuessedWords}_${spyStats.roundsPlayed}_${rankedTeams
+        .map((t) => t.totalScore)
+        .join('_')}`;
+    useHistoryStore.getState().addRecord({
+      sessionId: effectiveSessionId,
+      presetTitle: presetTitle || 'Вечірка Balaka',
+      winnerName:
+        hasTeamSteps && winnerTeam
+          ? isTie && rankedTeams[1]
+            ? `${rankedTeams[0].name} & ${rankedTeams[1].name}`
+            : winnerTeam.name
+          : isSpyOnlySession
+            ? spyStats.citizensWins >= spyStats.spyWins
+              ? 'Мирні детективи'
+              : 'Шпигуни'
+            : presetTitle || 'Balaka Party',
+      winnerMascotId: hasTeamSteps ? winnerTeam?.mascotId : undefined,
+      winnerScore: hasTeamSteps && winnerTeam ? winnerTeam.totalScore : 0,
+      isTie: Boolean(hasTeamSteps && isTie),
+      teams: hasTeamSteps
+        ? rankedTeams.map((t) => ({
+            name: t.name,
+            mascotId: t.mascotId,
+            score: t.totalScore,
+          }))
+        : [],
+      totalGuessedWords,
+      bestStreakCount,
+      bestStreakTeamName,
+      bestTurnPoints,
+      hardestUnansweredWord,
+      achievements: achievements.map((a) => `${a.emoji} ${a.title}`),
+      spyRoundsPlayed: spyStats.roundsPlayed,
+      spyCitizensWins: spyStats.citizensWins,
+    });
+  }, [
+    isCompleted,
+    sessionId,
+    presetTitle,
+    hasTeamSteps,
+    winnerTeam,
+    isTie,
+    rankedTeams,
+    isSpyOnlySession,
+    totalGuessedWords,
+    bestStreakCount,
+    bestStreakTeamName,
+    bestTurnPoints,
+    hardestUnansweredWord,
+    achievements,
+    spyStats.roundsPlayed,
+    spyStats.citizensWins,
+    spyStats.spyWins,
+  ]);
 
   const handleContinue = () => {
     triggerHaptic('heavy');
@@ -225,6 +294,30 @@ export default function ScoreboardScreen() {
     );
   };
 
+  const handleShareStoryPosterImage = async () => {
+    triggerHaptic('medium');
+    if (Platform.OS !== 'web' && storyPosterRef.current) {
+      try {
+        const uri = await (storyPosterRef.current.capture?.() ??
+          captureRef(storyPosterRef as any, {
+            format: 'png',
+            quality: 0.95,
+          }));
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'image/png',
+            dialogTitle: 'Афіша вечора Balaka 9:16',
+          });
+          return;
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+    await handleSharePartySummary();
+  };
+
   const stepNum = String(Math.min(currentStepIndex + 1, steps.length)).padStart(
     2,
     '0'
@@ -233,6 +326,7 @@ export default function ScoreboardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      {isCompleted ? <ConfettiCanvas /> : null}
       {!isCompleted ? (
         <SessionTopBar
           stepBadgeText={`РАХУНОК · ${stepNum} / ${totalStepsNum}`}
@@ -271,19 +365,6 @@ export default function ScoreboardScreen() {
           entering={reducedMotion ? undefined : FadeIn.duration(200)}
           style={styles.headerBlock}
         >
-          {isCompleted ? (
-            <View pointerEvents="none" style={styles.confettiWrap}>
-              {CONFETTI_PIECES.map((p, idx) => (
-                <ConfettiPiece
-                  key={idx}
-                  left={p.left}
-                  color={p.color}
-                  delay={p.delay}
-                  reducedMotion={Boolean(reducedMotion)}
-                />
-              ))}
-            </View>
-          ) : null}
           <View style={styles.headerTagRow}>
             {isCompleted ? <Sparkles size={13} color={COLORS.hot} /> : null}
             <Text style={[styles.overline, isCompleted && { color: COLORS.hot }]}>
@@ -295,6 +376,13 @@ export default function ScoreboardScreen() {
           </Text>
         </Animated.View>
 
+        {/* Show Commentator Live Line */}
+        {!isCompleted && hasTeamSteps ? (
+          <View style={styles.commentatorBar}>
+            <Text style={styles.commentatorText}>{commentatorLine}</Text>
+          </View>
+        ) : null}
+
         {/* Standings List */}
         {hasTeamSteps ? (
           <View style={styles.leaderboardList}>
@@ -305,6 +393,7 @@ export default function ScoreboardScreen() {
               );
               return rankedTeams.map((team, idx) => {
                 const isLeader = idx === 0 && team.totalScore > 0;
+                const mascot = getTeamMascot(team.mascotId, team.name, idx);
                 const progressPct = Math.round(
                   (Math.max(0, team.totalScore) / maxScore) * 100,
                 );
@@ -327,6 +416,15 @@ export default function ScoreboardScreen() {
                     >
                       0{idx + 1}
                     </Text>
+
+                    <View
+                      style={[
+                        styles.rankMascotChip,
+                        { backgroundColor: mascot.bgTint },
+                      ]}
+                    >
+                      <Text style={styles.rankMascotEmoji}>{mascot.emoji}</Text>
+                    </View>
 
                     <View style={styles.teamInfo}>
                       <Text style={styles.teamName}>{team.name}</Text>
@@ -361,20 +459,24 @@ export default function ScoreboardScreen() {
                   </>
                 );
 
-                return isLeader ? (
-                  <LinearGradient
+                return (
+                  <Animated.View
                     key={team.id}
-                    colors={['#2D1A10', '#1E1619', '#151421']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.teamCard, styles.teamCardLeader]}
+                    layout={reducedMotion ? undefined : LinearTransition.springify()}
                   >
-                    {rowContent}
-                  </LinearGradient>
-                ) : (
-                  <View key={team.id} style={styles.teamCard}>
-                    {rowContent}
-                  </View>
+                    {isLeader ? (
+                      <LinearGradient
+                        colors={['#2D1A10', '#1E1619', '#151421']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.teamCard, styles.teamCardLeader]}
+                      >
+                        {rowContent}
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.teamCard}>{rowContent}</View>
+                    )}
+                  </Animated.View>
                 );
               });
             })()}
@@ -414,132 +516,166 @@ export default function ScoreboardScreen() {
               АФІША ВЕЧОРА ДЛЯ STORIES
             </Text>
 
-            <LinearGradient
-              colors={['#241B2D', '#171422', '#10101A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.posterCard}
+            <ViewShot
+              ref={storyPosterRef}
+              options={{ format: 'png', quality: 0.95 }}
             >
-              {/* Top Brand Row */}
-              <View style={styles.posterBrandRow}>
-                <View style={styles.posterBrandLockup}>
-                  <BalakaLogo size={20} />
-                  <Text style={styles.posterBrandName}>BALAKA</Text>
-                </View>
-                <Text style={styles.posterPresetTag}>
-                  {presetTitle || 'Вечірка'}
-                </Text>
-              </View>
-
-              {/* Winner Highlight */}
-              <View style={styles.posterMainBlock}>
-                <Text style={styles.posterWinnerLabel}>
-                  {hasTeamSteps
-                    ? isTie
-                      ? 'БОЙОВА НІЧИЯ ВЕЧОРА'
-                      : 'ЧЕМПІОНИ ВЕЧІРКИ'
-                    : 'МІСІЮ ЗАВЕРШЕНО'}
-                </Text>
-                <Text style={styles.posterWinnerName}>
-                  {hasTeamSteps && winnerTeam
-                    ? isTie
-                      ? `${rankedTeams[0].name} & ${rankedTeams[1].name}`
-                      : winnerTeam.name
-                    : presetTitle || 'Balaka Party'}
-                </Text>
-                {hasTeamSteps && winnerTeam ? (
-                  <Text style={styles.posterScoreSub}>
-                    Підсумковий рахунок: {winnerTeam.totalScore} балів
+              <LinearGradient
+                colors={['#241B2D', '#171422', '#10101A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.posterCard}
+              >
+                {/* Top Brand Row */}
+                <View style={styles.posterBrandRow}>
+                  <View style={styles.posterBrandLockup}>
+                    <BalakaLogo size={20} />
+                    <Text style={styles.posterBrandName}>BALAKA</Text>
+                  </View>
+                  <Text style={styles.posterPresetTag}>
+                    {presetTitle || 'Вечірка'}
                   </Text>
+                </View>
+
+                {/* Winner Highlight */}
+                <View style={styles.posterMainBlock}>
+                  <Text style={styles.posterWinnerLabel}>
+                    {hasTeamSteps
+                      ? isTie
+                        ? 'БОЙОВА НІЧИЯ ВЕЧОРА'
+                        : 'ЧЕМПІОНИ ВЕЧІРКИ'
+                      : 'МІСІЮ ЗАВЕРШЕНО'}
+                  </Text>
+                  <Text style={styles.posterWinnerName}>
+                    {hasTeamSteps && winnerTeam
+                      ? isTie
+                        ? `${rankedTeams[0].name} & ${rankedTeams[1].name}`
+                        : winnerTeam.name
+                      : presetTitle || 'Balaka Party'}
+                  </Text>
+                  {hasTeamSteps && winnerTeam ? (
+                    <Text style={styles.posterScoreSub}>
+                      Підсумковий рахунок: {winnerTeam.totalScore} балів
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Stats Grid */}
+                <View style={styles.posterStatsRow}>
+                  <View style={styles.posterStatBox}>
+                    <Text style={styles.posterStatNumber}>
+                      {totalGuessedWords}
+                    </Text>
+                    <Text style={styles.posterStatCaption}>Відгадано слів</Text>
+                  </View>
+                  <View style={styles.posterStatBox}>
+                    <Text style={styles.posterStatNumber}>{steps.length}</Text>
+                    <Text style={styles.posterStatCaption}>Зіграно режимів</Text>
+                  </View>
+                </View>
+
+                {/* Party Achievements & Awards ("Оскари Вечірки") */}
+                {(achievements.length > 0 || bestStreakCount >= 2 || bestTurnPoints > 0 || bonusWordsGuessed > 0 || spyStats.roundsPlayed > 0) ? (
+                  <View style={styles.awardsCard}>
+                    <Text style={styles.awardsTitle}>
+                      🏆 НОМІНАЦІЇ ТА ОСКАРИ ВЕЧІРКИ
+                    </Text>
+
+                    {achievements.length > 0 ? (
+                      <View style={styles.achievementsBadgesWrap}>
+                        {achievements.map((ach) => (
+                          <View key={ach.id} style={styles.achievementBadgeCard}>
+                            <Text style={styles.achievementEmoji}>{ach.emoji}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.achievementTitle}>
+                                {ach.title}
+                              </Text>
+                              <Text style={styles.achievementDetail}>
+                                {ach.detail}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {bestStreakCount >= 2 && bestStreakTeamName ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                          🔥 Серійна машина
+                        </Text>
+                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                          {bestStreakTeamName} ({bestStreakCount} підряд)
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {bestTurnPoints > 0 && bestTurnTeamName ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                          ⚡ Рекорд одного раунду
+                        </Text>
+                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                          {bestTurnTeamName} (+{bestTurnPoints})
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {bonusWordsGuessed > 0 ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                          💎 Мисливці за хардкором (3★)
+                        </Text>
+                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                          {bonusWordsGuessed} слів
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {spyStats.roundsPlayed > 0 ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
+                          🕵️ Протокол «Шпигун»
+                        </Text>
+                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
+                          Мирні {spyStats.citizensWins} : {spyStats.spyWins} Шпигун
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                 ) : null}
-              </View>
 
-              {/* Stats Grid */}
-              <View style={styles.posterStatsRow}>
-                <View style={styles.posterStatBox}>
-                  <Text style={styles.posterStatNumber}>
-                    {totalGuessedWords}
-                  </Text>
-                  <Text style={styles.posterStatCaption}>Відгадано слів</Text>
-                </View>
-                <View style={styles.posterStatBox}>
-                  <Text style={styles.posterStatNumber}>{steps.length}</Text>
-                  <Text style={styles.posterStatCaption}>Зіграно режимів</Text>
-                </View>
-              </View>
-
-              {/* Party Awards ("Оскари Вечірки") */}
-              {(bestStreakCount >= 2 || bestTurnPoints > 0 || bonusWordsGuessed > 0 || spyStats.roundsPlayed > 0) ? (
-                <View style={styles.awardsCard}>
-                  <Text style={styles.awardsTitle}>
-                    🏆 НОМІНАЦІЇ ТА ОСКАРИ ВЕЧІРКИ
-                  </Text>
-
-                  {bestStreakCount >= 2 && bestStreakTeamName ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                        🔥 Серійна машина
-                      </Text>
-                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                        {bestStreakTeamName} ({bestStreakCount} підряд)
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {bestTurnPoints > 0 && bestTurnTeamName ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                        ⚡ Рекорд одного раунду
-                      </Text>
-                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                        {bestTurnTeamName} (+{bestTurnPoints})
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {bonusWordsGuessed > 0 ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                        💎 Мисливці за хардкором (3★)
-                      </Text>
-                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                        {bonusWordsGuessed} слів
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {spyStats.roundsPlayed > 0 ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>
-                        🕵️ Протокол «Шпигун»
-                      </Text>
-                      <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' }}>
-                        Мирні {spyStats.citizensWins} : {spyStats.spyWins} Шпигун
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-
-              {/* Word that broke the party */}
-              <View style={styles.brokenWordCard}>
-                <Text style={styles.brokenWordLabel}>
-                  СЛОВО, ЯКЕ ЗЛАМАЛО ВЕЧІРКУ
-                </Text>
-                <Text style={styles.brokenWordValue}>
-                  «{hardestUnansweredWord ?? 'Усе розгадали без промахів'}»
-                </Text>
-              </View>
-            </LinearGradient>
+                {/* Word that broke the party */}
+                {!isSpyOnlySession ? (
+                  <View style={styles.brokenWordCard}>
+                    <Text style={styles.brokenWordLabel}>
+                      СЛОВО, ЯКЕ ЗЛАМАЛО ВЕЧІРКУ
+                    </Text>
+                    <Text style={styles.brokenWordValue}>
+                      «{hardestUnansweredWord ?? 'Усе розгадали без промахів'}»
+                    </Text>
+                  </View>
+                ) : null}
+              </LinearGradient>
+            </ViewShot>
 
             <View style={styles.posterActionsRow}>
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.sharePosterBtn}
+                onPress={handleShareStoryPosterImage}
+              >
+                <Download size={16} color={COLORS.textPrimary} />
+                <Text style={styles.sharePosterBtnText}>Stories PNG</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.copyPosterBtn}
                 onPress={handleSharePartySummary}
               >
-                <Share2 size={17} color={COLORS.textPrimary} />
-                <Text style={styles.sharePosterBtnText}>Поділитися</Text>
+                <Share2 size={16} color={COLORS.textPrimary} />
+                <Text style={styles.copyPosterBtnText}>Текст</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -547,8 +683,8 @@ export default function ScoreboardScreen() {
                 style={styles.copyPosterBtn}
                 onPress={handleCopyPartySummary}
               >
-                <Copy size={17} color={COLORS.textPrimary} />
-                <Text style={styles.copyPosterBtnText}>Скопіювати</Text>
+                <Copy size={16} color={COLORS.textPrimary} />
+                <Text style={styles.copyPosterBtnText}>Копія</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -559,6 +695,26 @@ export default function ScoreboardScreen() {
       <View style={styles.footer}>
         {isCompleted ? (
           <View style={styles.completedActions}>
+            {hasTeamSteps && forfeitTargetTeam ? (
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={[styles.homeButton, styles.forfeitButton]}
+                onPress={() => {
+                  triggerHaptic('medium');
+                  setIsForfeitOpen(true);
+                }}
+              >
+                <View style={styles.forfeitInnerRow}>
+                  <Dices size={18} color="#FB7185" />
+                  <Text style={styles.forfeitButtonText} numberOfLines={1}>
+                    {isTie
+                      ? 'КОЛЕСО ФАНТІВ ДЛЯ НІЧИЄЇ!'
+                      : `КОЛЕСО ФАНТІВ ДЛЯ: ${forfeitTargetTeam.name.toUpperCase()}`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ) : null}
+
             <TouchableOpacity
               activeOpacity={0.85}
               style={[styles.homeButton, styles.rematchButton]}
@@ -595,6 +751,15 @@ export default function ScoreboardScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {forfeitTargetTeam ? (
+        <ForfeitWheelModal
+          visible={isForfeitOpen}
+          onClose={() => setIsForfeitOpen(false)}
+          targetTeamName={forfeitTargetTeam.name}
+          targetMascot={forfeitTargetMascot}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -1001,5 +1166,79 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     textAlign: 'center',
+  },
+  commentatorBar: {
+    backgroundColor: 'rgba(139, 92, 246, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.32)',
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+  },
+  commentatorText: {
+    color: '#E9D5FF',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  rankMascotChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankMascotEmoji: {
+    fontSize: 17,
+  },
+  achievementsBadgesWrap: {
+    gap: 6,
+    marginBottom: 4,
+  },
+  achievementBadgeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  achievementEmoji: {
+    fontSize: 18,
+  },
+  achievementTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  achievementDetail: {
+    color: COLORS.textSecondary,
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  forfeitButton: {
+    backgroundColor: '#2D1422',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.45)',
+    borderBottomWidth: 5,
+    borderBottomColor: '#190A13',
+  },
+  forfeitInnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  forfeitButtonText: {
+    color: '#FFE4E6',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    flexShrink: 1,
   },
 });

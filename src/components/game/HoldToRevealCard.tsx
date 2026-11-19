@@ -15,6 +15,7 @@ interface HoldToRevealCardProps {
   isSpy: boolean;
   locationName: string;
   roleName?: string;
+  secretMission?: string;
   hasSeenRole: boolean;
   onRevealedEnough: () => void;
 }
@@ -26,6 +27,7 @@ export function HoldToRevealCard({
   isSpy,
   locationName,
   roleName,
+  secretMission,
   hasSeenRole,
   onRevealedEnough,
 }: HoldToRevealCardProps) {
@@ -127,6 +129,12 @@ export function HoldToRevealCard({
                 Не видай себе. Слухай запитання інших гравців і спробуй
                 вирахувати секретну локацію.
               </Text>
+              {secretMission ? (
+                <View style={styles.missionBox}>
+                  <Text style={styles.missionOverline}>ТАЄМНА МІКРО-МІСІЯ</Text>
+                  <Text style={styles.missionText}>{secretMission}</Text>
+                </View>
+              ) : null}
             </View>
           ) : (
             <View style={styles.roleInner}>
@@ -143,6 +151,12 @@ export function HoldToRevealCard({
                 Став хитрі запитання іншим, щоб викрити шпигуна, але не називай
                 локацію прямо.
               </Text>
+              {secretMission ? (
+                <View style={styles.missionBox}>
+                  <Text style={styles.missionOverline}>ТАЄМНА МІКРО-МІСІЯ</Text>
+                  <Text style={styles.missionText}>{secretMission}</Text>
+                </View>
+              ) : null}
             </View>
           )}
 
@@ -407,6 +421,31 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
     marginTop: SPACING.xs,
+  },
+  missionBox: {
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.35)',
+    maxWidth: 310,
+    alignItems: 'center',
+  },
+  missionOverline: {
+    color: '#FDBA74',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.3,
+    marginBottom: 3,
+  },
+  missionText: {
+    color: '#FFF7ED',
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 17,
+    textAlign: 'center',
   },
   scanTrack: {
     position: 'absolute',

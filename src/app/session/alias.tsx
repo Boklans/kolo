@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ArrowDown, ArrowUp, Dices, Flame, RotateCcw, Zap } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { getTeamMascot } from '@/constants/mascots';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
 import { baseUaDeck, useDeckStore } from '@/stores/useDeckStore';
@@ -139,6 +140,11 @@ export default function AliasGameScreen() {
     name: 'Команда 1',
     scoresByGroup: { main: 0 },
   };
+  const teamMascot = getTeamMascot(
+    currentTeam.mascotId,
+    currentTeam.name,
+    currentTeamIndex
+  );
 
   const currentTeamTotalScore = useMemo(
     () =>
@@ -197,6 +203,23 @@ export default function AliasGameScreen() {
   const phaseSV = useSharedValue<number>(0); // 1 = PLAYING, 2 = OVERTIME
   const isPausedSV = useSharedValue<boolean>(false);
   const reducedMotionSV = useSharedValue<boolean>(false);
+  const shakeX = useSharedValue(0);
+
+  const triggerShake = useCallback(() => {
+    if (reducedMotion) return;
+    shakeX.value = withSequence(
+      withTiming(-8, { duration: 40 }),
+      withTiming(8, { duration: 45 }),
+      withTiming(-6, { duration: 45 }),
+      withTiming(6, { duration: 45 }),
+      withTiming(-3, { duration: 40 }),
+      withTiming(0, { duration: 40 })
+    );
+  }, [reducedMotion, shakeX]);
+
+  const shakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeX.value }],
+  }));
 
   useEffect(() => {
     phaseSV.value = phase === 'PLAYING' ? 1 : phase === 'OVERTIME' ? 2 : 0;
@@ -478,8 +501,9 @@ export default function AliasGameScreen() {
   }, [phase, reducedMotion, countdownScale, countdownOpacity, initRoundDeckSlots]);
 
   const handleTimerExpire = useCallback(() => {
+    triggerShake();
     setPhase((prev) => (prev === 'PLAYING' ? 'OVERTIME' : prev));
-  }, []);
+  }, [triggerShake]);
 
   const commitSlotDecision = useCallback(
     (exitedSlot: 0 | 1, guessed: boolean) => {
@@ -501,6 +525,9 @@ export default function AliasGameScreen() {
       } else {
         streakRef.current = 0;
         playWordSkipped();
+        if (currentStep.penaltyForSkip) {
+          triggerShake();
+        }
       }
 
       const isBonus = swipedItem.difficulty === 3;
@@ -611,6 +638,7 @@ export default function AliasGameScreen() {
       setSlotPoseImmediate,
       frontSlotSV,
       drawSingleDeckEntry,
+      triggerShake,
     ]
   );
 
@@ -948,6 +976,7 @@ export default function AliasGameScreen() {
 
   const stepNumStr = String(currentStepIndex + 1).padStart(2, '0');
   const totalStepsStr = String(Math.max(1, steps.length)).padStart(2, '0');
+  const isOnFire = currentStreak >= 3 && phase === 'PLAYING';
 
   const roundReactionHeadline = useMemo(() => {
     if (guessedWordsCount >= 8) return 'ШАЛЕНИЙ ТЕМП! 🔥';
@@ -965,6 +994,8 @@ export default function AliasGameScreen() {
         gameType="alias"
         onPauseChange={setIsPaused}
       />
+
+      <Animated.View style={[{ flex: 1 }, shakeStyle]}>
 
       {/* PHASE 1: READY (TEAM CALLOUT STAGE) */}
       {phase === 'READY' ? (
@@ -993,7 +1024,7 @@ export default function AliasGameScreen() {
                 <View style={styles.calloutHeroCenter}>
                   <Text style={styles.calloutOverline}>ВАШ ВИХІД НА СЦЕНУ</Text>
                   <Text style={styles.calloutTeamName} numberOfLines={2}>
-                    {currentTeam.name}
+                    {teamMascot.emoji} {currentTeam.name}
                   </Text>
                   <Text style={styles.calloutInstruction}>
                     Ведучий бере телефон і пояснює слова команді на швидкість без
@@ -1155,13 +1186,13 @@ export default function AliasGameScreen() {
                 durationSec={currentStep.roundTimeSec}
                 isRunning={phase === 'PLAYING' && !isPaused}
                 onExpire={handleTimerExpire}
-                accentColor={COLORS.alias}
+                accentColor={isOnFire ? COLORS.hot : COLORS.alias}
                 size="hero"
                 headerSlot={
                   <View style={styles.hudHeaderRow}>
                     <View style={styles.hudTeamBlock}>
                       <Text style={styles.hudTeamName} numberOfLines={1}>
-                        {currentTeam.name}
+                        {teamMascot.emoji} {currentTeam.name}
                       </Text>
                       {currentStreak >= 2 ? (
                         <View style={styles.streakBadge}>
@@ -1248,6 +1279,7 @@ export default function AliasGameScreen() {
                       style={[
                         styles.wordSurface,
                         styles.wordSurfaceAbsolute,
+                        isOnFire && styles.wordSurfaceStreakFire,
                         phase === 'OVERTIME' && styles.wordSurfaceOvertime,
                         slotAnimStyle,
                       ]}
@@ -1274,7 +1306,14 @@ export default function AliasGameScreen() {
 
                       {/* Top Edge: Index / Bonus Badge & Undo */}
                       <View style={styles.cardTopEdge}>
-                        {entry.item.difficulty === 3 ? (
+                        {isOnFire ? (
+                          <View style={[styles.cardCounterPill, styles.cardBonusPill]}>
+                            <Text style={styles.cardBonusText}>
+                              🔥 У ВОГНІ · ×{currentStreak}
+                              {entry.item.difficulty === 3 ? ' · БОНУС +2' : ''}
+                            </Text>
+                          </View>
+                        ) : entry.item.difficulty === 3 ? (
                           <View
                             style={[styles.cardCounterPill, styles.cardBonusPill]}
                           >
@@ -1444,7 +1483,9 @@ export default function AliasGameScreen() {
                 <Text style={styles.roundResultOverline}>
                   {roundReactionHeadline}
                 </Text>
-                <Text style={styles.roundResultTeam}>{currentTeam.name}</Text>
+                <Text style={styles.roundResultTeam}>
+                  {teamMascot.emoji} {currentTeam.name}
+                </Text>
               </View>
 
               <View style={styles.roundResultBigScoreBox}>
@@ -1557,6 +1598,7 @@ export default function AliasGameScreen() {
           </View>
         </Animated.View>
       ) : null}
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -1976,6 +2018,10 @@ const styles = StyleSheet.create({
   wordSurfaceOvertime: {
     backgroundColor: '#241712',
     borderColor: COLORS.hot,
+  },
+  wordSurfaceStreakFire: {
+    borderColor: COLORS.hot,
+    borderWidth: 2,
   },
   cardFlashOverlay: {
     position: 'absolute',

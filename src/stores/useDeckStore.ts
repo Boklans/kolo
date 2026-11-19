@@ -6,9 +6,14 @@ import warmupUaDeckJson from '@/data/decks/warmup_ua.json';
 import memesUaDeckJson from '@/data/decks/memes_ua.json';
 import itOfficeUaDeckJson from '@/data/decks/it_office_ua.json';
 import adult18UaDeckJson from '@/data/decks/adult_18_ua.json';
-import { Deck } from '@/types';
+import { Deck, SpyLocation, TabooItem } from '@/types';
 
-export type CustomDeckTargetMode = 'alias' | 'crocodile' | 'both';
+export type CustomDeckTargetMode =
+  | 'alias'
+  | 'crocodile'
+  | 'both'
+  | 'taboo'
+  | 'spy';
 
 export const baseUaDeck = baseUaDeckJson as Deck;
 export const warmupUaDeck = warmupUaDeckJson as Deck;
@@ -43,6 +48,89 @@ export function parseRawDeckText(rawText: string): string[] {
   return uniqueItems;
 }
 
+export interface ParsedTabooEntry {
+  word: string;
+  forbiddenWords: string[];
+}
+
+export function parseRawTabooText(rawText: string): ParsedTabooEntry[] {
+  const lines = rawText.split(/\r?\n/);
+  const seenLower = new Set<string>();
+  const result: ParsedTabooEntry[] = [];
+
+  for (const rawLine of lines) {
+    const cleaned = rawLine.replace(/^(\d+[\.\)]\s*|[-•*]\s*)/, '').trim();
+    if (cleaned.length < 2) continue;
+
+    const sepIdx = cleaned.indexOf(':');
+    const wordPart = (sepIdx >= 0 ? cleaned.slice(0, sepIdx) : cleaned).trim();
+    if (wordPart.length < 2) continue;
+
+    const lower = wordPart.toLowerCase();
+    if (seenLower.has(lower)) continue;
+    seenLower.add(lower);
+
+    const rawForbidden =
+      sepIdx >= 0
+        ? cleaned
+            .slice(sepIdx + 1)
+            .split(/[,;·|]/)
+            .map((w) => w.trim())
+            .filter((w) => w.length >= 2)
+            .slice(0, 4)
+        : [];
+
+    result.push({
+      word: wordPart,
+      forbiddenWords:
+        rawForbidden.length > 0 ? rawForbidden : ['Без підказок'],
+    });
+  }
+
+  return result;
+}
+
+export interface ParsedSpyEntry {
+  name: string;
+  roles: string[];
+}
+
+export function parseRawSpyText(rawText: string): ParsedSpyEntry[] {
+  const lines = rawText.split(/\r?\n/);
+  const seenLower = new Set<string>();
+  const result: ParsedSpyEntry[] = [];
+
+  for (const rawLine of lines) {
+    const cleaned = rawLine.replace(/^(\d+[\.\)]\s*|[-•*]\s*)/, '').trim();
+    if (cleaned.length < 2) continue;
+
+    const sepIdx = cleaned.indexOf(':');
+    const namePart = (sepIdx >= 0 ? cleaned.slice(0, sepIdx) : cleaned).trim();
+    if (namePart.length < 2) continue;
+
+    const lower = namePart.toLowerCase();
+    if (seenLower.has(lower)) continue;
+    seenLower.add(lower);
+
+    const roles =
+      sepIdx >= 0
+        ? cleaned
+            .slice(sepIdx + 1)
+            .split(/[,;·|]/)
+            .map((r) => r.trim())
+            .filter((r) => r.length >= 2)
+            .slice(0, 8)
+        : ['Учасник', 'Гість', 'Очевидець', 'Експерт'];
+
+    result.push({
+      name: namePart,
+      roles: roles.length > 0 ? roles : ['Учасник', 'Гість'],
+    });
+  }
+
+  return result;
+}
+
 interface CreateCustomDeckParams {
   title: string;
   emoji: string;
@@ -54,13 +142,66 @@ function buildCustomDeckPayload(
   deckId: string,
   { title, emoji, rawText, targetMode }: CreateCustomDeckParams
 ): Deck | null {
+  const cleanTitle = title.trim() || 'Моя колода';
+  const cleanEmoji = emoji.trim() || '🃏';
+
+  if (targetMode === 'taboo') {
+    const parsedTaboo = parseRawTabooText(rawText);
+    if (parsedTaboo.length === 0) return null;
+
+    const tabooItems: TabooItem[] = parsedTaboo.map((entry, index) => ({
+      id: `${deckId}_tb_${index + 1}`,
+      word: entry.word,
+      forbiddenWords: entry.forbiddenWords,
+      difficulty: 2 as const,
+    }));
+
+    return {
+      id: deckId,
+      title: cleanTitle,
+      description: `Кастомна колода користувача (Табу • ${tabooItems.length} карток).`,
+      emoji: cleanEmoji,
+      isCustom: true,
+      isPremium: false,
+      items: {
+        alias: [],
+        crocodile: [],
+        taboo: tabooItems,
+        spyLocations: [],
+      },
+    };
+  }
+
+  if (targetMode === 'spy') {
+    const parsedSpy = parseRawSpyText(rawText);
+    if (parsedSpy.length === 0) return null;
+
+    const spyLocations: SpyLocation[] = parsedSpy.map((entry, index) => ({
+      id: `${deckId}_spy_${index + 1}`,
+      name: entry.name,
+      roles: entry.roles,
+    }));
+
+    return {
+      id: deckId,
+      title: cleanTitle,
+      description: `Кастомна колода користувача (Локації Шпигуна • ${spyLocations.length} локацій).`,
+      emoji: cleanEmoji,
+      isCustom: true,
+      isPremium: false,
+      items: {
+        alias: [],
+        crocodile: [],
+        taboo: [],
+        spyLocations,
+      },
+    };
+  }
+
   const parsedWords = parseRawDeckText(rawText);
   if (parsedWords.length === 0) {
     return null;
   }
-
-  const cleanTitle = title.trim() || 'Моя колода';
-  const cleanEmoji = emoji.trim() || '🃏';
 
   const aliasItems =
     targetMode === 'alias' || targetMode === 'both'

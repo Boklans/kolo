@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -36,6 +37,15 @@ import {
 } from '@/stores/useDeckStore';
 import { useUsedContentStore } from '@/stores/useUsedContentStore';
 import { Deck } from '@/types';
+import { encodeDeckToShareUrl, extractDeckRawLines } from '@/utils/deckShare';
+
+const OFFICIAL_DECK_ART: Record<string, any> = {
+  base_ua: require('../../../assets/images/cards/deck_base.webp'),
+  warmup_ua: require('../../../assets/images/cards/deck_warmup.webp'),
+  memes_ua: require('../../../assets/images/cards/deck_memes.webp'),
+  it_office_ua: require('../../../assets/images/cards/deck_it.webp'),
+  adult_18_ua: require('../../../assets/images/cards/deck_adult.webp'),
+};
 
 const EMOJI_OPTIONS = ['🃏', '🍻', '🔥', '🌶️', '🐸', '💻', '🍕', '🎬', '🎸', '🚀', '🦄', '💣'];
 
@@ -166,25 +176,26 @@ export default function DecksScreen() {
   };
 
   const handleShareOrCopyDeck = async (deck: Deck) => {
-    const words =
-      deck.items.alias.length > 0
-        ? deck.items.alias.map((i) => i.word)
-        : deck.items.crocodile.map((i) => i.phrase);
-
+    const words = extractDeckRawLines(deck);
     if (words.length === 0) return;
 
+    const shareUrl = encodeDeckToShareUrl(deck);
     const listText = words.join('\n');
-    await Clipboard.setStringAsync(listText);
+    await Clipboard.setStringAsync(shareUrl ?? listText);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
       await Share.share({
-        message: `Колода Balaka «${deck.title}» (${words.length} карток)\n\nСкопіюй список нижче та встав у «Колоди → Імпорт»:\n\n${listText}`,
+        message: shareUrl
+          ? `Забирай мою колоду Balaka «${deck.title}» (${words.length} карток) в 1 клік:\n${shareUrl}`
+          : `Колода Balaka «${deck.title}» (${words.length} карток)\n\nСкопіюй список нижче та встав у «Колоди → Імпорт»:\n\n${listText}`,
       });
     } catch {
       Alert.alert(
         'Скопійовано в буфер обміну',
-        `Список із ${words.length} карток колоди «${deck.title}» скопійовано!`
+        shareUrl
+          ? `Посилання на колоду «${deck.title}» скопійовано! Друг забере пак в 1 клік.`
+          : `Список із ${words.length} карток колоди «${deck.title}» скопійовано!`
       );
     }
   };
@@ -289,6 +300,8 @@ export default function DecksScreen() {
       deck.items.spyLocations[0]?.name ??
       'BALAKA';
 
+    const artSrc = !deck.isCustom ? OFFICIAL_DECK_ART[deck.id] : undefined;
+
     return (
       <TouchableOpacity
         key={deck.id}
@@ -302,14 +315,42 @@ export default function DecksScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.coverGradientInner}
         >
-          {/* Custom Vector SVG Box-Art Illustration */}
-          <View pointerEvents="none" style={styles.coverSvgArtworkPos}>
-            <DeckCoverArtwork
-              deckId={deck.id}
-              accentColor={theme.accent}
-              size={92}
-            />
-          </View>
+          {artSrc ? (
+            <>
+              <Image
+                source={artSrc}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                contentPosition="right center"
+                transition={180}
+              />
+              <LinearGradient
+                colors={[
+                  `${theme.gradient[1]}EE`,
+                  `${theme.gradient[1]}99`,
+                  'rgba(10, 10, 16, 0.25)',
+                ]}
+                locations={[0, 0.54, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </>
+          ) : deck.isCustom ? (
+            <View pointerEvents="none" style={styles.customEmojiBackdrop}>
+              <Text style={styles.customEmojiBackdropText}>
+                {deck.emoji || '🃏'}
+              </Text>
+            </View>
+          ) : (
+            <View pointerEvents="none" style={styles.coverSvgArtworkPos}>
+              <DeckCoverArtwork
+                deckId={deck.id}
+                accentColor={theme.accent}
+                size={92}
+              />
+            </View>
+          )}
 
           {/* Top Row: Category Tag + PRO Badge */}
           <View style={styles.coverTopRow}>
@@ -970,6 +1011,22 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     justifyContent: 'space-between',
     position: 'relative',
+  },
+  customEmojiBackdrop: {
+    position: 'absolute',
+    right: 12,
+    bottom: 42,
+    width: 68,
+    height: 68,
+    borderRadius: 20,
+    backgroundColor: 'rgba(139, 92, 246, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customEmojiBackdropText: {
+    fontSize: 34,
   },
   coverSvgArtworkPos: {
     position: 'absolute',

@@ -21,6 +21,11 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import {
+  TEAM_MASCOTS,
+  getTeamMascot,
+  guessMascotIdFromName,
+} from '@/constants/mascots';
 import { QuickRulesModal } from '@/components/game/QuickRulesModal';
 import { PARTY_PRESETS } from '@/data/presets';
 import { OFFICIAL_DECKS, useDeckStore } from '@/stores/useDeckStore';
@@ -110,6 +115,7 @@ export default function SetupScreen() {
   }, [targetId]);
 
   const savedTeamNames = usePartyStore((s) => s.savedTeamNames);
+  const savedTeamMascots = usePartyStore((s) => s.savedTeamMascots);
   const savedPlayerNames = usePartyStore((s) => s.savedPlayerNames);
   const defaultPresetDeckIds = useMemo(() => {
     if (isPresetMode && selectedPreset) {
@@ -137,10 +143,15 @@ export default function SetupScreen() {
   const [roundsPerTeam, setRoundsPerTeam] = useState<number>(2);
   const [spyTimeSec, setSpyTimeSec] = useState<180 | 300 | 420>(300);
   const [spyCount, setSpyCount] = useState<1 | 2>(1);
+  const [spyMissionsEnabled, setSpyMissionsEnabled] = useState<boolean>(false);
 
   const [teams, setTeams] = useState(() => {
     const baseNames = savedTeamNames && savedTeamNames.length >= 2 ? savedTeamNames : ['Бойові Гуси', 'Хмільні Сови'];
-    return baseNames.map((name, idx) => ({ id: `team_${idx + 1}`, name }));
+    return baseNames.map((name, idx) => ({
+      id: `team_${idx + 1}`,
+      name,
+      mascotId: savedTeamMascots?.[idx] ?? guessMascotIdFromName(name, idx),
+    }));
   });
   const [playerCount, setPlayerCount] = useState<number>(5);
   const [playerNames, setPlayerNames] = useState<string[]>(() => {
@@ -249,7 +260,11 @@ export default function SetupScreen() {
     const nextIndex = teams.length + 1;
     setTeams((prev) => [
       ...prev,
-      { id: `team_${Date.now()}`, name: `Команда ${nextIndex}` },
+      {
+        id: `team_${Date.now()}`,
+        name: `Команда ${nextIndex}`,
+        mascotId: TEAM_MASCOTS[(nextIndex - 1) % TEAM_MASCOTS.length].id,
+      },
     ]);
   };
 
@@ -263,14 +278,30 @@ export default function SetupScreen() {
     setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, name } : t)));
   };
 
+  const handleCycleTeamMascot = (id: string) => {
+    Haptics.selectionAsync();
+    setTeams((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        const currIdx = TEAM_MASCOTS.findIndex((m) => m.id === t.mascotId);
+        const nextMascot = TEAM_MASCOTS[(currIdx + 1) % TEAM_MASCOTS.length];
+        return { ...t, mascotId: nextMascot.id };
+      })
+    );
+  };
+
   const handleRandomizeTeamNames = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const shuffled = [...FUNNY_TEAM_NAMES].sort(() => Math.random() - 0.5);
     setTeams((prev) =>
-      prev.map((team, idx) => ({
-        ...team,
-        name: shuffled[idx % shuffled.length] ?? `Команда ${idx + 1}`,
-      }))
+      prev.map((team, idx) => {
+        const nextName = shuffled[idx % shuffled.length] ?? `Команда ${idx + 1}`;
+        return {
+          ...team,
+          name: nextName,
+          mascotId: guessMascotIdFromName(nextName, idx),
+        };
+      })
     );
   };
 
@@ -327,6 +358,7 @@ export default function SetupScreen() {
             deckIds: hasOwnCards ? selectedDeckIds : undefined,
             minDifficulty,
             spyCount: playerCount >= 5 ? spyCount : 1,
+            missionsEnabled: spyMissionsEnabled,
           };
         }
         return {
@@ -394,6 +426,7 @@ export default function SetupScreen() {
           gameType: 'spy',
           spyCount: playerCount >= 5 ? spyCount : 1,
           discussionTimeSec: spyTimeSec,
+          missionsEnabled: spyMissionsEnabled,
           scoring: { type: 'none' },
         };
         stepsToRun = [spyStep];
@@ -406,6 +439,7 @@ export default function SetupScreen() {
       title: headerTitle,
       steps: stepsToRun,
       teamNames: teams.map((t, idx) => t.name.trim() || `Команда ${idx + 1}`),
+      teamMascots: teams.map((t) => t.mascotId),
       playerCount,
       playerNames: playerNames.slice(0, playerCount),
     });
@@ -839,27 +873,41 @@ export default function SetupScreen() {
             </View>
 
             <View style={styles.teamsList}>
-              {teams.map((team, idx) => (
-                <View key={team.id} style={styles.teamRow}>
-                  <Text style={styles.teamIndexText}>0{idx + 1}</Text>
-                  <TextInput
-                    style={styles.teamInput}
-                    value={team.name}
-                    onChangeText={(val) => handleRenameTeam(team.id, val)}
-                    placeholder={`Команда ${idx + 1}`}
-                    placeholderTextColor={COLORS.textMuted}
-                    maxLength={28}
-                  />
-                  {teams.length > 2 ? (
+              {teams.map((team, idx) => {
+                const mascot = getTeamMascot(team.mascotId, team.name, idx);
+                return (
+                  <View key={team.id} style={styles.teamRow}>
                     <TouchableOpacity
-                      style={styles.removeTeamBtn}
-                      onPress={() => handleRemoveTeam(team.id)}
+                      activeOpacity={0.8}
+                      onPress={() => handleCycleTeamMascot(team.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Змінити маскот команди ${team.name}`}
+                      style={[
+                        styles.mascotChipBtn,
+                        { backgroundColor: mascot.bgTint },
+                      ]}
                     >
-                      <Trash2 size={15} color={COLORS.textMuted} />
+                      <Text style={styles.mascotChipEmoji}>{mascot.emoji}</Text>
                     </TouchableOpacity>
-                  ) : null}
-                </View>
-              ))}
+                    <TextInput
+                      style={styles.teamInput}
+                      value={team.name}
+                      onChangeText={(val) => handleRenameTeam(team.id, val)}
+                      placeholder={`Команда ${idx + 1}`}
+                      placeholderTextColor={COLORS.textMuted}
+                      maxLength={28}
+                    />
+                    {teams.length > 2 ? (
+                      <TouchableOpacity
+                        style={styles.removeTeamBtn}
+                        onPress={() => handleRemoveTeam(team.id)}
+                      >
+                        <Trash2 size={15} color={COLORS.textMuted} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
           </View>
         ) : null}
@@ -936,6 +984,40 @@ export default function SetupScreen() {
                   })}
                 </View>
               </View>
+
+              {/* Spy 2.0 Optional Secret Micro-Missions Toggle */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.penaltyToggleRow}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSpyMissionsEnabled((v) => !v);
+                }}
+              >
+                <View style={styles.penaltyTextWrap}>
+                  <Text style={styles.penaltyTitle}>
+                    Таємні мікро-місії (Шпигун 2.0)
+                  </Text>
+                  <Text style={styles.penaltySub}>
+                    Кожен гравець отримує дивну умову — параноя за столом зростає ×2
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.togglePill,
+                    spyMissionsEnabled && styles.togglePillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.togglePillText,
+                      spyMissionsEnabled && { color: COLORS.textPrimary },
+                    ]}
+                  >
+                    {spyMissionsEnabled ? 'УВІМК' : 'ВИМК'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
               {/* Compact 2-Column Player Names Editor for Spy */}
               <View style={{ gap: 8, marginTop: 4 }}>
@@ -1300,6 +1382,18 @@ const styles = StyleSheet.create({
   },
   teamsList: {
     gap: 8,
+  },
+  mascotChipBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mascotChipEmoji: {
+    fontSize: 19,
   },
   teamRow: {
     flexDirection: 'row',

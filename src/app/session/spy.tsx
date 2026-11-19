@@ -25,6 +25,7 @@ import {
   Skull,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { SPY_SECRET_MISSIONS } from '@/constants/mascots';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { HoldToRevealCard } from '@/components/game/HoldToRevealCard';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
@@ -109,6 +110,7 @@ export default function SpyGameScreen() {
   const [crossedLocationIds, setCrossedLocationIds] = useState<string[]>([]);
   const [firstAskerIndex, setFirstAskerIndex] = useState<number>(0);
   const [firstTargetIndex, setFirstTargetIndex] = useState<number>(1);
+  const [playerMissions, setPlayerMissions] = useState<Record<number, string>>({});
   const [roundNonce, setRoundNonce] = useState<number>(0);
 
   // Resolution Drumroll Unmasking state
@@ -155,6 +157,23 @@ export default function SpyGameScreen() {
     setFirstAskerIndex(asker);
     setFirstTargetIndex(target);
 
+    if (currentStep.missionsEnabled) {
+      const shuffledMissions = [...SPY_SECRET_MISSIONS];
+      for (let i = shuffledMissions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = shuffledMissions[i];
+        shuffledMissions[i] = shuffledMissions[j];
+        shuffledMissions[j] = tmp;
+      }
+      const nextMissions: Record<number, string> = {};
+      for (let idx = 0; idx < safePlayerCount; idx++) {
+        nextMissions[idx] = shuffledMissions[idx % shuffledMissions.length];
+      }
+      setPlayerMissions(nextMissions);
+    } else {
+      setPlayerMissions({});
+    }
+
     setSpyIndices(indicesPool.slice(0, actualSpyCount).sort((a, b) => a - b));
     setCurrentPlayerIndex(0);
     setHasSeenRole(false);
@@ -165,7 +184,7 @@ export default function SpyGameScreen() {
     setSpyGuessedLocId(null);
     setWinnerSide(null);
     setPhase('ROLE_DISTRIBUTION');
-  }, [activeDeck, currentStep.id, currentStep.spyCount, playerCount, drawNextItem, roundNonce]);
+  }, [activeDeck, currentStep.id, currentStep.spyCount, currentStep.missionsEnabled, playerCount, drawNextItem, roundNonce]);
 
   const roundLocations = useMemo(() => {
     const all = activeDeck.items.spyLocations;
@@ -406,6 +425,7 @@ export default function SpyGameScreen() {
             isSpy={isCurrentPlayerSpy}
             locationName={secretLocation?.name ?? 'Таємна локація'}
             roleName={currentPlayerRoleName}
+            secretMission={playerMissions[currentPlayerIndex]}
             hasSeenRole={hasSeenRole}
             onRevealedEnough={() => setHasSeenRole(true)}
           />
@@ -455,6 +475,35 @@ export default function SpyGameScreen() {
               }
             />
           </View>
+
+          {/* Optional Spy 2.0 Secret Micro-Missions Notice */}
+          {currentStep.missionsEnabled ? (
+            <View
+              style={{
+                borderRadius: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 9,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                backgroundColor: 'rgba(168, 85, 247, 0.14)',
+                borderWidth: 1,
+                borderColor: 'rgba(168, 85, 247, 0.34)',
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>🎭</Text>
+              <Text
+                style={{
+                  flex: 1,
+                  color: '#E9D5FF',
+                  fontSize: 12.5,
+                  fontWeight: '700',
+                }}
+              >
+                Таємні мікро-місії активні — пильнуйте дивну поведінку!
+              </Text>
+            </View>
+          ) : null}
 
           {/* Interactive Interrogation Question Prompt */}
           <TouchableOpacity

@@ -1,11 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { guessMascotIdFromName } from '@/constants/mascots';
 import { GameType, PresetStep, SpyLocation } from '@/types';
 
 export interface PartyTeam {
   id: string;
   name: string;
+  mascotId?: string;
   scoresByGroup: Record<string, number>;
 }
 
@@ -34,6 +36,7 @@ export interface SpyTurnDraft {
   crossedLocationIds: string[];
   firstAskerIndex?: number;
   firstTargetIndex?: number;
+  playerMissions?: Record<number, string>;
 }
 
 export interface SpyPartyStats {
@@ -46,11 +49,13 @@ export interface StartSessionConfig {
   title: string;
   steps: PresetStep[];
   teamNames: string[];
+  teamMascots?: string[];
   playerCount: number;
   playerNames?: string[];
 }
 
 interface PartyStoreState {
+  sessionId: string;
   isActive: boolean;
   isCompleted: boolean;
   presetTitle: string;
@@ -58,6 +63,7 @@ interface PartyStoreState {
   currentStepIndex: number;
   teams: PartyTeam[];
   savedTeamNames: string[];
+  savedTeamMascots: string[];
   currentTeamIndex: number;
   currentRoundInStep: number;
   playerCount: number;
@@ -86,8 +92,8 @@ interface PartyStoreState {
 }
 
 const DEFAULT_TEAMS: PartyTeam[] = [
-  { id: 'team_1', name: 'Бойові Гуси', scoresByGroup: { main: 0 } },
-  { id: 'team_2', name: 'Хмільні Сови', scoresByGroup: { main: 0 } },
+  { id: 'team_1', name: 'Бойові Гуси', mascotId: 'goose', scoresByGroup: { main: 0 } },
+  { id: 'team_2', name: 'Хмільні Сови', mascotId: 'owl', scoresByGroup: { main: 0 } },
 ];
 
 const DEFAULT_PLAYER_NAMES = ['Ігор', 'Аня', 'Макс', 'Оля', 'Діма'];
@@ -95,6 +101,7 @@ const DEFAULT_PLAYER_NAMES = ['Ігор', 'Аня', 'Макс', 'Оля', 'Ді�
 export const usePartyStore = create<PartyStoreState>()(
   persist(
     (set, get) => ({
+      sessionId: '',
       isActive: false,
       isCompleted: false,
       presetTitle: '',
@@ -102,6 +109,7 @@ export const usePartyStore = create<PartyStoreState>()(
       currentStepIndex: 0,
       teams: DEFAULT_TEAMS,
       savedTeamNames: ['Бойові Гуси', 'Хмільні Сови'],
+      savedTeamMascots: ['goose', 'owl'],
       currentTeamIndex: 0,
       currentRoundInStep: 1,
       playerCount: 5,
@@ -118,11 +126,15 @@ export const usePartyStore = create<PartyStoreState>()(
       spyDraft: null,
       spyStats: { roundsPlayed: 0, citizensWins: 0, spyWins: 0 },
 
-      startSession: ({ title, steps, teamNames, playerCount, playerNames }) => {
+      startSession: ({ title, steps, teamNames, teamMascots, playerCount, playerNames }) => {
         const cleanTeamNames =
           teamNames.length >= 2
             ? teamNames.map((n, i) => n.trim() || `Команда ${i + 1}`)
             : ['Команда 1', 'Команда 2'];
+
+        const cleanTeamMascots = cleanTeamNames.map(
+          (name, idx) => teamMascots?.[idx] || guessMascotIdFromName(name, idx)
+        );
 
         const safeCount = Math.max(3, Math.min(16, playerCount));
         const cleanPlayerNames = Array.from({ length: safeCount }, (_, idx) => {
@@ -130,13 +142,16 @@ export const usePartyStore = create<PartyStoreState>()(
           return raw || `Гравець ${idx + 1}`;
         });
 
+        const now = Date.now();
         const initialTeams: PartyTeam[] = cleanTeamNames.map((name, idx) => ({
-          id: `team_${idx + 1}_${Date.now()}`,
+          id: `team_${idx + 1}_${now}`,
           name,
+          mascotId: cleanTeamMascots[idx],
           scoresByGroup: { main: 0 },
         }));
 
         set({
+          sessionId: `sess_${now}_${Math.random().toString(36).slice(2, 6)}`,
           isActive: true,
           isCompleted: false,
           presetTitle: title,
@@ -144,6 +159,7 @@ export const usePartyStore = create<PartyStoreState>()(
           currentStepIndex: 0,
           teams: initialTeams,
           savedTeamNames: cleanTeamNames,
+          savedTeamMascots: cleanTeamMascots,
           currentTeamIndex: 0,
           currentRoundInStep: 1,
           playerCount: safeCount,
@@ -164,13 +180,16 @@ export const usePartyStore = create<PartyStoreState>()(
 
       restartRematch: () => {
         const state = get();
+        const now = Date.now();
         const resetTeams: PartyTeam[] = state.teams.map((t, idx) => ({
-          id: `team_${idx + 1}_${Date.now()}`,
+          id: `team_${idx + 1}_${now}`,
           name: t.name,
+          mascotId: t.mascotId ?? guessMascotIdFromName(t.name, idx),
           scoresByGroup: { main: 0 },
         }));
 
         set({
+          sessionId: `sess_${now}_${Math.random().toString(36).slice(2, 6)}`,
           isActive: true,
           isCompleted: false,
           currentStepIndex: 0,

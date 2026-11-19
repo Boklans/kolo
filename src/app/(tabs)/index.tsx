@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -9,15 +9,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { ArrowUpRight, Clock, Play, X } from 'lucide-react-native';
+import { ArrowUpRight, Clock, Play, Trophy, X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { HallOfFameModal } from '@/components/game/HallOfFameModal';
 import { BalakaLogo } from '@/components/graphics/BalakaLogo';
-import { VibePosterArtwork } from '@/components/graphics/KoloArtwork';
 import { PARTY_PRESETS } from '@/data/presets';
+import { useHistoryStore } from '@/stores/useHistoryStore';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { GameType, PartyPreset } from '@/types';
+
+const VIBE_ART = {
+  warmup: require('../../../assets/images/cards/vibe_warmup.webp'),
+  uncensored: require('../../../assets/images/cards/vibe_uncensored.webp'),
+  strangers: require('../../../assets/images/cards/vibe_strangers.webp'),
+  battle: require('../../../assets/images/cards/vibe_battle.webp'),
+};
 
 const GAME_NAMES: Record<GameType, string> = {
   alias: 'Еліас',
@@ -39,6 +48,7 @@ function formatPresetFlow(preset: PartyPreset): string {
 
 export default function VibesScreen() {
   const router = useRouter();
+  const [showHallOfFame, setShowHallOfFame] = useState(false);
 
   const isActive = usePartyStore((s) => s.isActive);
   const isCompleted = usePartyStore((s) => s.isCompleted);
@@ -48,6 +58,7 @@ export default function VibesScreen() {
   const teams = usePartyStore((s) => s.teams);
   const currentTeamIndex = usePartyStore((s) => s.currentTeamIndex);
   const endSession = usePartyStore((s) => s.endSession);
+  const historyCount = useHistoryStore((s) => s.records.length);
 
   const handleSelectPreset = (preset: PartyPreset) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -95,15 +106,36 @@ export default function VibesScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Editorial Party Header with Balaka Brand Lockup */}
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <View style={styles.brandIconWrap}>
-              <BalakaLogo size={20} />
+        {/* Editorial Party Header with Balaka Brand Lockup + Hall of Fame */}
+        <View style={styles.headerTopRow}>
+          <View style={styles.header}>
+            <View style={styles.brandRow}>
+              <View style={styles.brandIconWrap}>
+                <BalakaLogo size={20} />
+              </View>
+              <Text style={styles.overline}>BALAKA · ВЕЧІРНІ СЦЕНАРІЇ</Text>
             </View>
-            <Text style={styles.overline}>BALAKA · ВЕЧІРНІ СЦЕНАРІЇ</Text>
+            <Text style={styles.headline}>Афіша вечора</Text>
           </View>
-          <Text style={styles.headline}>Афіша вечора</Text>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.hallOfFameBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setShowHallOfFame(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Відкрити літопис вечірок"
+          >
+            <Trophy size={14} color="#FDBA74" />
+            <Text style={styles.hallOfFameText}>Літопис</Text>
+            {historyCount > 0 ? (
+              <View style={styles.hallBadgePill}>
+                <Text style={styles.hallBadgeText}>{historyCount}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
         </View>
 
         {/* Unfinished Session Bar */}
@@ -146,29 +178,34 @@ export default function VibesScreen() {
           </View>
         ) : null}
 
-        {/* 01 / РОЗІГРІВ — Big Orange Hero Poster with Custom SVG Artwork */}
+        {/* 01 / РОЗІГРІВ — Big Orange Hero Poster with WebP Artwork */}
         {warmupPreset ? (
           <TouchableOpacity
             activeOpacity={0.88}
             style={styles.warmupPoster}
             onPress={() => handleSelectPreset(warmupPreset)}
           >
-            <LinearGradient
-              colors={['#2B1A12', '#1B1210', '#120D0D']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.warmupGradientInner}
-            >
+            <View style={styles.warmupGradientInner}>
+              <Image
+                source={VIBE_ART.warmup}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                contentPosition="right center"
+                transition={180}
+              />
               <LinearGradient
-                colors={['transparent', 'rgba(253, 186, 116, 0.55)', 'transparent']}
+                colors={['rgba(24, 15, 11, 0.96)', 'rgba(24, 15, 11, 0.78)', 'rgba(24, 15, 11, 0.18)']}
+                locations={[0, 0.48, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(253, 186, 116, 0.58)', 'transparent']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.topSpecularRim}
               />
-
-              <View pointerEvents="none" style={styles.warmupSvgArtPos}>
-                <VibePosterArtwork presetId="warmup" size={148} />
-              </View>
 
               <View style={styles.posterTopRow}>
                 <Text style={styles.warmupOverline}>01 · СТАРТ ВЕЧОРА</Text>
@@ -203,7 +240,7 @@ export default function VibesScreen() {
                   />
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         ) : null}
 
@@ -215,22 +252,26 @@ export default function VibesScreen() {
               style={styles.uncensoredPoster}
               onPress={() => handleSelectPreset(uncensoredPreset)}
             >
-              <LinearGradient
-                colors={['#2E111B', '#1C0D13', '#12090D']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.splitGradientInner}
-              >
+              <View style={styles.splitGradientInner}>
+                <Image
+                  source={VIBE_ART.uncensored}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  transition={180}
+                />
                 <LinearGradient
-                  colors={['transparent', 'rgba(253, 164, 175, 0.55)', 'transparent']}
+                  colors={['rgba(24, 9, 14, 0.94)', 'rgba(24, 9, 14, 0.72)', 'rgba(24, 9, 14, 0.25)']}
+                  locations={[0, 0.55, 1]}
+                  start={{ x: 0, y: 0.7 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <LinearGradient
+                  colors={['transparent', 'rgba(253, 164, 175, 0.58)', 'transparent']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.topSpecularRim}
                 />
-
-                <View pointerEvents="none" style={styles.splitSvgArtPos}>
-                  <VibePosterArtwork presetId="uncensored_18" size={108} />
-                </View>
 
                 <View style={styles.splitHeaderRow}>
                   <Text style={styles.uncensoredBadge}>18+ · БЕЗ ФІЛЬТРІВ</Text>
@@ -249,7 +290,7 @@ export default function VibesScreen() {
                 <Text style={styles.uncensoredRoute}>
                   {formatPresetFlow(uncensoredPreset)}
                 </Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           ) : null}
 
@@ -259,22 +300,26 @@ export default function VibesScreen() {
               style={styles.strangersPoster}
               onPress={() => handleSelectPreset(strangersPreset)}
             >
-              <LinearGradient
-                colors={['#102820', '#0B1B16', '#08120F']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.splitGradientInner}
-              >
+              <View style={styles.splitGradientInner}>
+                <Image
+                  source={VIBE_ART.strangers}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  transition={180}
+                />
                 <LinearGradient
-                  colors={['transparent', 'rgba(110, 231, 183, 0.55)', 'transparent']}
+                  colors={['rgba(8, 22, 17, 0.94)', 'rgba(8, 22, 17, 0.72)', 'rgba(8, 22, 17, 0.25)']}
+                  locations={[0, 0.55, 1]}
+                  start={{ x: 0, y: 0.7 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <LinearGradient
+                  colors={['transparent', 'rgba(110, 231, 183, 0.58)', 'transparent']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.topSpecularRim}
                 />
-
-                <View pointerEvents="none" style={styles.splitSvgArtPos}>
-                  <VibePosterArtwork presetId="strangers" size={108} />
-                </View>
 
                 <View style={styles.splitHeaderRow}>
                   <Text style={styles.strangersBadge}>ICEBREAKER</Text>
@@ -293,34 +338,39 @@ export default function VibesScreen() {
                 <Text style={styles.strangersRoute}>
                   {formatPresetFlow(strangersPreset)}
                 </Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           ) : null}
         </View>
 
-        {/* 04 / БИТВА КОМАНД — Blue Tournament Show Poster with Custom Trophy SVG */}
+        {/* 04 / БИТВА КОМАНД — Blue Tournament Show Poster with WebP Artwork */}
         {battlePreset ? (
           <TouchableOpacity
             activeOpacity={0.88}
             style={styles.battlePoster}
             onPress={() => handleSelectPreset(battlePreset)}
           >
-            <LinearGradient
-              colors={['#121E38', '#0E1627', '#090E1A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.battleGradientInner}
-            >
+            <View style={styles.battleGradientInner}>
+              <Image
+                source={VIBE_ART.battle}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                contentPosition="right center"
+                transition={180}
+              />
               <LinearGradient
-                colors={['transparent', 'rgba(147, 197, 253, 0.55)', 'transparent']}
+                colors={['rgba(11, 19, 38, 0.96)', 'rgba(11, 19, 38, 0.76)', 'rgba(11, 19, 38, 0.18)']}
+                locations={[0, 0.48, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(147, 197, 253, 0.58)', 'transparent']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.topSpecularRim}
               />
-
-              <View pointerEvents="none" style={styles.battleSvgArtPos}>
-                <VibePosterArtwork presetId="team_battle" size={140} />
-              </View>
 
               <View style={styles.posterTopRow}>
                 <Text style={styles.battleOverline}>04 · ГОЛОВНИЙ ТУРНІР</Text>
@@ -355,10 +405,15 @@ export default function VibesScreen() {
                   />
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         ) : null}
       </ScrollView>
+
+      <HallOfFameModal
+        visible={showHallOfFame}
+        onClose={() => setShowHallOfFame(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -377,9 +432,44 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxxl,
     gap: 14,
   },
-  header: {
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 4,
+  },
+  header: {
     gap: 4,
+    flex: 1,
+  },
+  hallOfFameBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  hallOfFameText: {
+    color: COLORS.textPrimary,
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  hallBadgePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(249, 115, 22, 0.22)',
+  },
+  hallBadgeText: {
+    color: '#FDBA74',
+    fontSize: 10,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
   brandRow: {
     flexDirection: 'row',

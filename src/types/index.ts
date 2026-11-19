@@ -59,6 +59,7 @@ export type SpyStep = BaseStep & {
   gameType: 'spy';
   spyCount: 1 | 2;
   discussionTimeSec: 180 | 300 | 420;
+  missionsEnabled?: boolean;
   scoring: NoScoringPolicy;
 };
 

@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Dices, Eye, EyeOff, RefreshCw, Sparkles } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { getTeamMascot } from '@/constants/mascots';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
 import { baseUaDeck, useDeckStore } from '@/stores/useDeckStore';
@@ -104,6 +105,11 @@ export default function CrocodileGameScreen() {
     name: 'Команда 1',
     scoresByGroup: { main: 0 },
   };
+  const teamMascot = getTeamMascot(
+    currentTeam.mascotId,
+    currentTeam.name,
+    currentTeamIndex
+  );
 
   const currentTeamTotalScore = useMemo(
     () =>
@@ -302,7 +308,7 @@ export default function CrocodileGameScreen() {
                 <View style={styles.calloutHeroCenter}>
                   <Text style={styles.calloutOverline}>ЧАС ПАНТОМІМИ</Text>
                   <Text style={styles.calloutTeamName} numberOfLines={2}>
-                    {currentTeam.name}
+                    {teamMascot.emoji} {currentTeam.name}
                   </Text>
                   <Text style={styles.calloutInstruction}>
                     Оберіть актора з команди. Тільки він бере телефон і дивиться
@@ -383,7 +389,9 @@ export default function CrocodileGameScreen() {
       {phase === 'PREPARATION' ? (
         <View style={styles.screenBody}>
           <View style={styles.prepMetaRow}>
-            <Text style={styles.prepTeamLabel}>{currentTeam.name}</Text>
+            <Text style={styles.prepTeamLabel}>
+              {teamMascot.emoji} {currentTeam.name}
+            </Text>
             <Text style={styles.prepDeckLabel}>Тільки для очей ведучого</Text>
           </View>
 
@@ -461,7 +469,9 @@ export default function CrocodileGameScreen() {
       {phase === 'ACTING' ? (
         <View style={styles.screenBody}>
           <View style={styles.actingHeader}>
-            <Text style={styles.prepTeamLabel}>{currentTeam.name}</Text>
+            <Text style={styles.prepTeamLabel}>
+              {teamMascot.emoji} {currentTeam.name}
+            </Text>
             {isTimeExpired ? (
               <Text style={styles.expiredStatus}>ЧАС ВИЙШОВ!</Text>
             ) : (
@@ -581,7 +591,9 @@ export default function CrocodileGameScreen() {
                 <Text style={styles.resultPointsUnit}>
                   {turnGuessed ? 'БАЛІВ У ЗАЛІК' : 'БАЛІВ'}
                 </Text>
-                <Text style={styles.resultTeamName}>{currentTeam.name}</Text>
+                <Text style={styles.resultTeamName}>
+                  {teamMascot.emoji} {currentTeam.name}
+                </Text>
               </View>
 
               <View style={styles.resultPhraseBox}>
