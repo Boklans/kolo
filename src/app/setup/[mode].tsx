@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
   ArrowLeft,
+  BookOpen,
   Check,
   Dices,
   Minus,
@@ -20,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { QuickRulesModal } from '@/components/game/QuickRulesModal';
 import { PARTY_PRESETS } from '@/data/presets';
 import { OFFICIAL_DECKS, useDeckStore } from '@/stores/useDeckStore';
 import { usePartyStore } from '@/stores/usePartyStore';
@@ -119,6 +121,11 @@ export default function SetupScreen() {
 
   const [selectedDeckIds, setSelectedDeckIds] = useState<string[]>(defaultPresetDeckIds);
   const [minDifficulty, setMinDifficulty] = useState<1 | 2>(1);
+  const [rulesVisible, setRulesVisible] = useState(false);
+
+  const rulesGameType: GameType = isPresetMode
+    ? selectedPreset?.steps[0]?.gameType ?? 'alias'
+    : selectedGameType;
 
   useEffect(() => {
     setSelectedDeckIds(defaultPresetDeckIds);
@@ -418,8 +425,26 @@ export default function SetupScreen() {
           <ArrowLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.topBarOverline}>ПІДГОТОВКА ГРИ</Text>
-        <View style={styles.topBarSpacer} />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.rulesPillBtn}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setRulesVisible(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Правила гри"
+        >
+          <BookOpen size={14} color={COLORS.textPrimary} />
+          <Text style={styles.rulesPillText}>Правила</Text>
+        </TouchableOpacity>
       </View>
+
+      <QuickRulesModal
+        visible={rulesVisible}
+        gameType={rulesGameType}
+        onClose={() => setRulesVisible(false)}
+      />
 
       <ScrollView
         style={styles.container}
@@ -1002,8 +1027,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1.4,
   },
-  topBarSpacer: {
-    width: 38,
+  rulesPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  rulesPillText: {
+    color: COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   container: {
     flex: 1,

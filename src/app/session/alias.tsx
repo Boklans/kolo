@@ -962,6 +962,7 @@ export default function AliasGameScreen() {
         stepBadgeText={`ЕЛІАС · ${stepNumStr} / ${totalStepsStr}`}
         rightMetaText={`${currentStep.roundTimeSec} СЕК`}
         accentColor={COLORS.alias}
+        gameType="alias"
         onPauseChange={setIsPaused}
       />
 

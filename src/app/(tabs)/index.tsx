@@ -9,9 +9,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { ArrowUpRight, Play, X } from 'lucide-react-native';
+import { ArrowUpRight, Clock, Play, X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BalakaLogo } from '@/components/graphics/BalakaLogo';
 import { VibePosterArtwork } from '@/components/graphics/KoloArtwork';
 import { PARTY_PRESETS } from '@/data/presets';
 import { usePartyStore } from '@/stores/usePartyStore';
@@ -93,9 +95,14 @@ export default function VibesScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Editorial Party Header */}
+        {/* Editorial Party Header with Balaka Brand Lockup */}
         <View style={styles.header}>
-          <Text style={styles.overline}>BALAKA · PARTY GAME SHOW</Text>
+          <View style={styles.brandRow}>
+            <View style={styles.brandIconWrap}>
+              <BalakaLogo size={20} />
+            </View>
+            <Text style={styles.overline}>BALAKA · ВЕЧІРНІ СЦЕНАРІЇ</Text>
+          </View>
           <Text style={styles.headline}>Афіша вечора</Text>
         </View>
 
@@ -146,40 +153,57 @@ export default function VibesScreen() {
             style={styles.warmupPoster}
             onPress={() => handleSelectPreset(warmupPreset)}
           >
-            <View pointerEvents="none" style={styles.warmupSvgArtPos}>
-              <VibePosterArtwork presetId="warmup" size={148} />
-            </View>
+            <LinearGradient
+              colors={['#2B1A12', '#1B1210', '#120D0D']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.warmupGradientInner}
+            >
+              <LinearGradient
+                colors={['transparent', 'rgba(253, 186, 116, 0.55)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.topSpecularRim}
+              />
 
-            <View style={styles.posterTopRow}>
-              <Text style={styles.warmupOverline}>01 · СТАРТ ВЕЧОРА</Text>
-              <Text style={styles.warmupTimeTag}>
-                {warmupPreset.durationLabel.toUpperCase()}
-              </Text>
-            </View>
+              <View pointerEvents="none" style={styles.warmupSvgArtPos}>
+                <VibePosterArtwork presetId="warmup" size={148} />
+              </View>
 
-            <View style={styles.warmupCenter}>
-              <Text style={styles.warmupHeroTitle}>РОЗІГРІВ</Text>
-              <Text style={styles.warmupTagline}>
-                Почніть спокійно. Закінчите не скоро.
-              </Text>
-            </View>
+              <View style={styles.posterTopRow}>
+                <Text style={styles.warmupOverline}>01 · СТАРТ ВЕЧОРА</Text>
+                <View style={styles.durationPill}>
+                  <Clock size={11} color="#FDBA74" />
+                  <Text style={styles.warmupTimeTag}>
+                    {warmupPreset.durationLabel}
+                  </Text>
+                </View>
+              </View>
 
-            <View style={styles.warmupFooter}>
-              <View style={styles.routeFlowBlock}>
-                <Text style={styles.routeFlowLabel}>МАРШРУТ</Text>
-                <Text style={styles.routeFlowValue}>
-                  {formatPresetFlow(warmupPreset)}
+              <View style={styles.warmupCenter}>
+                <Text style={styles.warmupHeroTitle}>РОЗІГРІВ</Text>
+                <Text style={styles.warmupTagline}>
+                  Почніть спокійно. Закінчите не скоро.
                 </Text>
               </View>
 
-              <View style={styles.warmupLaunchCircle}>
-                <ArrowUpRight
-                  size={20}
-                  color={COLORS.background}
-                  strokeWidth={2.6}
-                />
+              <View style={styles.warmupFooter}>
+                <View style={styles.routeFlowBlock}>
+                  <Text style={styles.routeFlowLabel}>МАРШРУТ</Text>
+                  <Text style={styles.routeFlowValue}>
+                    {formatPresetFlow(warmupPreset)}
+                  </Text>
+                </View>
+
+                <View style={styles.warmupLaunchCircle}>
+                  <ArrowUpRight
+                    size={20}
+                    color={COLORS.background}
+                    strokeWidth={2.6}
+                  />
+                </View>
               </View>
-            </View>
+            </LinearGradient>
           </TouchableOpacity>
         ) : null}
 
@@ -191,27 +215,41 @@ export default function VibesScreen() {
               style={styles.uncensoredPoster}
               onPress={() => handleSelectPreset(uncensoredPreset)}
             >
-              <View pointerEvents="none" style={styles.splitSvgArtPos}>
-                <VibePosterArtwork presetId="uncensored_18" size={108} />
-              </View>
+              <LinearGradient
+                colors={['#2E111B', '#1C0D13', '#12090D']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.splitGradientInner}
+              >
+                <LinearGradient
+                  colors={['transparent', 'rgba(253, 164, 175, 0.55)', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.topSpecularRim}
+                />
 
-              <View style={styles.splitHeaderRow}>
-                <Text style={styles.uncensoredBadge}>18+ · БЕЗ ФІЛЬТРІВ</Text>
-                <Text style={styles.splitDurationText}>
-                  {uncensoredPreset.durationLabel}
+                <View pointerEvents="none" style={styles.splitSvgArtPos}>
+                  <VibePosterArtwork presetId="uncensored_18" size={108} />
+                </View>
+
+                <View style={styles.splitHeaderRow}>
+                  <Text style={styles.uncensoredBadge}>18+ · БЕЗ ФІЛЬТРІВ</Text>
+                  <Text style={styles.splitDurationText}>
+                    {uncensoredPreset.durationLabel}
+                  </Text>
+                </View>
+
+                <View style={styles.splitCenterBlock}>
+                  <Text style={styles.uncensoredTitle}>БЕЗ ЦЕНЗУРИ</Text>
+                  <Text style={styles.uncensoredQuote}>
+                    Тут краще не грати з батьками.
+                  </Text>
+                </View>
+
+                <Text style={styles.uncensoredRoute}>
+                  {formatPresetFlow(uncensoredPreset)}
                 </Text>
-              </View>
-
-              <View style={styles.splitCenterBlock}>
-                <Text style={styles.uncensoredTitle}>БЕЗ ЦЕНЗУРИ</Text>
-                <Text style={styles.uncensoredQuote}>
-                  Тут краще не грати з батьками.
-                </Text>
-              </View>
-
-              <Text style={styles.uncensoredRoute}>
-                {formatPresetFlow(uncensoredPreset)}
-              </Text>
+              </LinearGradient>
             </TouchableOpacity>
           ) : null}
 
@@ -221,27 +259,41 @@ export default function VibesScreen() {
               style={styles.strangersPoster}
               onPress={() => handleSelectPreset(strangersPreset)}
             >
-              <View pointerEvents="none" style={styles.splitSvgArtPos}>
-                <VibePosterArtwork presetId="strangers" size={108} />
-              </View>
+              <LinearGradient
+                colors={['#102820', '#0B1B16', '#08120F']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.splitGradientInner}
+              >
+                <LinearGradient
+                  colors={['transparent', 'rgba(110, 231, 183, 0.55)', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.topSpecularRim}
+                />
 
-              <View style={styles.splitHeaderRow}>
-                <Text style={styles.strangersBadge}>ICEBREAKER</Text>
-                <Text style={styles.splitDurationText}>
-                  {strangersPreset.durationLabel}
+                <View pointerEvents="none" style={styles.splitSvgArtPos}>
+                  <VibePosterArtwork presetId="strangers" size={108} />
+                </View>
+
+                <View style={styles.splitHeaderRow}>
+                  <Text style={styles.strangersBadge}>ICEBREAKER</Text>
+                  <Text style={styles.splitDurationText}>
+                    {strangersPreset.durationLabel}
+                  </Text>
+                </View>
+
+                <View style={styles.splitCenterBlock}>
+                  <Text style={styles.strangersTitle}>НЕЗНАЙОМЦІ</Text>
+                  <Text style={styles.strangersQuote}>
+                    За 10 хвилин усі стануть своїми.
+                  </Text>
+                </View>
+
+                <Text style={styles.strangersRoute}>
+                  {formatPresetFlow(strangersPreset)}
                 </Text>
-              </View>
-
-              <View style={styles.splitCenterBlock}>
-                <Text style={styles.strangersTitle}>НЕЗНАЙОМЦІ</Text>
-                <Text style={styles.strangersQuote}>
-                  За 10 хвилин усі стануть своїми.
-                </Text>
-              </View>
-
-              <Text style={styles.strangersRoute}>
-                {formatPresetFlow(strangersPreset)}
-              </Text>
+              </LinearGradient>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -253,40 +305,57 @@ export default function VibesScreen() {
             style={styles.battlePoster}
             onPress={() => handleSelectPreset(battlePreset)}
           >
-            <View pointerEvents="none" style={styles.battleSvgArtPos}>
-              <VibePosterArtwork presetId="team_battle" size={140} />
-            </View>
+            <LinearGradient
+              colors={['#121E38', '#0E1627', '#090E1A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.battleGradientInner}
+            >
+              <LinearGradient
+                colors={['transparent', 'rgba(147, 197, 253, 0.55)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.topSpecularRim}
+              />
 
-            <View style={styles.posterTopRow}>
-              <Text style={styles.battleOverline}>04 · ГОЛОВНИЙ ТУРНІР</Text>
-              <Text style={styles.battleDurationTag}>
-                {battlePreset.durationLabel.toUpperCase()}
-              </Text>
-            </View>
+              <View pointerEvents="none" style={styles.battleSvgArtPos}>
+                <VibePosterArtwork presetId="team_battle" size={140} />
+              </View>
 
-            <View style={styles.battleMainBlock}>
-              <Text style={styles.battleTitle}>БИТВА КОМАНД</Text>
-              <Text style={styles.battleTagline}>
-                Хто сьогодні найрозумніший?
-              </Text>
-            </View>
+              <View style={styles.posterTopRow}>
+                <Text style={styles.battleOverline}>04 · ГОЛОВНИЙ ТУРНІР</Text>
+                <View style={styles.durationPill}>
+                  <Clock size={11} color="#93C5FD" />
+                  <Text style={styles.battleDurationTag}>
+                    {battlePreset.durationLabel}
+                  </Text>
+                </View>
+              </View>
 
-            <View style={styles.battleFooter}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.routeFlowLabel}>3 ЕТАПИ ТУРНІРУ</Text>
-                <Text style={styles.battleRouteText}>
-                  {formatPresetFlow(battlePreset)}
+              <View style={styles.battleMainBlock}>
+                <Text style={styles.battleTitle}>БИТВА КОМАНД</Text>
+                <Text style={styles.battleTagline}>
+                  Хто сьогодні найрозумніший?
                 </Text>
               </View>
 
-              <View style={styles.battleActionBox}>
-                <ArrowUpRight
-                  size={20}
-                  color={COLORS.textPrimary}
-                  strokeWidth={2.5}
-                />
+              <View style={styles.battleFooter}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.routeFlowLabel}>3 ЕТАПИ ТУРНІРУ</Text>
+                  <Text style={styles.battleRouteText}>
+                    {formatPresetFlow(battlePreset)}
+                  </Text>
+                </View>
+
+                <View style={styles.battleActionBox}>
+                  <ArrowUpRight
+                    size={20}
+                    color={COLORS.textPrimary}
+                    strokeWidth={2.5}
+                  />
+                </View>
               </View>
-            </View>
+            </LinearGradient>
           </TouchableOpacity>
         ) : null}
       </ScrollView>
@@ -310,19 +379,52 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 4,
-    gap: 2,
+    gap: 4,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overline: {
     color: COLORS.textMuted,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.8,
+    letterSpacing: 1.6,
   },
   headline: {
     color: COLORS.textPrimary,
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1,
+  },
+  topSpecularRim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 1,
+  },
+  durationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
 
   // Unfinished Session Bar
@@ -378,16 +480,20 @@ const styles = StyleSheet.create({
 
   // 01 / РОЗІГРІВ Poster
   warmupPoster: {
-    backgroundColor: '#221713',
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xl + 4,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.28)',
+    borderColor: 'rgba(249, 115, 22, 0.35)',
     borderBottomWidth: 5,
     borderBottomColor: '#150D0A',
-    padding: SPACING.xl,
     minHeight: 224,
-    justifyContent: 'space-between',
     overflow: 'hidden',
+    position: 'relative',
+  },
+  warmupGradientInner: {
+    flex: 1,
+    padding: SPACING.xl,
+    minHeight: 219,
+    justifyContent: 'space-between',
     position: 'relative',
   },
   warmupSvgArtPos: {
@@ -486,16 +592,20 @@ const styles = StyleSheet.create({
   // БЕЗ ЦЕНЗУРИ Poster
   uncensoredPoster: {
     flex: 1.08,
-    backgroundColor: '#231218',
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xl + 4,
     borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.28)',
+    borderColor: 'rgba(244, 63, 94, 0.35)',
     borderBottomWidth: 5,
     borderBottomColor: '#14090D',
-    padding: SPACING.lg,
     minHeight: 216,
-    justifyContent: 'space-between',
     overflow: 'hidden',
+    position: 'relative',
+  },
+  splitGradientInner: {
+    flex: 1,
+    padding: SPACING.lg,
+    minHeight: 211,
+    justifyContent: 'space-between',
     position: 'relative',
   },
   uncensoredBadge: {
@@ -526,15 +636,12 @@ const styles = StyleSheet.create({
   // НЕЗНАЙОМЦІ Poster
   strangersPoster: {
     flex: 0.96,
-    backgroundColor: '#13201C',
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xl + 4,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.28)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     borderBottomWidth: 5,
     borderBottomColor: '#0A1310',
-    padding: SPACING.lg,
     minHeight: 216,
-    justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
   },
@@ -565,16 +672,20 @@ const styles = StyleSheet.create({
 
   // 04 / БИТВА КОМАНД Poster
   battlePoster: {
-    backgroundColor: '#131A29',
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xl + 4,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.28)',
+    borderColor: 'rgba(59, 130, 246, 0.35)',
     borderBottomWidth: 5,
     borderBottomColor: '#0A1020',
-    padding: SPACING.xl,
     minHeight: 208,
-    justifyContent: 'space-between',
     overflow: 'hidden',
+    position: 'relative',
+  },
+  battleGradientInner: {
+    flex: 1,
+    padding: SPACING.xl,
+    minHeight: 203,
+    justifyContent: 'space-between',
     position: 'relative',
   },
   battleSvgArtPos: {

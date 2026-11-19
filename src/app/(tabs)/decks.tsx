@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import {
@@ -45,7 +46,8 @@ const TARGET_MODES: { id: CustomDeckTargetMode; label: string }[] = [
 ];
 
 type CoverTheme = {
-  bg: string;
+  gradient: [string, string, string];
+  borderColor: string;
   accent: string;
   tag: string;
 };
@@ -53,7 +55,8 @@ type CoverTheme = {
 function getDeckCoverTheme(deck: Deck): CoverTheme {
   if (deck.isCustom) {
     return {
-      bg: '#1F182B',
+      gradient: ['#231834', '#161124', '#0F0C18'],
+      borderColor: 'rgba(139, 92, 246, 0.35)',
       accent: COLORS.primary,
       tag: 'CUSTOM PACK',
     };
@@ -61,31 +64,36 @@ function getDeckCoverTheme(deck: Deck): CoverTheme {
   switch (deck.id) {
     case 'warmup_ua':
       return {
-        bg: '#231712',
+        gradient: ['#2A1912', '#1A110E', '#110C0B'],
+        borderColor: 'rgba(249, 115, 22, 0.35)',
         accent: COLORS.hot,
         tag: 'PARTY START',
       };
     case 'memes_ua':
       return {
-        bg: '#11221B',
+        gradient: ['#10261E', '#0B1B16', '#08120F'],
+        borderColor: 'rgba(16, 185, 129, 0.35)',
         accent: COLORS.crocodile,
         tag: 'POP & MEMES',
       };
     case 'it_office_ua':
       return {
-        bg: '#121C2E',
+        gradient: ['#121F36', '#0E1626', '#0A0F1A'],
+        borderColor: 'rgba(59, 130, 246, 0.35)',
         accent: COLORS.alias,
         tag: 'TECH & WORK',
       };
     case 'adult_18_ua':
       return {
-        bg: '#261118',
+        gradient: ['#2A111A', '#1B0D13', '#12090D'],
+        borderColor: 'rgba(244, 63, 94, 0.35)',
         accent: COLORS.spy,
         tag: 'NSFW · 18+',
       };
     default:
       return {
-        bg: '#191729',
+        gradient: ['#1D1831', '#141122', '#0D0B17'],
+        borderColor: 'rgba(139, 92, 246, 0.35)',
         accent: COLORS.primary,
         tag: 'CLASSIC EDITION',
       };
@@ -286,46 +294,53 @@ export default function DecksScreen() {
         key={deck.id}
         activeOpacity={0.88}
         onPress={() => handleOpenPreview(deck)}
-        style={[styles.coverCard, { backgroundColor: theme.bg }]}
+        style={[styles.coverCard, { borderColor: theme.borderColor }]}
       >
-        {/* Custom Vector SVG Box-Art Illustration */}
-        <View pointerEvents="none" style={styles.coverSvgArtworkPos}>
-          <DeckCoverArtwork
-            deckId={deck.id}
-            accentColor={theme.accent}
-            size={92}
-          />
-        </View>
+        <LinearGradient
+          colors={theme.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.coverGradientInner}
+        >
+          {/* Custom Vector SVG Box-Art Illustration */}
+          <View pointerEvents="none" style={styles.coverSvgArtworkPos}>
+            <DeckCoverArtwork
+              deckId={deck.id}
+              accentColor={theme.accent}
+              size={92}
+            />
+          </View>
 
-        {/* Top Row: Category Tag + PRO Badge */}
-        <View style={styles.coverTopRow}>
-          <Text style={[styles.coverSeriesTag, { color: theme.accent }]}>
-            {theme.tag}
-          </Text>
-          {deck.isPremium ? (
-            <View style={styles.proMiniPill}>
-              <Text style={styles.proMiniPillText}>PRO</Text>
-            </View>
-          ) : null}
-        </View>
+          {/* Top Row: Category Tag + PRO Badge */}
+          <View style={styles.coverTopRow}>
+            <Text style={[styles.coverSeriesTag, { color: theme.accent }]}>
+              {theme.tag}
+            </Text>
+            {deck.isPremium ? (
+              <View style={styles.proMiniPill}>
+                <Text style={styles.proMiniPillText}>PRO</Text>
+              </View>
+            ) : null}
+          </View>
 
-        {/* Center Box Title & Sample Card Preview */}
-        <View style={styles.coverTitleBlock}>
-          <Text style={styles.coverTitle} numberOfLines={2}>
-            {deck.title}
-          </Text>
-          <Text style={styles.coverSamplePreview} numberOfLines={1}>
-            «{sampleWord}»
-          </Text>
-        </View>
+          {/* Center Box Title & Sample Card Preview */}
+          <View style={styles.coverTitleBlock}>
+            <Text style={styles.coverTitle} numberOfLines={2}>
+              {deck.title}
+            </Text>
+            <Text style={styles.coverSamplePreview} numberOfLines={1}>
+              «{sampleWord}»
+            </Text>
+          </View>
 
-        {/* Bottom Compact Card Count */}
-        <View style={styles.coverBottomRow}>
-          <Text style={styles.coverCountText}>{totalCards} карток</Text>
-          <Text style={[styles.coverOpenHint, { color: theme.accent }]}>
-            Відкрити →
-          </Text>
-        </View>
+          {/* Bottom Compact Card Count */}
+          <View style={styles.coverBottomRow}>
+            <Text style={styles.coverCountText}>{totalCards} карток</Text>
+            <Text style={[styles.coverOpenHint, { color: theme.accent }]}>
+              Відкрити →
+            </Text>
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
     );
   };
@@ -582,11 +597,11 @@ export default function DecksScreen() {
           {previewDeck ? (
             <View style={styles.modalFlex}>
               {/* Rich Deck Showcase Header */}
-              <View
-                style={[
-                  styles.showcaseBanner,
-                  { backgroundColor: getDeckCoverTheme(previewDeck).bg },
-                ]}
+              <LinearGradient
+                colors={getDeckCoverTheme(previewDeck).gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.showcaseBanner}
               >
                 <View style={styles.showcaseTopRow}>
                   <Text
@@ -628,7 +643,7 @@ export default function DecksScreen() {
                     </Text>
                   </TouchableOpacity>
                 ) : null}
-              </View>
+              </LinearGradient>
 
               {/* Mode Tabs */}
               <View style={styles.previewTabsRow}>
@@ -941,14 +956,19 @@ const styles = StyleSheet.create({
     width: '48%',
     flexGrow: 1,
     minHeight: 206,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xl + 2,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderBottomWidth: 5,
-    borderBottomColor: 'rgba(0, 0, 0, 0.45)',
+    borderBottomColor: 'rgba(0, 0, 0, 0.5)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  coverGradientInner: {
+    flex: 1,
+    minHeight: 201,
     padding: SPACING.lg,
     justifyContent: 'space-between',
-    overflow: 'hidden',
     position: 'relative',
   },
   coverSvgArtworkPos: {

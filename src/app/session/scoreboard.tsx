@@ -29,6 +29,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BalakaLogo } from '@/components/graphics/BalakaLogo';
 import { SessionTopBar } from '@/components/game/SessionTopBar';
 import { usePartyStore } from '@/stores/usePartyStore';
 import { playVictoryFanfare, triggerHaptic } from '@/utils/sound';
@@ -307,14 +308,8 @@ export default function ScoreboardScreen() {
                 const progressPct = Math.round(
                   (Math.max(0, team.totalScore) / maxScore) * 100,
                 );
-                return (
-                  <View
-                    key={team.id}
-                    style={[
-                      styles.teamCard,
-                      isLeader && styles.teamCardLeader,
-                    ]}
-                  >
+                const rowContent = (
+                  <>
                     {isLeader ? (
                       <View
                         style={[
@@ -363,6 +358,22 @@ export default function ScoreboardScreen() {
                         {team.totalScore}
                       </Text>
                     </View>
+                  </>
+                );
+
+                return isLeader ? (
+                  <LinearGradient
+                    key={team.id}
+                    colors={['#2D1A10', '#1E1619', '#151421']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.teamCard, styles.teamCardLeader]}
+                  >
+                    {rowContent}
+                  </LinearGradient>
+                ) : (
+                  <View key={team.id} style={styles.teamCard}>
+                    {rowContent}
                   </View>
                 );
               });
@@ -372,10 +383,15 @@ export default function ScoreboardScreen() {
 
         {/* Dedicated Handoff Callout Block between turns */}
         {!isCompleted && nextTeam && currentStep ? (
-          <View style={styles.handoffCalloutCard}>
+          <LinearGradient
+            colors={['#1F1733', '#131122']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.handoffCalloutCard}
+          >
             <View style={styles.handoffIconRow}>
               <View style={styles.handoffIconCircle}>
-                <Smartphone size={18} color={COLORS.primary} />
+                <Smartphone size={18} color="#C4B5FD" />
               </View>
               <Text style={styles.handoffOverline}>
                 ПЕРЕДАЧА ТЕЛЕФОНА · КОЛО {currentRoundInStep}
@@ -388,7 +404,7 @@ export default function ScoreboardScreen() {
               Передайте телефон ведучому команди «{nextTeam.name}» для наступного
               раунду.
             </Text>
-          </View>
+          </LinearGradient>
         ) : null}
 
         {/* Final Party Poster for Stories */}
@@ -399,14 +415,17 @@ export default function ScoreboardScreen() {
             </Text>
 
             <LinearGradient
-              colors={['#1E1C2A', '#14131D']}
+              colors={['#241B2D', '#171422', '#10101A']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.posterCard}
             >
               {/* Top Brand Row */}
               <View style={styles.posterBrandRow}>
-                <Text style={styles.posterBrandName}>BALAKA</Text>
+                <View style={styles.posterBrandLockup}>
+                  <BalakaLogo size={20} />
+                  <Text style={styles.posterBrandName}>BALAKA</Text>
+                </View>
                 <Text style={styles.posterPresetTag}>
                   {presetTitle || 'Вечірка'}
                 </Text>
@@ -711,12 +730,11 @@ const styles = StyleSheet.create({
 
   // Handoff Callout Block
   handoffCalloutCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.xl + 4,
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
+    borderColor: 'rgba(139, 92, 246, 0.35)',
     borderBottomWidth: 4,
-    borderBottomColor: '#13131A',
+    borderBottomColor: '#0D0B18',
     padding: SPACING.xl,
     gap: 8,
   },
@@ -775,6 +793,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  posterBrandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   posterBrandName: {
     color: COLORS.textPrimary,

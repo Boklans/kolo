@@ -1,16 +1,16 @@
 export const COLORS = {
   // Основні поверхні (глибока обсидіанова сцена арени)
-  background: '#0B0B10',
-  surface: '#16161F',
-  surfaceElevated: '#21212E',
-  surfaceSubtle: '#111118',
-  border: '#2A2A38',
+  background: '#07070C',
+  surface: '#14141E',
+  surfaceElevated: '#1E1E2C',
+  surfaceSubtle: '#0D0D14',
+  border: '#262634',
 
   // Сценічні фони для окремих ігор
-  arenaAlias: '#090E1A',
-  arenaCrocodile: '#081410',
-  arenaSpy: '#13090D',
-  arenaTaboo: '#10091A',
+  arenaAlias: '#080C18',
+  arenaCrocodile: '#07120E',
+  arenaSpy: '#11080B',
+  arenaTaboo: '#0E0818',
 
   // Фізична паперова картка (Ivory Deck) та чорнило
   cardPaper: '#F7F4EC',
@@ -30,10 +30,10 @@ export const COLORS = {
   lipNeutral: '#0C0C12',
   lipPaper: '#C8C2B4',
 
-  // Типографіка
-  textPrimary: '#F5F5F7',
-  textSecondary: '#9492A6',
-  textMuted: '#737185',
+  // Типографіка (підвищений контраст)
+  textPrimary: '#F7F7FA',
+  textSecondary: '#B2B0C4',
+  textMuted: '#88869E',
 
   // Фірмовий акцент та кольори ігор
   primary: '#8B5CF6', // Brand Purple

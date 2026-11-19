@@ -270,6 +270,7 @@ export default function CrocodileGameScreen() {
         stepBadgeText={`КРОКОДИЛ · ${stepNumStr} / ${totalStepsStr}`}
         rightMetaText={`${currentStep.roundTimeSec} СЕК`}
         accentColor={COLORS.crocodile}
+        gameType="crocodile"
         onPauseChange={setIsPaused}
       />
 

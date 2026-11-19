@@ -859,6 +859,7 @@ export default function TabooGameScreen() {
         stepBadgeText={`ТАБУ · ${stepNumStr} / ${totalStepsStr}`}
         rightMetaText={`${currentStep.roundTimeSec} СЕК`}
         accentColor={COLORS.taboo}
+        gameType="taboo"
         onPauseChange={setIsPaused}
       />
 

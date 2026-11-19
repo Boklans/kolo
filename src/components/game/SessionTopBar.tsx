@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Pause, Smartphone, Volume2, VolumeX } from 'lucide-react-native';
+import { BookOpen, Pause, Smartphone, Volume2, VolumeX } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { BalakaLogo } from '@/components/graphics/BalakaLogo';
+import { QuickRulesModal } from '@/components/game/QuickRulesModal';
 import { usePartyStore } from '@/stores/usePartyStore';
+import { GameType } from '@/types';
 import { triggerHaptic, useSoundStore } from '@/utils/sound';
 
 interface SessionTopBarProps {
   stepBadgeText: string;
   rightMetaText?: string;
   accentColor?: string;
+  gameType?: GameType;
   onPauseChange?: (isPaused: boolean) => void;
 }
 
@@ -17,6 +21,7 @@ export function SessionTopBar({
   stepBadgeText,
   rightMetaText,
   accentColor = COLORS.primary,
+  gameType,
   onPauseChange,
 }: SessionTopBarProps) {
   const router = useRouter();
@@ -29,6 +34,7 @@ export function SessionTopBar({
   const toggleHaptics = useSoundStore((s) => s.toggleHaptics);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [rulesVisible, setRulesVisible] = useState(false);
 
   const handleToggleSound = () => {
     triggerHaptic('selection');
@@ -45,13 +51,28 @@ export function SessionTopBar({
 
   const handleOpenPauseModal = () => {
     triggerHaptic('light');
+    setRulesVisible(false);
     setModalVisible(true);
     onPauseChange?.(true);
+  };
+
+  const handleOpenRules = () => {
+    triggerHaptic('light');
+    setModalVisible(false);
+    setRulesVisible(true);
+    onPauseChange?.(true);
+  };
+
+  const handleCloseRules = () => {
+    triggerHaptic('light');
+    setRulesVisible(false);
+    onPauseChange?.(false);
   };
 
   const handleResume = () => {
     triggerHaptic('light');
     setModalVisible(false);
+    setRulesVisible(false);
     onPauseChange?.(false);
   };
 
@@ -86,6 +107,19 @@ export function SessionTopBar({
             <Text style={styles.rightMeta}>{rightMetaText}</Text>
           ) : null}
 
+          {gameType ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.iconBtn}
+              onPress={handleOpenRules}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel="Правила гри"
+            >
+              <BookOpen size={15} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.iconBtn}
@@ -114,6 +148,14 @@ export function SessionTopBar({
         </View>
       </View>
 
+      {gameType ? (
+        <QuickRulesModal
+          visible={rulesVisible}
+          gameType={gameType}
+          onClose={handleCloseRules}
+        />
+      ) : null}
+
       <Modal
         visible={modalVisible}
         transparent
@@ -122,7 +164,10 @@ export function SessionTopBar({
       >
         <View style={styles.backdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalOverline}>ПАУЗА</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <BalakaLogo size={24} />
+              <Text style={[styles.modalOverline, { marginBottom: 0 }]}>BALAKA · ПАУЗА</Text>
+            </View>
             <Text style={styles.modalTitle}>Перервати вечірку?</Text>
             <Text style={styles.modalSubtitle}>
               Таймер зупинено. Можете змінити налаштування або вийти на головну.

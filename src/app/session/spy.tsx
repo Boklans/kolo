@@ -364,6 +364,7 @@ export default function SpyGameScreen() {
             : `${currentStep.discussionTimeSec / 60} ХВ`
         }
         accentColor={COLORS.spy}
+        gameType="spy"
         onPauseChange={setIsPaused}
       />
 
