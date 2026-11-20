@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,10 +37,67 @@ export type HapticKind =
   | 'warning'
   | 'error';
 
-export function triggerHaptic(kind: HapticKind) {
+export function triggerHaptic(
+  kindOrPattern: HapticKind | number | number[] = 'light'
+) {
   if (!useSoundStore.getState().isHapticsEnabled) return;
   try {
-    switch (kind) {
+    if (Platform.OS === 'web') {
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.vibrate === 'function'
+      ) {
+        if (
+          typeof kindOrPattern === 'number' ||
+          Array.isArray(kindOrPattern)
+        ) {
+          navigator.vibrate(kindOrPattern);
+          return;
+        }
+        switch (kindOrPattern) {
+          case 'selection':
+            navigator.vibrate(8);
+            break;
+          case 'light':
+            navigator.vibrate(12);
+            break;
+          case 'medium':
+            navigator.vibrate(20);
+            break;
+          case 'heavy':
+            navigator.vibrate(30);
+            break;
+          case 'success':
+            navigator.vibrate([16, 28, 24]);
+            break;
+          case 'warning':
+            navigator.vibrate([30, 35, 42]);
+            break;
+          case 'error':
+            navigator.vibrate([38, 30, 50]);
+            break;
+        }
+      }
+      return;
+    }
+
+    if (typeof kindOrPattern === 'number' || Array.isArray(kindOrPattern)) {
+      const duration = Array.isArray(kindOrPattern)
+        ? kindOrPattern[0] ?? 15
+        : kindOrPattern;
+      if (duration <= 10) {
+        Haptics.selectionAsync();
+      } else if (duration <= 18) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (duration <= 28) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
+      return;
+    }
+
+    switch (kindOrPattern) {
       case 'light':
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         break;
@@ -67,13 +125,14 @@ export function triggerHaptic(kind: HapticKind) {
   }
 }
 
-type NoteSpec = {
+type WarmNoteSpec = {
   freq: number;
   durationMs: number;
   delayMs?: number;
-  type?: 'sine' | 'triangle' | 'square' | 'sawtooth';
+  type?: 'sine' | 'triangle';
   gain?: number;
   endFreq?: number;
+  cutoffHz?: number;
 };
 
 let sharedAudioCtx: any = null;
@@ -95,7 +154,18 @@ function getAudioContext(): any | null {
   }
 }
 
-function playSynthSequence(notes: NoteSpec[]) {
+export function unlockAudioContext() {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
+}
+
+/**
+ * Warm acoustic-style synthesizer routed through a gentle low-pass filter
+ * so there are never harsh 8-bit buzzes or piercing high frequencies.
+ */
+function playWarmSequence(notes: WarmNoteSpec[]) {
   if (!useSoundStore.getState().isSoundEnabled) return;
 
   const ctx = getAudioContext();
@@ -105,212 +175,370 @@ function playSynthSequence(notes: NoteSpec[]) {
     const now = ctx.currentTime;
     notes.forEach((n) => {
       const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
       const gainNode = ctx.createGain();
 
-      osc.type = n.type ?? 'triangle';
+      osc.type = n.type ?? 'sine';
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(n.cutoffHz ?? 1400, now);
+      filter.Q.setValueAtTime(0.7, now);
+
       const startTime = now + (n.delayMs ?? 0) / 1000;
-      const durationSec = Math.max(0.02, n.durationMs / 1000);
-      const peakGain = n.gain ?? 0.16;
+      const durationSec = Math.max(0.025, n.durationMs / 1000);
+      const peakGain = n.gain ?? 0.08;
 
       osc.frequency.setValueAtTime(n.freq, startTime);
       if (n.endFreq) {
         osc.frequency.exponentialRampToValueAtTime(
-          Math.max(40, n.endFreq),
+          Math.max(45, n.endFreq),
           startTime + durationSec
         );
       }
 
+      const attackSec = Math.min(0.012, durationSec * 0.25);
       gainNode.gain.setValueAtTime(0.0001, startTime);
-      gainNode.gain.linearRampToValueAtTime(peakGain, startTime + 0.012);
+      gainNode.gain.linearRampToValueAtTime(peakGain, startTime + attackSec);
       gainNode.gain.exponentialRampToValueAtTime(
         0.0001,
         startTime + durationSec
       );
 
-      osc.connect(gainNode);
+      osc.connect(filter);
+      filter.connect(gainNode);
       gainNode.connect(ctx.destination);
 
       osc.start(startTime);
-      osc.stop(startTime + durationSec + 0.015);
+      osc.stop(startTime + durationSec + 0.02);
     });
   } catch {
     // Ignore audio context errors if browser autoplay policy blocks before gesture
   }
 }
 
+const STREAK_NOTES_HZ = [392.0, 440.0, 493.88, 523.25, 587.33, 659.25];
+
 /**
- * 1. Короткий пружний сигнал відліку 3 — 2 — 1
+ * 1. М’який дерев’яний клік відліку 3 — 2 — 1 (як марімба)
  */
 export function playCountdownBeep() {
-  triggerHaptic('heavy');
-  playSynthSequence([
-    { freq: 587.33, durationMs: 110, type: 'triangle', gain: 0.18 },
-    { freq: 1174.66, durationMs: 85, type: 'sine', gain: 0.08 },
+  triggerHaptic('medium');
+  playWarmSequence([
+    {
+      freq: 392.0,
+      endFreq: 382.0,
+      durationMs: 95,
+      type: 'sine',
+      gain: 0.09,
+      cutoffHz: 1100,
+    },
+    {
+      freq: 784.0,
+      durationMs: 42,
+      type: 'sine',
+      gain: 0.022,
+      cutoffHz: 1200,
+    },
   ]);
 }
 
 /**
- * 2. Старт раунду «ПОГНАЛИ!» / «МОТОР!» (мажорний акорд-гонг)
+ * 2. Старт раунду (теплий м’який мажорний перебір)
  */
 export function playCountdownGo() {
   triggerHaptic('success');
-  playSynthSequence([
-    { freq: 587.33, durationMs: 220, delayMs: 0, type: 'triangle', gain: 0.18 },
-    { freq: 739.99, durationMs: 220, delayMs: 45, type: 'triangle', gain: 0.16 },
-    { freq: 880.0, durationMs: 260, delayMs: 90, type: 'triangle', gain: 0.18 },
-    { freq: 1174.66, durationMs: 360, delayMs: 130, type: 'sine', gain: 0.22 },
+  playWarmSequence([
+    {
+      freq: 329.63,
+      durationMs: 140,
+      delayMs: 0,
+      type: 'sine',
+      gain: 0.08,
+      cutoffHz: 1400,
+    },
+    {
+      freq: 392.0,
+      durationMs: 160,
+      delayMs: 55,
+      type: 'sine',
+      gain: 0.085,
+      cutoffHz: 1500,
+    },
+    {
+      freq: 523.25,
+      durationMs: 260,
+      delayMs: 110,
+      type: 'triangle',
+      gain: 0.09,
+      cutoffHz: 1400,
+    },
   ]);
 }
 
 /**
- * 3. Вгадане слово (+1 або +2) з підвищенням тону при серії (streak)
+ * 3. Вгадане слово (приємний теплий клік-калімба з делікатним підйомом на серії)
  */
 export function playWordGuessed(streak = 1) {
-  triggerHaptic('success');
-  const clampedStreak = Math.min(8, Math.max(1, streak));
-  const pitchMultiplier = Math.pow(1.059463, clampedStreak - 1); // +1 півтон за кожне слово в серії
+  triggerHaptic('light');
+  const idx = Math.min(STREAK_NOTES_HZ.length - 1, Math.max(0, streak - 1));
+  const baseFreq = STREAK_NOTES_HZ[idx];
 
-  playSynthSequence([
+  playWarmSequence([
     {
-      freq: 659.25 * pitchMultiplier,
+      freq: baseFreq,
+      durationMs: 75,
+      delayMs: 0,
+      type: 'sine',
+      gain: 0.075,
+      cutoffHz: 1300,
+    },
+    {
+      freq: baseFreq * 1.25,
+      durationMs: 135,
+      delayMs: 42,
+      type: 'sine',
+      gain: 0.085,
+      cutoffHz: 1450,
+    },
+  ]);
+}
+
+/**
+ * 4. Пропуск слова / пас (тихий м’який «тук» картки)
+ */
+export function playWordSkipped() {
+  triggerHaptic('selection');
+  playWarmSequence([
+    {
+      freq: 220,
+      endFreq: 145,
+      durationMs: 85,
+      type: 'sine',
+      gain: 0.07,
+      cutoffHz: 700,
+    },
+  ]);
+}
+
+/**
+ * 4b. Порушення Табу (низький глухий подвійний стукіт без різкого писку)
+ */
+export function playTabooBuzz() {
+  triggerHaptic('error');
+  playWarmSequence([
+    {
+      freq: 196.0,
+      endFreq: 165.0,
       durationMs: 95,
       delayMs: 0,
       type: 'triangle',
-      gain: 0.18,
+      gain: 0.095,
+      cutoffHz: 520,
     },
     {
-      freq: 830.61 * pitchMultiplier,
-      durationMs: 110,
-      delayMs: 55,
+      freq: 155.56,
+      endFreq: 130.81,
+      durationMs: 130,
+      delayMs: 75,
       type: 'triangle',
-      gain: 0.18,
-    },
-    {
-      freq: 1318.51 * pitchMultiplier,
-      durationMs: 210,
-      delayMs: 110,
-      type: 'sine',
-      gain: 0.22,
+      gain: 0.095,
+      cutoffHz: 480,
     },
   ]);
 }
 
 /**
- * 4. Пропуск слова (глухий низький спуск)
- */
-export function playWordSkipped() {
-  triggerHaptic('medium');
-  playSynthSequence([
-    {
-      freq: 260,
-      endFreq: 135,
-      durationMs: 150,
-      type: 'triangle',
-      gain: 0.16,
-    },
-  ]);
-}
-
-/**
- * 5. Цокання таймера (попередження 20..11 сек та фінальні 10..1 сек)
+ * 5. Цокання таймера (делікатний дерев’яний тік, не ріже вухо)
  */
 export function playTimerTick(urgency: 'warning' | 'critical') {
   if (urgency === 'warning') {
-    playSynthSequence([
-      { freq: 760, durationMs: 40, type: 'sine', gain: 0.08 },
+    playWarmSequence([
+      {
+        freq: 460,
+        endFreq: 420,
+        durationMs: 28,
+        type: 'sine',
+        gain: 0.04,
+        cutoffHz: 950,
+      },
     ]);
   } else {
-    playSynthSequence([
-      { freq: 980, durationMs: 55, delayMs: 0, type: 'triangle', gain: 0.15 },
-      { freq: 660, durationMs: 65, delayMs: 85, type: 'sine', gain: 0.1 },
+    playWarmSequence([
+      {
+        freq: 520,
+        endFreq: 480,
+        durationMs: 36,
+        delayMs: 0,
+        type: 'sine',
+        gain: 0.065,
+        cutoffHz: 1050,
+      },
+      {
+        freq: 392,
+        endFreq: 370,
+        durationMs: 42,
+        delayMs: 75,
+        type: 'sine',
+        gain: 0.045,
+        cutoffHz: 900,
+      },
     ]);
   }
 }
 
 /**
- * 6. Сирена / Гонг завершення часу раунду (00:00)
+ * 6. Завершення часу раунду (глибокий теплий студійний гонг замість сирени)
  */
 export function playRoundEndBuzzer() {
   triggerHaptic('warning');
-  playSynthSequence([
+  playWarmSequence([
     {
-      freq: 440,
-      endFreq: 220,
-      durationMs: 360,
+      freq: 329.63,
+      durationMs: 220,
       delayMs: 0,
-      type: 'sawtooth',
-      gain: 0.14,
+      type: 'triangle',
+      gain: 0.085,
+      cutoffHz: 900,
     },
     {
-      freq: 330,
-      endFreq: 165,
-      durationMs: 420,
-      delayMs: 90,
-      type: 'triangle',
-      gain: 0.16,
+      freq: 246.94,
+      durationMs: 360,
+      delayMs: 110,
+      type: 'sine',
+      gain: 0.1,
+      cutoffHz: 800,
+    },
+    {
+      freq: 123.47,
+      durationMs: 400,
+      delayMs: 110,
+      type: 'sine',
+      gain: 0.08,
+      cutoffHz: 420,
     },
   ]);
 }
 
 /**
- * 7. Фіксація перегляду секретної ролі у Шпигуні (600 мс)
+ * 7. Фіксація перегляду секретної ролі у Шпигуні (тихий нейтральний клік, 100% однаковий для всіх)
  */
-export function playRoleRevealLock(isSpy: boolean) {
-  triggerHaptic('success');
-  if (isSpy) {
-    // Таємничий низький трилер-імпульс для Шпигуна
-    playSynthSequence([
-      { freq: 220, durationMs: 160, delayMs: 0, type: 'sawtooth', gain: 0.12 },
-      { freq: 233.08, durationMs: 260, delayMs: 110, type: 'triangle', gain: 0.16 },
-    ]);
-  } else {
-    // Чистий сигнал доступу до секретної локації
-    playSynthSequence([
-      { freq: 523.25, durationMs: 90, delayMs: 0, type: 'sine', gain: 0.14 },
-      { freq: 783.99, durationMs: 170, delayMs: 70, type: 'triangle', gain: 0.16 },
-    ]);
-  }
+export function playRoleRevealLock(_isSpy?: boolean) {
+  triggerHaptic('light');
+  playWarmSequence([
+    {
+      freq: 440.0,
+      durationMs: 60,
+      delayMs: 0,
+      type: 'sine',
+      gain: 0.055,
+      cutoffHz: 1100,
+    },
+    {
+      freq: 554.37,
+      durationMs: 90,
+      delayMs: 45,
+      type: 'sine',
+      gain: 0.055,
+      cutoffHz: 1100,
+    },
+  ]);
 }
 
 /**
- * 8. Барабанний дріб під час утримання кнопки «Розсекретити Шпигуна»
+ * 8. Глухий пульс-серцебиття під час утримання «Розсекретити Шпигуна»
  */
 export function playSpyDrumrollTick(progress: number) {
-  triggerHaptic(progress > 0.65 ? 'heavy' : 'medium');
-  const risingFreq = 190 + Math.round(progress * 480);
-  playSynthSequence([
+  triggerHaptic(progress > 0.65 ? 'medium' : 'light');
+  const freq = 92 + Math.round(progress * 68);
+  playWarmSequence([
     {
-      freq: risingFreq,
-      endFreq: risingFreq * 1.12,
-      durationMs: 75,
-      type: 'triangle',
-      gain: 0.12 + progress * 0.1,
+      freq,
+      endFreq: freq * 0.72,
+      durationMs: 65,
+      type: 'sine',
+      gain: 0.08 + progress * 0.04,
+      cutoffHz: 360,
     },
   ]);
 }
 
 /**
- * 9. Кульмінаційний акорд розкриття Шпигуна
+ * 9. Нуарний акорд розкриття Шпигуна (м’яке низьке фортепіано, без різкості)
  */
 export function playSpyUnmaskedSting() {
   triggerHaptic('success');
-  playSynthSequence([
-    { freq: 293.66, durationMs: 350, delayMs: 0, type: 'sawtooth', gain: 0.15 },
-    { freq: 349.23, durationMs: 350, delayMs: 40, type: 'triangle', gain: 0.15 },
-    { freq: 440.0, durationMs: 420, delayMs: 80, type: 'triangle', gain: 0.16 },
-    { freq: 587.33, durationMs: 520, delayMs: 130, type: 'sine', gain: 0.2 },
+  playWarmSequence([
+    {
+      freq: 146.83,
+      durationMs: 460,
+      delayMs: 0,
+      type: 'sine',
+      gain: 0.09,
+      cutoffHz: 750,
+    },
+    {
+      freq: 220.0,
+      durationMs: 440,
+      delayMs: 45,
+      type: 'triangle',
+      gain: 0.075,
+      cutoffHz: 850,
+    },
+    {
+      freq: 261.63,
+      durationMs: 460,
+      delayMs: 90,
+      type: 'sine',
+      gain: 0.08,
+      cutoffHz: 950,
+    },
+    {
+      freq: 349.23,
+      durationMs: 520,
+      delayMs: 135,
+      type: 'sine',
+      gain: 0.075,
+      cutoffHz: 1050,
+    },
   ]);
 }
 
 /**
- * 10. Фанфари перемоги у фіналі
+ * 10. Теплі камерні фанфари перемоги (м’який акорд-марімба)
  */
 export function playVictoryFanfare() {
   triggerHaptic('success');
-  playSynthSequence([
-    { freq: 523.25, durationMs: 120, delayMs: 0, type: 'triangle', gain: 0.16 },
-    { freq: 659.25, durationMs: 120, delayMs: 110, type: 'triangle', gain: 0.16 },
-    { freq: 783.99, durationMs: 140, delayMs: 220, type: 'triangle', gain: 0.18 },
-    { freq: 1046.5, durationMs: 420, delayMs: 340, type: 'sine', gain: 0.22 },
+  playWarmSequence([
+    {
+      freq: 261.63,
+      durationMs: 160,
+      delayMs: 0,
+      type: 'sine',
+      gain: 0.08,
+      cutoffHz: 1400,
+    },
+    {
+      freq: 329.63,
+      durationMs: 170,
+      delayMs: 90,
+      type: 'sine',
+      gain: 0.085,
+      cutoffHz: 1400,
+    },
+    {
+      freq: 392.0,
+      durationMs: 200,
+      delayMs: 180,
+      type: 'triangle',
+      gain: 0.085,
+      cutoffHz: 1500,
+    },
+    {
+      freq: 523.25,
+      durationMs: 380,
+      delayMs: 270,
+      type: 'sine',
+      gain: 0.095,
+      cutoffHz: 1500,
+    },
   ]);
 }

@@ -20,7 +20,7 @@ interface HoldToRevealCardProps {
   onRevealedEnough: () => void;
 }
 
-const HOLD_THRESHOLD_MS = 600;
+const HOLD_THRESHOLD_MS = 450;
 
 export function HoldToRevealCard({
   playerNumber,

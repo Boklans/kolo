@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
+import { getTimerThresholds } from '@/utils/formatters';
 import { playRoundEndBuzzer, playTimerTick, triggerHaptic } from '@/utils/sound';
 
 interface AbsoluteTimerProps {
@@ -112,13 +113,17 @@ export function AbsoluteTimer({
       onSecondChangeRef.current?.(secondsLeft);
       triggerTickAnimation(secondsLeft);
 
-      if (secondsLeft === 20 || secondsLeft === 15) {
+      const thresholds = getTimerThresholds(durationSec);
+      if (thresholds.milestoneTicks.includes(secondsLeft)) {
         triggerHaptic('light');
         playTimerTick('warning');
-      } else if (secondsLeft <= 10 && secondsLeft > 5) {
+      } else if (
+        secondsLeft <= thresholds.pulseSec &&
+        secondsLeft > thresholds.criticalSec
+      ) {
         triggerHaptic('medium');
         playTimerTick('warning');
-      } else if (secondsLeft <= 5 && secondsLeft > 0) {
+      } else if (secondsLeft <= thresholds.criticalSec && secondsLeft > 0) {
         triggerHaptic('heavy');
         playTimerTick('critical');
       }

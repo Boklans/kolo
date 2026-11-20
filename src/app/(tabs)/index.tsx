@@ -65,6 +65,11 @@ export default function VibesScreen() {
     router.push(`/setup/preset?id=${preset.id}`);
   };
 
+  const handleSelectGame = (gameId: 'alias' | 'taboo' | 'crocodile' | 'spy') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/setup/game?id=${gameId}`);
+  };
+
   const handleResumeParty = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/session/orchestrator');
@@ -177,6 +182,31 @@ export default function VibesScreen() {
             </TouchableOpacity>
           </View>
         ) : null}
+
+        {/* Quick-Start Games Strip */}
+        <View style={styles.quickGamesWrap}>
+          <Text style={styles.quickGamesLabel}>ШВИДКИЙ СТАРТ</Text>
+          <View style={styles.quickGamesRow}>
+            {(
+              [
+                { id: 'alias', title: 'Еліас', color: COLORS.alias },
+                { id: 'taboo', title: 'Табу', color: COLORS.taboo },
+                { id: 'crocodile', title: 'Крокодил', color: COLORS.crocodile },
+                { id: 'spy', title: 'Шпигун', color: COLORS.spy },
+              ] as const
+            ).map((g) => (
+              <TouchableOpacity
+                key={g.id}
+                activeOpacity={0.85}
+                onPress={() => handleSelectGame(g.id)}
+                style={[styles.quickGamePill, { borderColor: `${g.color}55` }]}
+              >
+                <View style={[styles.quickGameDot, { backgroundColor: g.color }]} />
+                <Text style={styles.quickGameTitle}>{g.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
         {/* 01 / РОЗІГРІВ — Big Orange Hero Poster with WebP Artwork */}
         {warmupPreset ? (
@@ -833,5 +863,40 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.lipAlias,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickGamesWrap: {
+    marginBottom: SPACING.lg,
+  },
+  quickGamesLabel: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    marginBottom: SPACING.sm,
+  },
+  quickGamesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  quickGamePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+  },
+  quickGameDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  quickGameTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

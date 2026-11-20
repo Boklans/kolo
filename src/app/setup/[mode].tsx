@@ -27,6 +27,8 @@ import {
   guessMascotIdFromName,
 } from '@/constants/mascots';
 import { QuickRulesModal } from '@/components/game/QuickRulesModal';
+import { SpyLobbyScreen } from '@/components/lobby/SpyLobbyScreen';
+import { TeamGameLobby } from '@/components/lobby/TeamGameLobby';
 import { PARTY_PRESETS } from '@/data/presets';
 import { OFFICIAL_DECKS, useDeckStore } from '@/stores/useDeckStore';
 import { usePartyStore } from '@/stores/usePartyStore';
@@ -82,6 +84,37 @@ const GAME_META: Record<
 };
 
 export default function SetupScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string; id?: string }>();
+
+  if (params.mode === 'game') {
+    if (
+      params.id === 'alias' ||
+      params.id === 'taboo' ||
+      params.id === 'crocodile'
+    ) {
+      return (
+        <TeamGameLobby
+          gameType={params.id}
+          onBack={() => router.back()}
+          onStartSession={() => router.replace('/session/orchestrator')}
+        />
+      );
+    }
+    if (params.id === 'spy') {
+      return (
+        <SpyLobbyScreen
+          onBack={() => router.back()}
+          onStartSession={() => router.replace('/session/orchestrator')}
+        />
+      );
+    }
+  }
+
+  return <LegacySetupScreen />;
+}
+
+function LegacySetupScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string; id?: string }>();
 

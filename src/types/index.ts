@@ -40,18 +40,23 @@ export type BaseStep = {
   minDifficulty?: 1 | 2;
 };
 
+export type RoundTimeSec = 15 | 30 | 45 | 60 | 90 | 120;
+
 export type AliasStep = BaseStep & {
   gameType: 'alias';
-  roundTimeSec: 30 | 60 | 90;
+  roundTimeSec: RoundTimeSec;
   penaltyForSkip: boolean;
+  lastWordForAll?: boolean;
   roundsPerTeam: number;
   scoring: TeamScoringPolicy | NoScoringPolicy;
 };
 
 export type CrocodileStep = BaseStep & {
   gameType: 'crocodile';
-  roundTimeSec: 60 | 90 | 120;
+  roundTimeSec: RoundTimeSec;
   roundsPerTeam: number;
+  mode?: 'timed' | 'single';
+  penaltyForSkip?: boolean;
   scoring: TeamScoringPolicy | NoScoringPolicy;
 };
 
@@ -65,7 +70,7 @@ export type SpyStep = BaseStep & {
 
 export type TabooStep = BaseStep & {
   gameType: 'taboo';
-  roundTimeSec: 30 | 60 | 90;
+  roundTimeSec: RoundTimeSec;
   penaltyForTaboo: boolean;
   roundsPerTeam: number;
   scoring: TeamScoringPolicy | NoScoringPolicy;
