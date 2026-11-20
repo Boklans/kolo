@@ -502,8 +502,9 @@ export default function AliasGameScreen() {
 
   const handleTimerExpire = useCallback(() => {
     triggerShake();
-    setPhase((prev) => (prev === 'PLAYING' ? 'OVERTIME' : prev));
-  }, [triggerShake]);
+    const nextPhase = currentStep.lastWordForAll === false ? 'REVIEW' : 'OVERTIME';
+    setPhase((prev) => (prev === 'PLAYING' ? nextPhase : prev));
+  }, [triggerShake, currentStep.lastWordForAll]);
 
   const commitSlotDecision = useCallback(
     (exitedSlot: 0 | 1, guessed: boolean) => {
