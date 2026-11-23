@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -884,10 +885,16 @@ export default function TabooGameScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <LinearGradient
+        colors={['#3B1478', '#230C4B', '#12062B']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <SessionTopBar
-        stepBadgeText={`ТАБУ · ${stepNumStr} / ${totalStepsStr}`}
+        stepBadgeText={`ТАБУ · КОЛО ${currentRoundInStep} З ${currentStep.roundsPerTeam}`}
         rightMetaText={`${currentStep.roundTimeSec} СЕК`}
-        accentColor={COLORS.taboo}
+        accentColor="#D8B4FE"
         gameType="taboo"
         onPauseChange={setIsPaused}
       />
@@ -906,27 +913,24 @@ export default function TabooGameScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.readyMainGroup}>
-              <View style={styles.calloutStageCard}>
-                <View style={styles.calloutTopRow}>
-                  <View style={styles.roundBadge}>
-                    <ShieldAlert size={12} color={COLORS.taboo} />
-                    <Text style={styles.roundBadgeText}>
-                      РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
-                    </Text>
-                  </View>
-                  <Text style={styles.teamCurrentScoreText}>
-                    Рахунок: {currentTeamTotalScore}
-                  </Text>
+              <View style={styles.studioReadyCenter}>
+                <View style={styles.studioMascotTile}>
+                  <Text style={styles.studioMascotEmoji}>{teamMascot.emoji}</Text>
                 </View>
 
-                <View style={styles.calloutHeroCenter}>
-                  <Text style={styles.calloutOverline}>МІННЕ ПОЛЕ СЛІВ</Text>
-                  <Text style={styles.calloutTeamName} numberOfLines={2}>
-                    {teamMascot.emoji} {currentTeam.name}
-                  </Text>
-                  <Text style={styles.calloutInstruction}>
-                    Поясни головне слово, НЕ називаючи 4 заборонені слова під ним!
-                    Суперник стежить через плече.
+                <Text style={styles.studioReadyOverline}>МІННЕ ПОЛЕ СЛІВ</Text>
+                <Text style={styles.studioReadyTeamName} numberOfLines={2}>
+                  {currentTeam.name}
+                </Text>
+                <Text style={styles.studioReadySub}>
+                  Коло {currentRoundInStep} з {currentStep.roundsPerTeam} · Рахунок:{' '}
+                  {currentTeamTotalScore}
+                </Text>
+
+                <View style={styles.studioRulePill}>
+                  <Text style={styles.studioRulePillText}>
+                    {currentStep.roundTimeSec} сек · +1 за слово
+                    {currentStep.penaltyForTaboo ? ' · Табу −1' : ''}
                   </Text>
                 </View>
               </View>
@@ -1138,7 +1142,7 @@ export default function TabooGameScreen() {
                           <View style={[styles.cardCounterPill, styles.cardBonusPill]}>
                             <Text style={styles.cardBonusText}>
                               🔥 У ВОГНІ · ×{currentStreak}
-                              {entry.item.difficulty === 3 ? ' · БОНУС +2' : ''}
+                              {entry.item.difficulty === 3 ? ' · +2' : ''}
                             </Text>
                           </View>
                         ) : entry.item.difficulty === 3 ? (
@@ -1146,11 +1150,7 @@ export default function TabooGameScreen() {
                             <Text style={styles.cardBonusText}>🔥 БОНУС +2</Text>
                           </View>
                         ) : (
-                          <View style={styles.cardCounterPill}>
-                            <Text style={styles.cardCounterText}>
-                              #{String(entry.num).padStart(2, '0')}
-                            </Text>
-                          </View>
+                          <Text style={styles.ivoryCardWatermark}>BALAKA</Text>
                         )}
 
                         {isFront && lastSwipedCard && phase === 'PLAYING' ? (
@@ -1161,11 +1161,13 @@ export default function TabooGameScreen() {
                             accessibilityRole="button"
                             accessibilityLabel="Повернути попереднє слово"
                           >
-                            <RotateCcw size={12} color={COLORS.textSecondary} />
+                            <RotateCcw size={12} color="#4B4958" />
                             <Text style={styles.cardUndoText}>Повернути</Text>
                           </TouchableOpacity>
                         ) : (
-                          <View />
+                          <Text style={styles.ivoryCardWatermark}>
+                            +{entry.item.difficulty === 3 ? '2' : '1'}
+                          </Text>
                         )}
                       </View>
 
@@ -1188,7 +1190,7 @@ export default function TabooGameScreen() {
                       {/* Forbidden Words Danger Zone */}
                       <View style={styles.tabooZone}>
                         <View style={styles.tabooZoneHeader}>
-                          <Ban size={12} color="#FDA4AF" />
+                          <Ban size={12} color="#BE123C" />
                           <Text style={styles.tabooZoneOverline}>
                             ЗАБОРОНЕНІ СЛОВА
                           </Text>
@@ -1679,10 +1681,12 @@ const styles = StyleSheet.create({
   },
   wordSurface: {
     flex: 1,
-    backgroundColor: '#181228',
-    borderRadius: RADIUS.xl,
+    backgroundColor: '#FBF8F1',
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.32)',
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    borderBottomWidth: 5,
+    borderBottomColor: '#D4CCB8',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     justifyContent: 'space-between',
@@ -1696,12 +1700,71 @@ const styles = StyleSheet.create({
     left: 0,
   },
   wordSurfaceOvertime: {
-    backgroundColor: '#241712',
+    backgroundColor: '#FFF3E8',
     borderColor: COLORS.hot,
   },
   wordSurfaceStreakFire: {
     borderColor: COLORS.hot,
     borderWidth: 2,
+  },
+  ivoryCardWatermark: {
+    color: 'rgba(20, 19, 26, 0.24)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  studioReadyCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: SPACING.lg,
+  },
+  studioMascotTile: {
+    width: 92,
+    height: 92,
+    borderRadius: 26,
+    backgroundColor: '#FBF8F1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#D4CCB8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    transform: [{ rotate: '-2deg' }],
+  },
+  studioMascotEmoji: {
+    fontSize: 46,
+  },
+  studioReadyOverline: {
+    color: '#D8B4FE',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 2.2,
+  },
+  studioReadyTeamName: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+    textAlign: 'center',
+  },
+  studioReadySub: {
+    color: '#F3E8FF',
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  studioRulePill: {
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  studioRulePillText: {
+    color: '#E9D5FF',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   cardFlashOverlay: {
     position: 'absolute',
@@ -1751,9 +1814,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    backgroundColor: 'rgba(20, 19, 26, 0.06)',
+    borderColor: 'rgba(20, 19, 26, 0.1)',
   },
   cardUndoText: {
-    color: COLORS.textSecondary,
+    color: '#4B4958',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1764,16 +1829,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dominantWord: {
-    color: COLORS.textPrimary,
+    color: '#14131A',
     fontSize: 40,
     fontWeight: '900',
     textAlign: 'center',
     letterSpacing: -1.2,
   },
   tabooZone: {
-    backgroundColor: '#24101A',
+    backgroundColor: COLORS.cardTabooDangerBg,
     borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.28)',
+    borderColor: 'rgba(190, 18, 60, 0.22)',
     borderRadius: RADIUS.lg,
     padding: SPACING.sm,
     gap: 8,
@@ -1785,7 +1850,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   tabooZoneOverline: {
-    color: '#FDA4AF',
+    color: COLORS.cardTabooDangerInk,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.2,
@@ -1797,9 +1862,9 @@ const styles = StyleSheet.create({
   },
   tabooWordPill: {
     width: '48.8%',
-    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    backgroundColor: 'rgba(190, 18, 60, 0.09)',
     borderWidth: 1,
-    borderColor: 'rgba(244, 63, 94, 0.22)',
+    borderColor: 'rgba(190, 18, 60, 0.2)',
     paddingVertical: 9,
     paddingHorizontal: 8,
     borderRadius: RADIUS.md,
@@ -1807,7 +1872,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabooWordText: {
-    color: '#FFE4E6',
+    color: COLORS.cardTabooDangerInk,
     fontSize: 14,
     fontWeight: '800',
     textAlign: 'center',

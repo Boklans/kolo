@@ -65,7 +65,8 @@ export function HoldToRevealCard({
     }
 
     holdTimerRef.current = setTimeout(() => {
-      playRoleRevealLock(isSpy);
+      // Neutral sound for both Spy & Citizen so audio never exposes the Spy
+      playRoleRevealLock(false);
       onRevealedEnough();
     }, HOLD_THRESHOLD_MS);
   };
@@ -106,8 +107,7 @@ export function HoldToRevealCard({
       <View
         style={[
           styles.cardContainer,
-          isHolding &&
-            (isSpy ? styles.cardContainerSpy : styles.cardContainerCitizen),
+          isHolding && styles.cardContainerUniformReveal,
         ]}
       >
         {/* Secret Role Layer */}
@@ -122,10 +122,10 @@ export function HoldToRevealCard({
                   ЦІЛКОМ ТАЄМНО · САМОЗВАНЕЦЬ
                 </Text>
               </View>
-              <Text style={[styles.roleHeadline, { color: COLORS.spy }]}>
+              <Text style={[styles.roleHeadline, { color: '#14131A' }]}>
                 ТИ ШПИГУН!
               </Text>
-              <Text style={styles.roleDescription}>
+              <Text style={[styles.roleDescription, { color: '#4B4958' }]}>
                 Не видай себе. Слухай запитання інших гравців і спробуй
                 вирахувати секретну локацію.
               </Text>
@@ -143,11 +143,13 @@ export function HoldToRevealCard({
                   ДОСТУП НАДАНО · ЛОКАЦІЯ
                 </Text>
               </View>
-              <Text style={styles.locationTitle}>{locationName}</Text>
+              <Text style={[styles.locationTitle, { color: '#14131A' }]}>
+                {locationName}
+              </Text>
               {roleName ? (
                 <Text style={styles.roleTag}>Твоя легенда: {roleName}</Text>
               ) : null}
-              <Text style={styles.roleDescription}>
+              <Text style={[styles.roleDescription, { color: '#4B4958' }]}>
                 Став хитрі запитання іншим, щоб викрити шпигуна, але не називай
                 локацію прямо.
               </Text>
@@ -165,7 +167,7 @@ export function HoldToRevealCard({
             <Animated.View
               style={[
                 styles.scanFill,
-                { backgroundColor: isSpy ? COLORS.spy : COLORS.crocodile },
+                { backgroundColor: '#14131A' },
                 scanBarStyle,
               ]}
             />
@@ -245,13 +247,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardContainerSpy: {
-    backgroundColor: '#2D0F18',
-    borderColor: COLORS.spy,
-  },
-  cardContainerCitizen: {
-    backgroundColor: '#0E2420',
-    borderColor: COLORS.crocodile,
+  cardContainerUniformReveal: {
+    backgroundColor: '#FBF8F1',
+    borderColor: '#D4CCB8',
   },
   secretLayer: {
     position: 'absolute',
@@ -427,23 +425,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    backgroundColor: 'rgba(249, 115, 22, 0.16)',
+    backgroundColor: 'rgba(234, 88, 12, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.35)',
+    borderColor: 'rgba(234, 88, 12, 0.35)',
     maxWidth: 310,
     alignItems: 'center',
   },
   missionOverline: {
-    color: '#FDBA74',
+    color: '#C2410C',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.3,
     marginBottom: 3,
   },
   missionText: {
-    color: '#FFF7ED',
+    color: '#14131A',
     fontSize: 12.5,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 17,
     textAlign: 'center',
   },

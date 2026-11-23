@@ -38,12 +38,40 @@ import {
   useDeckStore,
 } from '@/stores/useDeckStore';
 import { useUsedContentStore } from '@/stores/useUsedContentStore';
-import { Deck } from '@/types';
+import { Deck, GameType } from '@/types';
 import {
   detectDeckTargetMode,
   encodeDeckToShareUrl,
   extractDeckRawLines,
 } from '@/utils/deckShare';
+
+type DeckGameFilter = 'all' | GameType;
+
+const DECK_FILTER_OPTIONS: { id: DeckGameFilter; label: string }[] = [
+  { id: 'all', label: 'Усі' },
+  { id: 'alias', label: 'Еліас' },
+  { id: 'taboo', label: 'Табу' },
+  { id: 'crocodile', label: 'Крокодил' },
+  { id: 'spy', label: 'Шпигун' },
+];
+
+function getDeckCountForFilter(deck: Deck, filter: DeckGameFilter): number {
+  if (filter === 'alias') return deck.items.alias.length;
+  if (filter === 'crocodile') return deck.items.crocodile.length;
+  if (filter === 'taboo') return deck.items.taboo?.length ?? 0;
+  if (filter === 'spy') return deck.items.spyLocations.length;
+  return (
+    deck.items.alias.length +
+    deck.items.crocodile.length +
+    (deck.items.taboo?.length ?? 0) +
+    deck.items.spyLocations.length
+  );
+}
+
+function getCountSuffixForFilter(count: number, filter: DeckGameFilter): string {
+  if (filter === 'spy') return `${count} локацій`;
+  return `${count} карток`;
+}
 
 const OFFICIAL_DECK_ART: Record<string, any> = {
   base_ua: require('../../../assets/images/cards/deck_base.webp'),
@@ -76,7 +104,7 @@ function getDeckCoverTheme(deck: Deck): CoverTheme {
       gradient: ['#231834', '#161124', '#0F0C18'],
       borderColor: 'rgba(139, 92, 246, 0.35)',
       accent: COLORS.primary,
-      tag: 'CUSTOM PACK',
+      tag: 'Власний пак',
     };
   }
   switch (deck.id) {
@@ -85,35 +113,35 @@ function getDeckCoverTheme(deck: Deck): CoverTheme {
         gradient: ['#2A1912', '#1A110E', '#110C0B'],
         borderColor: 'rgba(249, 115, 22, 0.35)',
         accent: COLORS.hot,
-        tag: 'PARTY START',
+        tag: 'Старт вечора',
       };
     case 'memes_ua':
       return {
         gradient: ['#10261E', '#0B1B16', '#08120F'],
         borderColor: 'rgba(16, 185, 129, 0.35)',
         accent: COLORS.crocodile,
-        tag: 'POP & MEMES',
+        tag: 'Поп і меми',
       };
     case 'it_office_ua':
       return {
         gradient: ['#121F36', '#0E1626', '#0A0F1A'],
         borderColor: 'rgba(59, 130, 246, 0.35)',
         accent: COLORS.alias,
-        tag: 'TECH & WORK',
+        tag: 'Техно і офіс',
       };
     case 'adult_18_ua':
       return {
         gradient: ['#2A111A', '#1B0D13', '#12090D'],
         borderColor: 'rgba(244, 63, 94, 0.35)',
         accent: COLORS.spy,
-        tag: 'NSFW · 18+',
+        tag: '18+ · Без фільтрів',
       };
     default:
       return {
         gradient: ['#1D1831', '#141122', '#0D0B17'],
         borderColor: 'rgba(139, 92, 246, 0.35)',
         accent: COLORS.primary,
-        tag: 'CLASSIC EDITION',
+        tag: 'Класична база',
       };
   }
 }
@@ -136,6 +164,23 @@ export default function DecksScreen() {
 
   const [previewDeck, setPreviewDeck] = useState<Deck | null>(null);
   const [previewTab, setPreviewTab] = useState<'alias' | 'crocodile' | 'taboo' | 'spy'>('alias');
+  const [gameFilter, setGameFilter] = useState<DeckGameFilter>('all');
+
+  const filteredOfficialDecks = useMemo(
+    () =>
+      gameFilter === 'all'
+        ? OFFICIAL_DECKS
+        : OFFICIAL_DECKS.filter((d) => getDeckCountForFilter(d, gameFilter) > 0),
+    [gameFilter]
+  );
+
+  const filteredCustomDecks = useMemo(
+    () =>
+      gameFilter === 'all'
+        ? customDecks
+        : customDecks.filter((d) => getDeckCountForFilter(d, gameFilter) > 0),
+    [customDecks, gameFilter]
+  );
 
   const parsedPreviewItems = useMemo(() => {
     if (targetMode === 'taboo') {
@@ -301,17 +346,19 @@ export default function DecksScreen() {
 
   const renderDeckCover = (deck: Deck) => {
     const theme = getDeckCoverTheme(deck);
-    const totalCards =
-      deck.items.alias.length +
-      deck.items.crocodile.length +
-      (deck.items.taboo?.length ?? 0) +
-      deck.items.spyLocations.length;
+    const filteredCardsCount = getDeckCountForFilter(deck, gameFilter);
 
     const sampleWord =
-      deck.items.alias[0]?.word ??
-      deck.items.crocodile[0]?.phrase ??
-      deck.items.spyLocations[0]?.name ??
-      'BALAKA';
+      gameFilter === 'crocodile'
+        ? deck.items.crocodile[0]?.phrase ?? 'BALAKA'
+        : gameFilter === 'taboo'
+          ? deck.items.taboo?.[0]?.word ?? 'BALAKA'
+          : gameFilter === 'spy'
+            ? deck.items.spyLocations[0]?.name ?? 'BALAKA'
+            : deck.items.alias[0]?.word ??
+              deck.items.crocodile[0]?.phrase ??
+              deck.items.spyLocations[0]?.name ??
+              'BALAKA';
 
     const artSrc = !deck.isCustom ? OFFICIAL_DECK_ART[deck.id] : undefined;
 
@@ -365,16 +412,11 @@ export default function DecksScreen() {
             </View>
           )}
 
-          {/* Top Row: Category Tag + PRO Badge */}
+          {/* Top Row: Category Tag */}
           <View style={styles.coverTopRow}>
             <Text style={[styles.coverSeriesTag, { color: theme.accent }]}>
               {theme.tag}
             </Text>
-            {deck.isPremium ? (
-              <View style={styles.proMiniPill}>
-                <Text style={styles.proMiniPillText}>PRO</Text>
-              </View>
-            ) : null}
           </View>
 
           {/* Center Box Title & Sample Card Preview */}
@@ -389,7 +431,9 @@ export default function DecksScreen() {
 
           {/* Bottom Compact Card Count */}
           <View style={styles.coverBottomRow}>
-            <Text style={styles.coverCountText}>{totalCards} карток</Text>
+            <Text style={styles.coverCountText}>
+              {getCountSuffixForFilter(filteredCardsCount, gameFilter)}
+            </Text>
             <Text style={[styles.coverOpenHint, { color: theme.accent }]}>
               Відкрити →
             </Text>
@@ -434,24 +478,57 @@ export default function DecksScreen() {
           </View>
         </View>
 
-        {/* Official Party Packs Grid (2-Column Box Covers) */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionOverline}>
-            ОФІЦІЙНІ ВИДАННЯ BALAKA · {OFFICIAL_DECKS.length}
-          </Text>
-          <View style={styles.coversGrid}>
-            {OFFICIAL_DECKS.map(renderDeckCover)}
-          </View>
-        </View>
+        {/* Horizontal Game Filter Pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterPillsRow}
+        >
+          {DECK_FILTER_OPTIONS.map((opt) => {
+            const active = gameFilter === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setGameFilter(opt.id);
+                }}
+                style={[styles.filterPill, active && styles.filterPillActive]}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    active && styles.filterPillTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-        {/* Custom Decks Section */}
-        {customDecks.length > 0 ? (
+        {/* Official Party Packs Grid (2-Column Box Covers) */}
+        {filteredOfficialDecks.length > 0 ? (
           <View style={styles.sectionBlock}>
             <Text style={styles.sectionOverline}>
-              ВЛАСНІ ПАКИ · {customDecks.length}
+              ОФІЦІЙНІ ВИДАННЯ BALAKA · {filteredOfficialDecks.length}
             </Text>
             <View style={styles.coversGrid}>
-              {customDecks.map(renderDeckCover)}
+              {filteredOfficialDecks.map(renderDeckCover)}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Custom Decks Section */}
+        {filteredCustomDecks.length > 0 ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionOverline}>
+              ВЛАСНІ ПАКИ · {filteredCustomDecks.length}
+            </Text>
+            <View style={styles.coversGrid}>
+              {filteredCustomDecks.map(renderDeckCover)}
             </View>
           </View>
         ) : null}
@@ -1024,6 +1101,32 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     justifyContent: 'space-between',
     position: 'relative',
+  },
+  filterPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  filterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterPillActive: {
+    backgroundColor: COLORS.textPrimary,
+    borderColor: COLORS.textPrimary,
+  },
+  filterPillText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterPillTextActive: {
+    color: COLORS.background,
+    fontWeight: '800',
   },
   customEmojiBackdrop: {
     position: 'absolute',

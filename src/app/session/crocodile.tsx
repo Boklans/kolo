@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -17,7 +18,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Dices, Eye, EyeOff, RefreshCw, Sparkles } from 'lucide-react-native';
+import { Check, Dices, Eye, EyeOff, Lock, RefreshCw, Sparkles, X } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { getTeamMascot } from '@/constants/mascots';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
@@ -35,7 +36,15 @@ import {
   triggerHaptic,
 } from '@/utils/sound';
 
-type CrocodilePhase = 'READY' | 'PREPARATION' | 'COUNTDOWN' | 'ACTING' | 'RESULT';
+type CrocodilePhase = 'READY' | 'PREPARATION' | 'COUNTDOWN' | 'ACTING' | 'RESULT' | 'REVIEW';
+
+interface TimedPhraseRecord {
+  id: string;
+  item: CrocodileItem;
+  phrase: string;
+  points: -1 | 0 | 1 | 2;
+  isBonus: boolean;
+}
 
 const CROCODILE_MODIFIERS = [
   {
@@ -126,10 +135,14 @@ export default function CrocodileGameScreen() {
   const [currentPhrase, setCurrentPhrase] = useState<CrocodileItem | null>(null);
   const [swapsRemaining, setSwapsRemaining] = useState<number>(1);
   const [isPeekingSpoiler, setIsPeekingSpoiler] = useState<boolean>(false);
+  const [isPhoneMasked, setIsPhoneMasked] = useState<boolean>(false);
+  const [timedHistory, setTimedHistory] = useState<TimedPhraseRecord[]>([]);
   const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
   const [turnGuessed, setTurnGuessed] = useState<boolean>(false);
   const [activeModifierIdx, setActiveModifierIdx] = useState<number | null>(null);
   const reducedMotion = useReducedMotion();
+
+  const isTimedMode = currentStep.mode !== 'single';
 
   const activeModifier =
     activeModifierIdx !== null ? CROCODILE_MODIFIERS[activeModifierIdx] : null;
@@ -171,8 +184,97 @@ export default function CrocodileGameScreen() {
     isSubmittingRef.current = false;
     setSwapsRemaining(1);
     setIsTimeExpired(false);
+    setIsPhoneMasked(false);
+    setTimedHistory([]);
     pullNextPhrase();
-    setPhase('PREPARATION');
+    if (isTimedMode) {
+      setCountdownLabel('3');
+      setPhase('COUNTDOWN');
+    } else {
+      setPhase('PREPARATION');
+    }
+  };
+
+  const handleTimedDecision = (guessed: boolean) => {
+    if (!currentPhrase || isPaused) return;
+    const isBonus = currentPhrase.difficulty === 3;
+    const pts: -1 | 0 | 1 | 2 = guessed
+      ? isBonus
+        ? 2
+        : 1
+      : currentStep.penaltyForSkip
+        ? -1
+        : 0;
+
+    if (guessed) {
+      playWordGuessed(2);
+      triggerHaptic('success');
+    } else {
+      playWordSkipped();
+      triggerHaptic('light');
+    }
+
+    setTimedHistory((prev) => [
+      ...prev,
+      {
+        id: `${currentPhrase.id}_${Date.now()}`,
+        item: currentPhrase,
+        phrase: currentPhrase.phrase,
+        points: pts,
+        isBonus,
+      },
+    ]);
+    pullNextPhrase();
+  };
+
+  const handleToggleTimedReview = (recordId: string) => {
+    triggerHaptic('selection');
+    setTimedHistory((prev) =>
+      prev.map((rec) => {
+        if (rec.id !== recordId) return rec;
+        const wasGuessed = rec.points > 0;
+        const nextPts: -1 | 0 | 1 | 2 = wasGuessed
+          ? currentStep.penaltyForSkip
+            ? -1
+            : 0
+          : rec.isBonus
+            ? 2
+            : 1;
+        return { ...rec, points: nextPts };
+      })
+    );
+  };
+
+  const timedTotalPoints = useMemo(
+    () =>
+      timedHistory.reduce((acc, r) => acc + r.points, 0) +
+      (activeModifier && timedHistory.some((r) => r.points > 0) ? 1 : 0),
+    [timedHistory, activeModifier]
+  );
+
+  const timedGuessedCount = useMemo(
+    () => timedHistory.filter((r) => r.points > 0).length,
+    [timedHistory]
+  );
+
+  const handleConfirmTimedReview = () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    triggerHaptic('success');
+
+    const skippedWords = timedHistory
+      .filter((r) => r.points <= 0)
+      .map((r) => r.phrase);
+    const bonusGuessedCount = timedHistory.filter(
+      (r) => r.points > 0 && r.isBonus
+    ).length;
+
+    submitTeamTurnResult(timedTotalPoints, {
+      guessedCount: timedGuessedCount,
+      bonusGuessedCount,
+      skippedWords,
+    });
+    router.replace('/session/scoreboard');
   };
 
   const handleSwapPhrase = () => {
@@ -272,10 +374,16 @@ export default function CrocodileGameScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <LinearGradient
+        colors={['#0A4A36', '#072E22', '#041A13']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <SessionTopBar
-        stepBadgeText={`КРОКОДИЛ · ${stepNumStr} / ${totalStepsStr}`}
-        rightMetaText={`${currentStep.roundTimeSec} СЕК`}
-        accentColor={COLORS.crocodile}
+        stepBadgeText={`КРОКОДИЛ · КОЛО ${currentRoundInStep} З ${currentStep.roundsPerTeam}`}
+        rightMetaText={isTimedMode ? `${currentStep.roundTimeSec} СЕК` : '1 ФРАЗА'}
+        accentColor="#6EE7B7"
         gameType="crocodile"
         onPauseChange={setIsPaused}
       />
@@ -292,27 +400,27 @@ export default function CrocodileGameScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.readyMainGroup}>
-              <View style={styles.calloutStageCard}>
-                <View style={styles.calloutTopRow}>
-                  <View style={styles.roundBadge}>
-                    <Sparkles size={12} color={COLORS.crocodile} />
-                    <Text style={styles.roundBadgeText}>
-                      РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
-                    </Text>
-                  </View>
-                  <Text style={styles.teamCurrentScoreText}>
-                    Рахунок: {currentTeamTotalScore}
-                  </Text>
+              <View style={styles.studioReadyCenter}>
+                <View style={styles.studioMascotTile}>
+                  <Text style={styles.studioMascotEmoji}>{teamMascot.emoji}</Text>
                 </View>
 
-                <View style={styles.calloutHeroCenter}>
-                  <Text style={styles.calloutOverline}>ЧАС ПАНТОМІМИ</Text>
-                  <Text style={styles.calloutTeamName} numberOfLines={2}>
-                    {teamMascot.emoji} {currentTeam.name}
-                  </Text>
-                  <Text style={styles.calloutInstruction}>
-                    Оберіть актора з команди. Тільки він бере телефон і дивиться
-                    секретну фразу!
+                <Text style={styles.studioReadyOverline}>ЧАС ПАНТОМІМИ</Text>
+                <Text style={styles.studioReadyTeamName} numberOfLines={2}>
+                  {currentTeam.name}
+                </Text>
+                <Text style={styles.studioReadySub}>
+                  Коло {currentRoundInStep} з {currentStep.roundsPerTeam} · Рахунок:{' '}
+                  {currentTeamTotalScore}
+                </Text>
+
+                <View style={styles.studioRulePill}>
+                  <Text style={styles.studioRulePillText}>
+                    {isTimedMode
+                      ? `${currentStep.roundTimeSec} сек · +1 за фразу${
+                          currentStep.penaltyForSkip ? ' · Пас −1' : ''
+                        }`
+                      : 'Класика · 1 фраза (+2–3 бали)'}
                   </Text>
                 </View>
               </View>
@@ -471,12 +579,13 @@ export default function CrocodileGameScreen() {
           <View style={styles.actingHeader}>
             <Text style={styles.prepTeamLabel}>
               {teamMascot.emoji} {currentTeam.name}
+              {isTimedMode ? ` · +${timedTotalPoints}` : ''}
             </Text>
             {isTimeExpired ? (
               <Text style={styles.expiredStatus}>ЧАС ВИЙШОВ!</Text>
             ) : (
               <Text style={styles.prepDeckLabel}>
-                Зараз на сцені · +{targetPoints} бали
+                {isTimedMode ? 'На швидкість · +1' : `Зараз на сцені · +${targetPoints}`}
               </Text>
             )}
           </View>
@@ -493,71 +602,233 @@ export default function CrocodileGameScreen() {
             <AbsoluteTimer
               durationSec={currentStep.roundTimeSec}
               isRunning={!isPaused && !isTimeExpired}
-              onExpire={() => setIsTimeExpired(true)}
+              onExpire={() => {
+                if (isTimedMode) {
+                  playVictoryFanfare();
+                  setPhase('REVIEW');
+                } else {
+                  setIsTimeExpired(true);
+                }
+              }}
               accentColor={COLORS.crocodile}
-              size="stage"
+              size={isTimedMode ? 'hero' : 'stage'}
             />
 
-            <Pressable
-              onPressIn={() => {
-                if (isPaused) return;
-                triggerHaptic('selection');
-                setIsPeekingSpoiler(true);
-              }}
-              onPressOut={() => setIsPeekingSpoiler(false)}
-              style={[
-                styles.peekSurface,
-                isPeekingSpoiler && !isPaused && styles.peekSurfaceActive,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Утримуй, щоб підглянути секретне слово"
-            >
-              {isPaused ? (
-                <View style={styles.peekInlineRow}>
-                  <EyeOff size={18} color={COLORS.textMuted} />
-                  <Text style={styles.peekPromptText}>
-                    ПАУЗА · СЛОВО ПРИХОВАНО
+            {isTimedMode ? (
+              <View style={styles.timedCardWrap}>
+                {!isPhoneMasked ? (
+                  <View style={styles.ivoryPhraseCard}>
+                    <View style={styles.ivoryCardTop}>
+                      <Text style={styles.ivoryWatermark}>BALAKA</Text>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.hidePhonePill}
+                        onPress={() => {
+                          triggerHaptic('selection');
+                          setIsPhoneMasked(true);
+                        }}
+                      >
+                        <Lock size={12} color="#064E3B" />
+                        <Text style={styles.hidePhoneText}>
+                          Сховати · покласти телефон
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.ivoryPhraseText} numberOfLines={3}>
+                      {isPaused ? '⏸ ПАУЗА' : currentPhrase?.phrase}
+                    </Text>
+                    <Text style={[styles.ivoryWatermark, { alignSelf: 'flex-end' }]}>
+                      +{currentPhrase?.difficulty === 3 ? '2' : '1'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPressIn={() => {
+                      if (isPaused) return;
+                      triggerHaptic('selection');
+                      setIsPeekingSpoiler(true);
+                    }}
+                    onPressOut={() => setIsPeekingSpoiler(false)}
+                    style={[
+                      styles.peekSurface,
+                      isPeekingSpoiler && !isPaused && styles.peekSurfaceActive,
+                    ]}
+                  >
+                    {isPeekingSpoiler && !isPaused ? (
+                      <Text style={styles.peekRevealedText}>
+                        {currentPhrase?.phrase}
+                      </Text>
+                    ) : (
+                      <View style={styles.peekInlineRow}>
+                        <Eye size={18} color={COLORS.crocodile} />
+                        <Text style={styles.peekPromptText}>
+                          Сховано · затисни, щоб підглянути
+                        </Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => setIsPhoneMasked(false)}
+                      style={styles.unmaskInlineBtn}
+                    >
+                      <Text style={styles.unmaskInlineText}>Показати постійно</Text>
+                    </TouchableOpacity>
+                  </Pressable>
+                )}
+              </View>
+            ) : (
+              <Pressable
+                onPressIn={() => {
+                  if (isPaused) return;
+                  triggerHaptic('selection');
+                  setIsPeekingSpoiler(true);
+                }}
+                onPressOut={() => setIsPeekingSpoiler(false)}
+                style={[
+                  styles.peekSurface,
+                  isPeekingSpoiler && !isPaused && styles.peekSurfaceActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Утримуй, щоб підглянути секретне слово"
+              >
+                {isPaused ? (
+                  <View style={styles.peekInlineRow}>
+                    <EyeOff size={18} color={COLORS.textMuted} />
+                    <Text style={styles.peekPromptText}>
+                      ПАУЗА · СЛОВО ПРИХОВАНО
+                    </Text>
+                  </View>
+                ) : isPeekingSpoiler ? (
+                  <Text style={styles.peekRevealedText}>
+                    {currentPhrase?.phrase}
                   </Text>
-                </View>
-              ) : isPeekingSpoiler ? (
-                <Text style={styles.peekRevealedText}>
-                  {currentPhrase?.phrase}
+                ) : (
+                  <View style={styles.peekInlineRow}>
+                    <Eye size={18} color={COLORS.crocodile} />
+                    <Text style={styles.peekPromptText}>
+                      Забув слово? Натисни й тримай тут
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            )}
+          </View>
+
+          {isTimedMode ? (
+            <View style={styles.timedControlsRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.timedSkipBtn}
+                onPress={() => handleTimedDecision(false)}
+              >
+                <X size={18} color="#E2E8F0" strokeWidth={2.6} />
+                <Text style={styles.timedSkipText}>
+                  ПАС{currentStep.penaltyForSkip ? ' −1' : ''}
                 </Text>
-              ) : (
-                <View style={styles.peekInlineRow}>
-                  <Eye size={18} color={COLORS.crocodile} />
-                  <Text style={styles.peekPromptText}>
-                    Забув слово? Натисни й тримай тут
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
+              </TouchableOpacity>
 
-          <View style={styles.actingActions}>
-            <TouchableOpacity
-              activeOpacity={0.88}
-              style={styles.dominantBtn}
-              onPress={() => handleFinishTurn(true)}
-              accessibilityRole="button"
-              accessibilityLabel={`Команда вгадала, плюс ${targetPoints} бали`}
-            >
-              <Text style={styles.dominantBtnText}>
-                КОМАНДА ВГАДАЛА!  +{targetPoints}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.timedGuessedBtn}
+                onPress={() => handleTimedDecision(true)}
+              >
+                <Check size={20} color="#071A12" strokeWidth={3} />
+                <Text style={styles.timedGuessedText}>
+                  ВГАДАЛИ{currentPhrase?.difficulty === 3 ? ' +2' : ''}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.actingActions}>
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={styles.dominantBtn}
+                onPress={() => handleFinishTurn(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Команда вгадала, плюс ${targetPoints} бали`}
+              >
+                <Text style={styles.dominantBtnText}>
+                  КОМАНДА ВГАДАЛА! +{targetPoints}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.secondaryBtn}
-              onPress={() => handleFinishTurn(false)}
-              accessibilityRole="button"
-              accessibilityLabel="Не вгадали, 0 балів"
-            >
-              <Text style={styles.secondaryBtnText}>Не вгадали · 0 балів</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.secondaryBtn}
+                onPress={() => handleFinishTurn(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Не вгадали, 0 балів"
+              >
+                <Text style={styles.secondaryBtnText}>Не вгадали · 0 балів</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
+      ) : null}
+
+      {/* PHASE 5B: TIMED REVIEW */}
+      {phase === 'REVIEW' ? (
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeIn.duration(180)}
+          style={styles.screenBody}
+        >
+          <View style={styles.reviewHeroCard}>
+            <View>
+              <Text style={styles.resultOverline}>ПІДСУМОК РАУНДУ</Text>
+              <Text style={styles.resultTeamName}>
+                {teamMascot.emoji} {currentTeam.name}
+              </Text>
+            </View>
+            <View style={styles.reviewScorePill}>
+              <Text style={styles.reviewScoreText}>
+                {timedTotalPoints > 0 ? `+${timedTotalPoints}` : timedTotalPoints}
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.reviewListContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {timedHistory.map((rec) => {
+              const guessed = rec.points > 0;
+              return (
+                <TouchableOpacity
+                  key={rec.id}
+                  activeOpacity={0.8}
+                  onPress={() => handleToggleTimedReview(rec.id)}
+                  style={[
+                    styles.reviewRow,
+                    guessed ? styles.reviewRowGuessed : styles.reviewRowSkipped,
+                  ]}
+                >
+                  <Text style={styles.reviewPhraseText} numberOfLines={2}>
+                    {rec.phrase}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.reviewPointsText,
+                      { color: guessed ? COLORS.crocodile : COLORS.spy },
+                    ]}
+                  >
+                    {rec.points > 0 ? `+${rec.points}` : rec.points}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={styles.dominantBtn}
+            onPress={handleConfirmTimedReview}
+          >
+            <Text style={styles.dominantBtnText}>
+              ДАЛІ · НАСТУПНА КОМАНДА →
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       ) : null}
 
       {/* PHASE 5: ROUND RESULT SPLASH */}
@@ -1103,5 +1374,216 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 15,
     fontWeight: '600',
+  },
+  studioReadyCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: SPACING.lg,
+  },
+  studioMascotTile: {
+    width: 92,
+    height: 92,
+    borderRadius: 26,
+    backgroundColor: '#FBF8F1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#D4CCB8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    transform: [{ rotate: '-2deg' }],
+  },
+  studioMascotEmoji: {
+    fontSize: 46,
+  },
+  studioReadyOverline: {
+    color: '#6EE7B7',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 2.2,
+  },
+  studioReadyTeamName: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+    textAlign: 'center',
+  },
+  studioReadySub: {
+    color: '#D1FAE5',
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  studioRulePill: {
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  studioRulePillText: {
+    color: '#A7F3D0',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  timedCardWrap: {
+    width: '100%',
+    minHeight: 220,
+  },
+  ivoryPhraseCard: {
+    backgroundColor: '#FBF8F1',
+    borderRadius: 28,
+    borderBottomWidth: 5,
+    borderBottomColor: '#D4CCB8',
+    padding: SPACING.xl,
+    minHeight: 220,
+    justifyContent: 'space-between',
+  },
+  ivoryCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  ivoryWatermark: {
+    color: 'rgba(20, 19, 26, 0.24)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  hidePhonePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(5, 150, 105, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(5, 150, 105, 0.25)',
+  },
+  hidePhoneText: {
+    color: '#064E3B',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  ivoryPhraseText: {
+    color: '#14131A',
+    fontSize: 32,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: -0.9,
+    lineHeight: 38,
+    marginVertical: SPACING.md,
+  },
+  unmaskInlineBtn: {
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  unmaskInlineText: {
+    color: COLORS.textSecondary,
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  timedControlsRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  timedSkipBtn: {
+    flex: 1,
+    height: 68,
+    backgroundColor: 'rgba(4, 26, 19, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderBottomWidth: 4,
+    borderBottomColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  timedSkipText: {
+    color: '#E2E8F0',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  timedGuessedBtn: {
+    flex: 1.45,
+    height: 68,
+    backgroundColor: COLORS.crocodile,
+    borderBottomWidth: 4,
+    borderBottomColor: COLORS.lipCrocodile,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  timedGuessedText: {
+    color: '#071A12',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  reviewHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  reviewScorePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.crocodile,
+  },
+  reviewScoreText: {
+    color: '#071A12',
+    fontSize: 22,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  reviewListContent: {
+    gap: 8,
+    paddingBottom: SPACING.md,
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 14,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+  },
+  reviewRowGuessed: {
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+  },
+  reviewRowSkipped: {
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    borderColor: 'rgba(244, 63, 94, 0.28)',
+  },
+  reviewPhraseText: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: 15.5,
+    fontWeight: '700',
+  },
+  reviewPointsText: {
+    fontSize: 16,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
   },
 });

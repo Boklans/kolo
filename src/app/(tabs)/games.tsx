@@ -73,9 +73,8 @@ export default function GamesScreen() {
 
               <View style={styles.worldTopRow}>
                 <Text style={[styles.worldCode, { color: '#93C5FD' }]}>
-                  BLUE / SPEED
+                  Слова на швидкість
                 </Text>
-                <Text style={styles.worldNumber}>01</Text>
               </View>
 
               <View style={styles.worldBody}>
@@ -129,9 +128,8 @@ export default function GamesScreen() {
 
               <View style={styles.worldTopRow}>
                 <Text style={[styles.worldCode, { color: '#6EE7B7' }]}>
-                  GREEN / ACTION
+                  Жести і міміка
                 </Text>
-                <Text style={styles.worldNumber}>02</Text>
               </View>
 
               <View style={styles.worldBody}>
@@ -189,9 +187,8 @@ export default function GamesScreen() {
 
               <View style={styles.worldTopRow}>
                 <Text style={[styles.worldCode, { color: '#FDA4AF' }]}>
-                  RED / SECRET
+                  Таємне досьє · Блеф
                 </Text>
-                <Text style={styles.worldNumber}>03</Text>
               </View>
 
               <View style={styles.worldBody}>
@@ -245,9 +242,8 @@ export default function GamesScreen() {
 
               <View style={styles.worldTopRow}>
                 <Text style={[styles.worldCode, { color: '#D8B4FE' }]}>
-                  VIOLET / TABOO
+                  4 заборонені слова
                 </Text>
-                <Text style={styles.worldNumber}>04</Text>
               </View>
 
               <View style={styles.worldBody}>

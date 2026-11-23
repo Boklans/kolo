@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -22,7 +23,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { ArrowDown, ArrowUp, Dices, Flame, RotateCcw, Zap } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Check, Dices, Flame, RotateCcw, X, Zap } from 'lucide-react-native';
 import { COLORS, RADIUS, SPACING } from '@/constants/theme';
 import { getTeamMascot } from '@/constants/mascots';
 import { AbsoluteTimer } from '@/components/game/AbsoluteTimer';
@@ -988,10 +989,16 @@ export default function AliasGameScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <LinearGradient
+        colors={['#143694', '#0C2160', '#07133B']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <SessionTopBar
-        stepBadgeText={`ЕЛІАС · ${stepNumStr} / ${totalStepsStr}`}
+        stepBadgeText={`ЕЛІАС · КОЛО ${currentRoundInStep} З ${currentStep.roundsPerTeam}`}
         rightMetaText={`${currentStep.roundTimeSec} СЕК`}
-        accentColor={COLORS.alias}
+        accentColor="#93C5FD"
         gameType="alias"
         onPauseChange={setIsPaused}
       />
@@ -1008,28 +1015,25 @@ export default function AliasGameScreen() {
           >
             {/* Top+Middle Stage Content grouped with intentional rhythm */}
             <View style={styles.readyMainGroup}>
-              {/* 1. Team Callout Hero Card */}
-              <View style={styles.calloutStageCard}>
-                <View style={styles.calloutTopRow}>
-                  <View style={styles.roundBadge}>
-                    <Zap size={12} color={COLORS.alias} />
-                    <Text style={styles.roundBadgeText}>
-                      РАУНД {currentRoundInStep} З {currentStep.roundsPerTeam}
-                    </Text>
-                  </View>
-                  <Text style={styles.teamCurrentScoreText}>
-                    Рахунок: {currentTeamTotalScore}
-                  </Text>
+              {/* 1. Studio Mascot Tile + Team Callout Hero */}
+              <View style={styles.studioReadyCenter}>
+                <View style={styles.studioMascotTile}>
+                  <Text style={styles.studioMascotEmoji}>{teamMascot.emoji}</Text>
                 </View>
 
-                <View style={styles.calloutHeroCenter}>
-                  <Text style={styles.calloutOverline}>ВАШ ВИХІД НА СЦЕНУ</Text>
-                  <Text style={styles.calloutTeamName} numberOfLines={2}>
-                    {teamMascot.emoji} {currentTeam.name}
-                  </Text>
-                  <Text style={styles.calloutInstruction}>
-                    Ведучий бере телефон і пояснює слова команді на швидкість без
-                    спільнокореневих.
+                <Text style={styles.studioReadyOverline}>ВАШ ВИХІД</Text>
+                <Text style={styles.studioReadyTeamName} numberOfLines={2}>
+                  {currentTeam.name}
+                </Text>
+                <Text style={styles.studioReadySub}>
+                  Коло {currentRoundInStep} з {currentStep.roundsPerTeam} · Рахунок:{' '}
+                  {currentTeamTotalScore}
+                </Text>
+
+                <View style={styles.studioRulePill}>
+                  <Text style={styles.studioRulePillText}>
+                    {currentStep.roundTimeSec} сек · +1 за слово
+                    {currentStep.penaltyForSkip ? ' · Пас −1' : ''}
                   </Text>
                 </View>
               </View>
@@ -1305,13 +1309,13 @@ export default function AliasGameScreen() {
                         ]}
                       />
 
-                      {/* Top Edge: Index / Bonus Badge & Undo */}
+                      {/* Top Edge: BALAKA watermark / Streak / Bonus & Undo */}
                       <View style={styles.cardTopEdge}>
                         {isOnFire ? (
                           <View style={[styles.cardCounterPill, styles.cardBonusPill]}>
                             <Text style={styles.cardBonusText}>
                               🔥 У ВОГНІ · ×{currentStreak}
-                              {entry.item.difficulty === 3 ? ' · БОНУС +2' : ''}
+                              {entry.item.difficulty === 3 ? ' · +2' : ''}
                             </Text>
                           </View>
                         ) : entry.item.difficulty === 3 ? (
@@ -1321,11 +1325,7 @@ export default function AliasGameScreen() {
                             <Text style={styles.cardBonusText}>🔥 БОНУС +2</Text>
                           </View>
                         ) : (
-                          <View style={styles.cardCounterPill}>
-                            <Text style={styles.cardCounterText}>
-                              #{String(entry.num).padStart(2, '0')}
-                            </Text>
-                          </View>
+                          <Text style={styles.ivoryCardWatermark}>BALAKA</Text>
                         )}
 
                         {isFront && lastSwipedCard && phase === 'PLAYING' ? (
@@ -1336,7 +1336,7 @@ export default function AliasGameScreen() {
                             accessibilityRole="button"
                             accessibilityLabel="Повернути попереднє слово"
                           >
-                            <RotateCcw size={12} color={COLORS.textSecondary} />
+                            <RotateCcw size={12} color="#4B4958" />
                             <Text style={styles.cardUndoText}>Повернути</Text>
                           </TouchableOpacity>
                         ) : (
@@ -1361,16 +1361,11 @@ export default function AliasGameScreen() {
                         </Text>
                       </View>
 
-                      {/* Bottom Edge: Subtle Deck & Gesture Anchor */}
+                      {/* Bottom Edge: Subtle Point Value */}
                       <View style={styles.cardBottomEdge}>
-                        <Text style={styles.cardEdgeCue}>↓ Пропуск</Text>
-                        <Text style={styles.cardDeckWatermark} numberOfLines={1}>
-                          {deck.title}
-                        </Text>
-                        <Text
-                          style={[styles.cardEdgeCue, { color: COLORS.crocodile }]}
-                        >
-                          Вгадали ↑
+                        <View />
+                        <Text style={styles.ivoryCardWatermark}>
+                          +{entry.item.difficulty === 3 ? '2' : '1'}
                         </Text>
                       </View>
                     </Animated.View>
@@ -1448,12 +1443,12 @@ export default function AliasGameScreen() {
                 onPress={() => triggerButtonDecision(false)}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  currentStep.penaltyForSkip ? 'Пропуск мінус 1' : 'Пропуск'
+                  currentStep.penaltyForSkip ? 'Пас мінус 1' : 'Пас'
                 }
               >
-                <ArrowDown size={18} color={COLORS.textSecondary} />
+                <X size={18} color="#E2E8F0" strokeWidth={2.6} />
                 <Text style={styles.skipBtnText}>
-                  Пропуск{currentStep.penaltyForSkip ? ' −1' : ''}
+                  ПАС{currentStep.penaltyForSkip ? ' −1' : ''}
                 </Text>
               </TouchableOpacity>
 
@@ -1464,9 +1459,9 @@ export default function AliasGameScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Вгадали плюс ${currentCard?.difficulty === 3 ? '2' : '1'}`}
               >
-                <ArrowUp size={20} color={COLORS.background} strokeWidth={2.8} />
+                <Check size={20} color="#071A12" strokeWidth={3} />
                 <Text style={styles.guessedBtnText}>
-                  ВГАДАЛИ +{currentCard?.difficulty === 3 ? '2' : '1'}
+                  ВГАДАЛИ{currentCard?.difficulty === 3 ? ' +2' : ''}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1988,21 +1983,23 @@ const styles = StyleSheet.create({
   },
   underDeckLayer: {
     position: 'absolute',
-    top: 6,
+    top: 8,
     left: 10,
     right: 10,
-    bottom: -6,
-    backgroundColor: '#101524',
-    borderRadius: RADIUS.xl,
+    bottom: -8,
+    backgroundColor: '#EAE3D3',
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.16)',
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   wordSurface: {
     flex: 1,
-    backgroundColor: '#161C2E',
-    borderRadius: RADIUS.xl,
+    backgroundColor: '#FBF8F1',
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.30)',
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    borderBottomWidth: 5,
+    borderBottomColor: '#D4CCB8',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.lg,
     justifyContent: 'space-between',
@@ -2017,12 +2014,71 @@ const styles = StyleSheet.create({
     left: 0,
   },
   wordSurfaceOvertime: {
-    backgroundColor: '#241712',
+    backgroundColor: '#FFF3E8',
     borderColor: COLORS.hot,
   },
   wordSurfaceStreakFire: {
     borderColor: COLORS.hot,
     borderWidth: 2,
+  },
+  ivoryCardWatermark: {
+    color: 'rgba(20, 19, 26, 0.24)',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  studioReadyCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: SPACING.lg,
+  },
+  studioMascotTile: {
+    width: 92,
+    height: 92,
+    borderRadius: 26,
+    backgroundColor: '#FBF8F1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#D4CCB8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    transform: [{ rotate: '-2deg' }],
+  },
+  studioMascotEmoji: {
+    fontSize: 46,
+  },
+  studioReadyOverline: {
+    color: '#93C5FD',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 2.2,
+  },
+  studioReadyTeamName: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -0.9,
+    textAlign: 'center',
+  },
+  studioReadySub: {
+    color: '#DBEAFE',
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  studioRulePill: {
+    marginTop: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  studioRulePillText: {
+    color: '#BFDBFE',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   cardFlashOverlay: {
     position: 'absolute',
@@ -2072,9 +2128,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    backgroundColor: 'rgba(20, 19, 26, 0.06)',
+    borderColor: 'rgba(20, 19, 26, 0.1)',
   },
   cardUndoText: {
-    color: COLORS.textSecondary,
+    color: '#4B4958',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -2085,7 +2143,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   dominantWord: {
-    color: COLORS.textPrimary,
+    color: '#14131A',
     fontSize: 44,
     fontWeight: '900',
     letterSpacing: -1.2,
@@ -2120,13 +2178,13 @@ const styles = StyleSheet.create({
   },
   skipBtn: {
     flex: 1,
-    height: 60,
-    backgroundColor: COLORS.surface,
+    height: 68,
+    backgroundColor: 'rgba(11, 20, 51, 0.88)',
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderBottomWidth: 3,
-    borderBottomColor: COLORS.lipNeutral,
-    borderRadius: RADIUS.lg,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderBottomWidth: 4,
+    borderBottomColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2139,11 +2197,11 @@ const styles = StyleSheet.create({
   },
   guessedBtn: {
     flex: 1.45,
-    height: 60,
+    height: 68,
     backgroundColor: COLORS.crocodile,
-    borderBottomWidth: 3,
+    borderBottomWidth: 4,
     borderBottomColor: COLORS.lipCrocodile,
-    borderRadius: RADIUS.lg,
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

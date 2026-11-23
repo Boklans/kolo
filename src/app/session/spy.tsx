@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -375,6 +376,12 @@ export default function SpyGameScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <LinearGradient
+        colors={['#1B0A12', '#11060B', '#080306']}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <SessionTopBar
         stepBadgeText={`ШПИГУН · ${stepNumStr} / ${totalStepsStr}`}
         rightMetaText={
